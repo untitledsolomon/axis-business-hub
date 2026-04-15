@@ -19,7 +19,7 @@ The project has been migrated to **Next.js 15 (App Router)** and **React 19**.
 
 ### Installation
 
-Due to peer dependency conflicts between React 19 and some UI libraries (like `cmdk`), you **must** use the `--legacy-peer-deps` flag when installing:
+The project is configured to handle peer dependency conflicts automatically via `.npmrc`.
 
 ```sh
 # Step 1: Clone the repository
@@ -28,8 +28,8 @@ git clone https://github.com/untitledsolomon/axis-business-hub.git
 # Step 2: Navigate to the project directory
 cd axis-business-hub
 
-# Step 3: Install dependencies (IMPORTANT)
-npm install --legacy-peer-deps
+# Step 3: Install dependencies
+npm install
 
 # Step 4: Start the development server
 npm run dev
@@ -48,7 +48,7 @@ npm run build
 - **UI Library**: Shadcn UI (Radix UI)
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
-- **Icons**: Sonner (Toast notifications)
+- **Toast Notifications**: Sonner
 - **State Management**: React Context
 
 ## License
