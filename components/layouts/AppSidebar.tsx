@@ -66,6 +66,7 @@ export function AppSidebar() {
             size="icon"
             onClick={toggleSidebar}
             className="text-muted-foreground"
+            aria-label="Collapse sidebar"
           >
             <ChevronLeft size={20} />
           </Button>
@@ -76,6 +77,7 @@ export function AppSidebar() {
             size="icon"
             onClick={toggleSidebar}
             className="mx-auto text-muted-foreground"
+            aria-label="Expand sidebar"
           >
             <ChevronRight size={20} />
           </Button>
@@ -115,13 +117,13 @@ export function AppSidebar() {
                 <span className="text-muted-foreground text-xs capitalize">{user?.role}</span>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground">
+            <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground" aria-label="Sign out">
               <LogOut size={18} />
             </Button>
           </div>
         ) : (
           <div className="flex justify-center">
-            <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground">
+            <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground" aria-label="Sign out">
               <LogOut size={18} />
             </Button>
           </div>
