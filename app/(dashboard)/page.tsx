@@ -1,4 +1,8 @@
 import { Metadata } from "next";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { RevenueChart } from "@/components/dashboard/RevenueChart";
+import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { DollarSign, Users, FileText, TrendingUp } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -16,15 +20,39 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Placeholder for Stat Cards */}
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-32 rounded-lg border bg-card p-4 shadow-sm animate-pulse" />
-        ))}
+        <StatCard
+          title="Total Revenue"
+          value="$45,231.89"
+          icon={<DollarSign className="h-4 w-4 text-axis-blue" />}
+          trend={{ value: "20.1%", positive: true }}
+        />
+        <StatCard
+          title="Active Clients"
+          value="+2350"
+          icon={<Users className="h-4 w-4 text-axis-blue" />}
+          trend={{ value: "10.5%", positive: true }}
+        />
+        <StatCard
+          title="Outstanding Invoices"
+          value="12"
+          icon={<FileText className="h-4 w-4 text-axis-blue" />}
+          trend={{ value: "4.2%", positive: false }}
+        />
+        <StatCard
+          title="Net Profit"
+          value="$12,432.00"
+          icon={<TrendingUp className="h-4 w-4 text-axis-blue" />}
+          trend={{ value: "12.3%", positive: true }}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4 h-[400px] rounded-lg border bg-card shadow-sm" />
-        <div className="col-span-3 h-[400px] rounded-lg border bg-card shadow-sm" />
+        <div className="col-span-4">
+          <RevenueChart />
+        </div>
+        <div className="col-span-3">
+          <RecentActivity />
+        </div>
       </div>
     </div>
   );

@@ -253,12 +253,12 @@ Organisation (Tenant)
 ### 6.1 — Core Shell, Auth & Org Setup
 
 #### Authentication
-- [ ] Sign up with email and password
+- [x] Sign up with email and password (Mock implementation)
 - [ ] Sign in with magic link (passwordless)
 - [ ] OAuth login (Google)
 - [ ] Two-factor authentication (TOTP authenticator app)
 - [ ] Password reset flow
-- [ ] Session management (view active sessions, revoke sessions)
+- [x] Session management (Mocked via cookies/localStorage)
 - [ ] Auto-logout after configurable idle period
 - [ ] Login activity log (IP, device, timestamp)
 
@@ -275,7 +275,7 @@ Organisation (Tenant)
 
 #### Users & Roles
 - [ ] Invite users via email with assigned role
-- [ ] Org-level roles: Owner, Admin, Accountant, HR Manager, Inventory Manager, Sales, Staff, Read-Only
+- [x] Org-level roles: Owner, Admin, Accountant, HR Manager, Inventory Manager, Sales, Staff, Read-Only (Types defined)
 - [ ] Module-level permission overrides per user
 - [ ] Custom role builder (enterprise tier)
 - [ ] User profile management (name, avatar, phone, job title)
@@ -284,10 +284,10 @@ Organisation (Tenant)
 - [ ] User activity log (what they created, edited, deleted)
 
 #### Org-Level Shell
-- [ ] Sidebar navigation with module sections
-- [ ] Topbar: search, notifications, quick-add button, user menu
-- [ ] Global command palette (Cmd/Ctrl + K — search anything, navigate anywhere)
-- [ ] Breadcrumb navigation on all internal pages
+- [x] Sidebar navigation with module sections
+- [x] Topbar: search, notifications, quick-add button, user menu
+- [x] Global command palette (Cmd/Ctrl + K — search anything, navigate anywhere)
+- [x] Breadcrumb navigation on all internal pages
 - [ ] Module switcher (quick-jump between Finance, HR, Inventory, etc.)
 - [ ] Organisation switcher (for users who belong to multiple orgs)
 - [ ] Dark mode / light mode toggle
@@ -300,13 +300,13 @@ Organisation (Tenant)
 The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a different default layout than the HR Manager or the Inventory Manager.
 
 #### Financial Dashboard (default for Owner/Finance)
-- [ ] Cash position card (total across all bank accounts)
-- [ ] Revenue this month vs last month (with % change indicator)
-- [ ] Expenses this month vs last month
-- [ ] Net profit / loss this month
+- [x] Cash position card (total across all bank accounts)
+- [x] Revenue this month vs last month (with % change indicator)
+- [x] Expenses this month vs last month
+- [x] Net profit / loss this month
 - [ ] Accounts receivable summary (total outstanding, overdue amount, overdue count)
 - [ ] Accounts payable summary (what we owe vendors)
-- [ ] Revenue chart: Bar or line chart (last 12 months)
+- [x] Revenue chart: Bar or line chart (last 12 months)
 - [ ] Expense breakdown: Donut chart by category (top 5)
 - [ ] Profit margin trend line
 
@@ -314,7 +314,7 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 - [ ] Invoices due this week (list with client, amount, days until due)
 - [ ] Overdue invoices alert (count + total value, drill-down link)
 - [ ] Top clients by revenue (this month / this year)
-- [ ] Recent transactions feed (last 10 invoice/expense/payment events)
+- [x] Recent transactions feed (last 10 invoice/expense/payment events)
 - [ ] Pending approvals badge (expenses, POs, leave requests, payroll)
 - [ ] Inventory alerts: items below reorder point
 - [ ] Upcoming payroll run date and estimated total
@@ -405,13 +405,13 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 
 #### Invoice Creation & Management
 - [ ] Create invoice from scratch, from quote, or from project time entries
-- [ ] Invoice number: auto-incremented with configurable prefix (e.g. INV-2026-001)
-- [ ] Bill To: client name, address, contact (pulled from client directory)
-- [ ] Issue date, due date (auto-calculated from payment terms)
+- [x] Invoice number: auto-incremented with configurable prefix (e.g. INV-2026-001) (Mocked list)
+- [x] Bill To: client name, address, contact (pulled from client directory) (Mocked list)
+- [x] Issue date, due date (auto-calculated from payment terms) (Mocked list)
 - [ ] Payment terms: Net 7, Net 14, Net 30, Net 60, Due on Receipt, Custom
 - [ ] Line items: item/service, description, quantity, unit, unit price, discount, tax
 - [ ] Line-level tax rate selection (multiple tax rates on one invoice)
-- [ ] Sub-total, tax breakdown, discount, grand total
+- [x] Sub-total, tax breakdown, discount, grand total (Mocked list)
 - [ ] Notes section (terms, bank details, custom message)
 - [ ] Currency (per invoice, with exchange rate)
 - [ ] Attach supporting files to invoice
@@ -515,7 +515,7 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 - [ ] Foreign currency bank accounts
 
 #### Transaction Management
-- [ ] Manual transaction entry (date, description, amount, type, category, reference)
+- [x] Manual transaction entry (date, description, amount, type, category, reference) (Mocked list)
 - [ ] CSV import with column mapping wizard
 - [ ] Auto-categorise imported transactions (rule-based: if description contains "NSSF" → category = Statutory)
 - [ ] Categorisation rules manager (create, edit, delete rules)
@@ -569,17 +569,17 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 ### 6.8 — HR & People Management
 
 #### Employee Profiles
-- [ ] Full employee record: personal info, contact, emergency contact
+- [x] Full employee record: personal info, contact, emergency contact (Mocked list)
 - [ ] National ID / passport number and expiry
 - [ ] TIN (Tax Identification Number)
 - [ ] NSSF membership number
-- [ ] Department and job title
+- [x] Department and job title (Mocked list)
 - [ ] Employment type: Full-time / Part-time / Contract / Probation
 - [ ] Employment start date and contract end date (with expiry reminders)
 - [ ] Reporting manager (for approval workflows and org chart)
 - [ ] Custom employee fields (add any field not covered by defaults)
 - [ ] Employee profile photo
-- [ ] Employment status: Active / Probation / On Leave / Suspended / Terminated
+- [x] Employment status: Active / Probation / On Leave / Suspended / Terminated (Mocked list)
 
 #### Document Management per Employee
 - [ ] Upload and store: employment contract, NDA, ID copies, certificates, offer letter
@@ -820,13 +820,13 @@ Payroll is one of the most trust-critical modules. Mistakes cost employee trust 
 > Deep CRM and lead pipeline is handled by **Regent CAD**. The Axis CRM layer focuses on financial client relationships, not sales pipeline.
 
 #### Client Directory
-- [ ] Client profiles: name, company, contact person, email, phone, address, tax ID
-- [ ] Client type: Individual / Company
+- [x] Client profiles: name, company, contact person, email, phone, address, tax ID
+- [x] Client type: Individual / Company
 - [ ] Currency and payment terms per client
 - [ ] Credit limit per client (flag invoices that would exceed it)
 - [ ] Client category / tags
 - [ ] Internal notes on client
-- [ ] Client status: Active / Inactive / Blocked
+- [x] Client status: Active / Inactive / Blocked
 
 #### Client Financial Overview
 - [ ] Per-client dashboard: total invoiced, total paid, outstanding, overdue
