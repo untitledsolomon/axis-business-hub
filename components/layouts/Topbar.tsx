@@ -1,21 +1,16 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CommandPalette } from "./CommandPalette";
+import { DashboardBreadcrumbs } from "./DashboardBreadcrumbs";
 
 export function Topbar() {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
-      <div className="flex items-center gap-4 w-1/3">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search everything..."
-            className="pl-8 bg-axis-light border-none focus-visible:ring-axis-blue"
-          />
-        </div>
+      <div className="flex items-center gap-6 flex-1">
+        <CommandPalette />
+        <DashboardBreadcrumbs />
       </div>
 
       <div className="flex items-center gap-4">

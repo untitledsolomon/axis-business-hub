@@ -17,8 +17,6 @@ import {
 import {
   BarChart,
   Home,
-  Package,
-  Calendar,
   FileText,
   DollarSign,
   Users,
@@ -29,7 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function AppSidebar() {
   const [expanded, setExpanded] = useState(true);

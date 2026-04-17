@@ -1,4 +1,7 @@
 
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Area, 
@@ -21,6 +24,25 @@ const data = [
 ];
 
 export function RevenueChart() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <Card className="col-span-2">
+        <CardHeader className="pb-0">
+          <CardTitle>Revenue Overview</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4 h-[300px]">
+          <div className="w-full h-full bg-axis-light animate-pulse rounded-md" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="col-span-2">
       <CardHeader className="pb-0">
