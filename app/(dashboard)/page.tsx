@@ -1,3 +1,10 @@
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Overview of your business performance, recent activities, and key metrics.",
+};
+
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
