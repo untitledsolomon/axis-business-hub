@@ -50,6 +50,7 @@ export function CommandPalette() {
       <button
         onClick={() => setOpen(true)}
         className="relative flex h-9 w-full items-center justify-start rounded-[0.5rem] bg-axis-light border-none px-3 text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64"
+        aria-label="Open command palette"
       >
         <Search className="mr-2 h-4 w-4" />
         <span className="inline-flex">Search...</span>

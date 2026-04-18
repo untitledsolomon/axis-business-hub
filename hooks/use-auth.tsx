@@ -33,7 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, _password: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const pass = _password;
     setIsLoading(true);
     // Mock login logic
     setTimeout(() => {
