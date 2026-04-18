@@ -34,7 +34,7 @@ export function RevenueChart() {
     return (
       <Card className="col-span-2">
         <CardHeader className="pb-0">
-          <CardTitle>Revenue Overview</CardTitle>
+          <CardTitle as="h2">Revenue Overview</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 h-[300px]">
           <div className="w-full h-full bg-axis-light animate-pulse rounded-md" />
@@ -46,7 +46,7 @@ export function RevenueChart() {
   return (
     <Card className="col-span-2">
       <CardHeader className="pb-0">
-        <CardTitle>Revenue Overview</CardTitle>
+        <CardTitle as="h2">Revenue Overview</CardTitle>
       </CardHeader>
       <CardContent className="pt-4 h-[300px]">
         <ResponsiveContainer width="100%" height="100%">

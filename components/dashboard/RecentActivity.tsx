@@ -60,7 +60,7 @@ export function RecentActivity() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
+        <CardTitle as="h2">Recent Activity</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-5">
