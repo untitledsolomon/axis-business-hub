@@ -1,5 +1,4 @@
 "use client";
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -32,11 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (_event, session) => {
         setUser(session?.user ?? null);
         setIsLoading(false);
-        if (_event === 'SIGNED_IN') {
+        if (_event === "SIGNED_IN") {
           router.refresh();
         }
-        if (_event === 'SIGNED_OUT') {
-          router.push('/login');
+        if (_event === "SIGNED_OUT") {
+          router.push("/login");
           router.refresh();
         }
       }
