@@ -31,7 +31,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function AppSidebar() {
   const [expanded, setExpanded] = useState(true);
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
 
   const toggleSidebar = () => {
     setExpanded(!expanded);
@@ -107,21 +107,23 @@ export function AppSidebar() {
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-axis-blue text-white text-xs">
-                  {user?.name?.[0].toUpperCase() || "U"}
+                  {(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "U").toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col text-sm truncate max-w-[120px]">
-                <span className="font-medium truncate">{user?.name}</span>
-                <span className="text-muted-foreground text-xs capitalize">{user?.role}</span>
+                <span className="font-medium truncate">
+                  {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
+                </span>
+                <span className="text-muted-foreground text-xs capitalize">Member</span>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground" aria-label="Sign out">
+            <Button variant="ghost" size="icon" onClick={signOut} className="text-muted-foreground" aria-label="Sign out">
               <LogOut size={18} />
             </Button>
           </div>
         ) : (
           <div className="flex justify-center">
-            <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground" aria-label="Sign out">
+            <Button variant="ghost" size="icon" onClick={signOut} className="text-muted-foreground" aria-label="Sign out">
               <LogOut size={18} />
             </Button>
           </div>

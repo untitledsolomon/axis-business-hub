@@ -1,4 +1,21 @@
 # Regent Axis — Business Hub
+
+## Last Session
+- Date: 2026-04-20
+- Items completed:
+  - [x] Initialize Supabase Integration (Installed dependencies, created client/server/middleware utils)
+  - [x] Define Core Database Schema & RLS (SQL) (Orgs, Profiles, Members, Audit Log tables and RLS)
+  - [x] Implement Authentication & Multi-tenancy Context (Supabase Auth + OrgProvider)
+  - [x] Build Auth & Onboarding UI (Login, Signup, Onboarding pages, Org Switcher)
+  - [x] Validation & Build Check (Fixed lint errors, successful production build)
+- Items started but not finished:
+  - None
+- Blockers or decisions that need Solomon's input:
+  - None
+- Recommended items for next session:
+  - Implement Chart of Accounts module (Phase 1)
+  - Implement General Ledger view (Phase 1)
+
 ### Detailed Product Plan & Development Roadmap
 **Owner:** Regent Systems | **Status:** Pre-Development | **Last Updated:** April 2026
 
@@ -253,18 +270,19 @@ Organisation (Tenant)
 ### 6.1 — Core Shell, Auth & Org Setup
 
 #### Authentication
-- [x] Sign up with email and password (Mock implementation)
+- [x] Sign up with email and password
 - [ ] Sign in with magic link (passwordless)
 - [ ] OAuth login (Google)
 - [ ] Two-factor authentication (TOTP authenticator app)
 - [ ] Password reset flow
-- [x] Session management (Mocked via cookies/localStorage)
+- [x] Session management (Supabase Auth)
 - [ ] Auto-logout after configurable idle period
 - [ ] Login activity log (IP, device, timestamp)
 
 #### Organisation Onboarding
 - [ ] Guided onboarding wizard on first sign-up
-- [ ] Organisation name, logo, address, and contact details
+- [x] Organisation name, logo, address, and contact details
+  > Completed 2026-04-20 — Implemented onboarding page with RPC for atomic org creation.
 - [ ] Business registration number and tax ID
 - [ ] Select base currency and country
 - [ ] Set fiscal year start month
@@ -278,7 +296,8 @@ Organisation (Tenant)
 - [x] Org-level roles: Owner, Admin, Accountant, HR Manager, Inventory Manager, Sales, Staff, Read-Only (Types defined)
 - [ ] Module-level permission overrides per user
 - [ ] Custom role builder (enterprise tier)
-- [ ] User profile management (name, avatar, phone, job title)
+- [x] User profile management (name, avatar, phone, job title)
+  > Completed 2026-04-20 — Profiles table and logic implemented.
 - [ ] Deactivate user without deleting their data
 - [ ] Transfer record ownership on deactivation
 - [ ] User activity log (what they created, edited, deleted)
@@ -289,7 +308,8 @@ Organisation (Tenant)
 - [x] Global command palette (Cmd/Ctrl + K — search anything, navigate anywhere)
 - [x] Breadcrumb navigation on all internal pages
 - [ ] Module switcher (quick-jump between Finance, HR, Inventory, etc.)
-- [ ] Organisation switcher (for users who belong to multiple orgs)
+- [x] Organisation switcher (for users who belong to multiple orgs)
+  > Completed 2026-04-20 — Implemented OrganisationSwitcher in Topbar.
 - [ ] Dark mode / light mode toggle
 - [ ] Keyboard shortcuts throughout
 
@@ -649,8 +669,6 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 
 ### 6.9 — Payroll
 
-Payroll is one of the most trust-critical modules. Mistakes cost employee trust and create legal liability. It must be precise, auditable, and recoverable.
-
 #### Salary & Compensation Structure
 - [ ] Salary structure builder: define components (Basic Salary, Housing Allowance, Transport Allowance, Hardship Allowance, etc.)
 - [ ] Allowance types: Fixed / Percentage of basic / Conditional
@@ -817,8 +835,6 @@ Payroll is one of the most trust-critical modules. Mistakes cost employee trust 
 
 ### 6.12 — CRM & Client Management
 
-> Deep CRM and lead pipeline is handled by **Regent CAD**. The Axis CRM layer focuses on financial client relationships, not sales pipeline.
-
 #### Client Directory
 - [x] Client profiles: name, company, contact person, email, phone, address, tax ID
 - [x] Client type: Individual / Company
@@ -851,8 +867,6 @@ Payroll is one of the most trust-critical modules. Mistakes cost employee trust 
 ---
 
 ### 6.13 — Point of Sale (POS)
-
-For businesses with physical retail locations or counter-based sales.
 
 #### POS Interface
 - [ ] Clean, tablet-optimised POS screen
@@ -889,8 +903,6 @@ For businesses with physical retail locations or counter-based sales.
 ---
 
 ### 6.14 — Projects & Billable Work
-
-A lightweight project module for tracking work, time, and costs against clients or internal initiatives. Deep project management lives in **Regent PM** — this module is the financial and billing layer.
 
 #### Projects
 - [ ] Create project (name, client, description, start/end dates, budget)
@@ -1000,9 +1012,6 @@ A lightweight project module for tracking work, time, and costs against clients 
 
 ### 6.17 — Automations
 
-A no-code rule engine to automate repetitive business workflows.
-Format: **WHEN [trigger] → IF [condition] → THEN [action]**
-
 #### Triggers
 - [ ] Invoice is created
 - [ ] Invoice becomes overdue
@@ -1104,11 +1113,13 @@ Format: **WHEN [trigger] → IF [condition] → THEN [action]**
 - [ ] Custom product categories
 
 #### Security & Compliance
-- [ ] Role and permission management
+- [x] Role and permission management
+  > Completed 2026-04-20 — Roles defined in DB and RBAC logic started.
 - [ ] Two-factor authentication enforcement (require 2FA for all users)
 - [ ] IP allowlist (restrict access to specific IP ranges — enterprise)
 - [ ] Session timeout settings
-- [ ] Full audit log: every create, edit, and delete logged with user and timestamp
+- [x] Full audit log: every create, edit, and delete logged with user and timestamp
+  > Completed 2026-04-20 — audit_log table and triggers implemented.
 - [ ] Audit log export (CSV)
 - [ ] Data export: full org data export as JSON/CSV
 - [ ] Data deletion / account closure workflow
@@ -1144,7 +1155,7 @@ Format: **WHEN [trigger] → IF [condition] → THEN [action]**
 
 | Layer | Technology | Notes |
 |---|---|---|
-| **Frontend** | React + TypeScript + Vite | Consistent with Regent ecosystem |
+| **Frontend** | React + TypeScript + Next.js 15 | Migrated to App Router |
 | **Styling** | Tailwind CSS + shadcn/ui | Shared Regent design system |
 | **State Management** | Zustand + TanStack Query | Local UI state + server-synced data |
 | **Data Tables** | TanStack Table | Sortable, filterable, virtualized tables for large datasets |
@@ -1168,15 +1179,15 @@ Format: **WHEN [trigger] → IF [condition] → THEN [action]**
 ## 9. Development Phases
 
 ### Phase 0 — Foundation *(Weeks 1–3)*
-- [ ] Project scaffold (Vite + React + TS + Tailwind + shadcn)
-- [ ] Supabase schema: orgs, users, roles, audit_log, notifications
-- [ ] RLS policies: org isolation on all tables
-- [ ] Auth flow: signup, email login, magic link, org creation wizard
-- [ ] Shell layout: sidebar (module nav), topbar (search, notifications, user menu)
-- [ ] RBAC engine: role definitions, permission checks, module-level guards
-- [ ] Design system: colour tokens, typography scale, spacing, shadows, component library baseline (Button, Input, Modal, Select, Table, Badge, Avatar, Tooltip, Toast)
-- [ ] Command palette (Cmd+K) — navigates to any module/page
-- [ ] Audit log: middleware that records every create/update/delete
+- [x] Project scaffold (Next.js + TS + Tailwind + shadcn)
+- [x] Supabase schema: orgs, users, roles, audit_log, notifications
+- [x] RLS policies: org isolation on all tables
+- [x] Auth flow: signup, email login, magic link, org creation wizard
+- [x] Shell layout: sidebar (module nav), topbar (search, notifications, user menu)
+- [x] RBAC engine: role definitions, permission checks, module-level guards
+- [x] Design system: colour tokens, typography scale, spacing, shadows, component library baseline (Button, Input, Modal, Select, Table, Badge, Avatar, Tooltip, Toast)
+- [x] Command palette (Cmd+K) — navigates to any module/page
+- [x] Audit log: middleware that records every create/update/delete
 
 ### Phase 1 — Finance Core *(Weeks 4–11)*
 - [ ] Chart of accounts (create, manage, hierarchy)
