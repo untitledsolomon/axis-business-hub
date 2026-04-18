@@ -1,21 +1,16 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
-export function middleware(request: NextRequest) {
-  const isAuthenticated = request.cookies.get('axis_authenticated')?.value === 'true';
-  const isLoginPage = request.nextUrl.pathname === '/login';
-
-  if (!isAuthenticated && !isLoginPage) {
-    return NextResponse.redirect(new URL('/login', request.url));
+export async function middleware(request: NextRequest) {
+  // Allow signup page
+  if (request.nextUrl.pathname.startsWith('/signup')) {
+    return
   }
-
-  if (isAuthenticated && isLoginPage) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  return NextResponse.next();
+  return await updateSession(request)
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
-};
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}

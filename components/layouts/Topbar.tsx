@@ -4,11 +4,13 @@ import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CommandPalette } from "./CommandPalette";
 import { DashboardBreadcrumbs } from "./DashboardBreadcrumbs";
+import { OrganisationSwitcher } from "./OrganisationSwitcher";
 
 export function Topbar() {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
       <div className="flex items-center gap-6 flex-1">
+        <OrganisationSwitcher />
         <CommandPalette />
         <DashboardBreadcrumbs />
       </div>
