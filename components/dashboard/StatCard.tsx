@@ -17,11 +17,12 @@ interface StatCardProps {
 export function StatCard({ title, value, icon, trend, className }: StatCardProps) {
   return (
     <Card className={cn("overflow-hidden", className)}>
+      <h2 className="sr-only">{title}</h2>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <h3 className="text-2xl font-bold mt-1">{value}</h3>
+            <p className="text-2xl font-bold mt-1">{value}</p>
             {trend && (
               <div className="flex items-center mt-1">
                 <span 

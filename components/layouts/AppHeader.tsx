@@ -22,7 +22,7 @@ export function AppHeader({ title }: AppHeaderProps) {
           />
         </div>
         
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
           <Bell size={20} />
           <span className="absolute top-1 right-1 w-2 h-2 bg-axis-red rounded-full"></span>
         </Button>

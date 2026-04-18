@@ -16,7 +16,7 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground">
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground" aria-label="Notifications">
           <Bell size={20} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-axis-red rounded-full"></span>
         </Button>
