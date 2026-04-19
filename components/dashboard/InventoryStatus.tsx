@@ -15,7 +15,7 @@ export function InventoryStatus() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Inventory Status</CardTitle>
+        <CardTitle as="h2">Inventory Status</CardTitle>
       </CardHeader>
       <CardContent className="pt-0 h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
