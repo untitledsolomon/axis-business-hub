@@ -48,6 +48,7 @@ export function OrganisationSwitcher() {
               {organisations.map((org) => (
                 <CommandItem
                   key={org.id}
+                  aria-label={`Select ${org.name}`}
                   onSelect={() => {
                     setOrg(org.id);
                     setOpen(false);

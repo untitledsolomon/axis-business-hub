@@ -119,52 +119,39 @@ function ClientsContent() {
                         </div>
                       )}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        client.status === "active" ? "default" :
-                        client.status === "blocked" ? "destructive" : "secondary"
-                      }
-                      className={
-                        client.status === "active" ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20" :
-                        ""
-                      }
-                    >
-                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>View details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit client</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>Create invoice</DropdownMenuItem>
-                        <DropdownMenuItem className="text-axis-red">Delete client</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="h-64 text-center">
-                   <div className="flex flex-col items-center justify-center space-y-2">
-                     <UserPlus className="h-12 w-12 text-muted-foreground opacity-20" />
-                     <h3 className="text-lg font-semibold">No clients yet</h3>
-                     <p className="text-muted-foreground">Add your first client to start invoicing.</p>
-                     <Button variant="outline" className="mt-4 border-axis-blue text-axis-blue" onClick={() => setIsFormOpen(true)}>
-                       Add Client
-                     </Button>
-                   </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      client.status === "active" ? "default" :
+                      client.status === "inactive" ? "secondary" : "outline"
+                    }
+                    className={
+                      client.status === "active" ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20" :
+                      ""
+                    }
+                  >
+                    {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label="Open menu">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Open menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem>View details</DropdownMenuItem>
+                      <DropdownMenuItem>Edit client</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>Create invoice</DropdownMenuItem>
+                      <DropdownMenuItem className="text-axis-red">Delete client</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             )}

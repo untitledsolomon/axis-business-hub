@@ -105,63 +105,47 @@ function InvoicesContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                </TableRow>
-              ))
-            ) : invoices && invoices.length > 0 ? (
-              invoices.map((invoice: Invoice) => (
-                <TableRow key={invoice.id} className="hover:bg-axis-light/30">
-                  <TableCell className="font-mono text-sm">{invoice.invoice_number}</TableCell>
-                  <TableCell className="font-medium">{invoice.client?.name || 'Unknown'}</TableCell>
-                  <TableCell className="text-sm">{invoice.issue_date}</TableCell>
-                  <TableCell className="text-sm">{invoice.due_date}</TableCell>
-                  <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">
-                    {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} {invoice.currency}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>
-                          <FileText className="mr-2 h-4 w-4" /> View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <FileDown className="mr-2 h-4 w-4" /> Download PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>Record Payment</DropdownMenuItem>
-                        <DropdownMenuItem className="text-axis-red">Void Invoice</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} className="h-64 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <FileText className="h-12 w-12 text-muted-foreground opacity-20" />
-                    <h3 className="text-lg font-semibold">No invoices found</h3>
-                    <p className="text-muted-foreground">Create your first invoice to get paid.</p>
-                    <Button variant="outline" className="mt-4 border-axis-blue text-axis-blue" onClick={() => setIsFormOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" /> Create Invoice
-                    </Button>
-                  </div>
+            {invoices.map((invoice) => (
+              <TableRow key={invoice.id} className="hover:bg-axis-light/30">
+                <TableCell className="font-medium">{invoice.number}</TableCell>
+                <TableCell>{invoice.client}</TableCell>
+                <TableCell className="font-semibold text-axis-blue">
+                  ${invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {format(invoice.issueDate, "MMM dd, yyyy")}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {format(invoice.dueDate, "MMM dd, yyyy")}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={getStatusColor(invoice.status)}>
+                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label="Open menu">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Open menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem>
+                        <FileDown className="mr-2 h-4 w-4" /> Download PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Send className="mr-2 h-4 w-4" /> Send to Client
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>
+                        <CheckCircle className="mr-2 h-4 w-4" /> Mark as Paid
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-axis-red">Void Invoice</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             )}
