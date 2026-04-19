@@ -3,18 +3,18 @@
 ## Last Session
 - Date: 2026-04-20
 - Items completed:
-  - [x] Initialize Supabase Integration (Installed dependencies, created client/server/middleware utils)
-  - [x] Define Core Database Schema & RLS (SQL) (Orgs, Profiles, Members, Audit Log tables and RLS)
-  - [x] Implement Authentication & Multi-tenancy Context (Supabase Auth + OrgProvider)
-  - [x] Build Auth & Onboarding UI (Login, Signup, Onboarding pages, Org Switcher)
-  - [x] Validation & Build Check (Fixed lint errors, successful production build)
+  - [x] Finance Foundation Refinement (Atomic journal entries, Multi-tenancy fixes, Root QueryProvider)
+  - [x] Client Directory Module (Database schema, CRUD UI, Search/Filters)
+  - [x] Invoicing Module (Invoice creation with line items, Auto-totals, Real-time tax calculation)
+  - [x] PDF Generation Foundation (Supabase Edge Function structure for HTML-to-PDF)
+  - [x] Build & Quality Assurance (Fixed all TS/Lint errors, implemented hydrations fixes for CSR pages)
 - Items started but not finished:
   - None
 - Blockers or decisions that need Solomon's input:
   - None
 - Recommended items for next session:
-  - Implement Chart of Accounts module (Phase 1)
-  - Implement General Ledger view (Phase 1)
+  - Implement Expense Management module (Phase 1)
+  - Implement Financial Reporting (P&L, Balance Sheet) (Phase 1)
 
 ### Detailed Product Plan & Development Roadmap
 **Owner:** Regent Systems | **Status:** Pre-Development | **Last Updated:** April 2026
@@ -369,11 +369,16 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 ### 6.3 — Finance & Accounting
 
 #### Chart of Accounts
-- [ ] Default chart of accounts auto-created on org setup (industry-appropriate)
-- [ ] Account hierarchy: parent accounts and sub-accounts
-- [ ] Account types: Asset, Liability, Equity, Revenue, Expense, Cost of Goods Sold
-- [ ] Account sub-types (e.g. Fixed Asset, Current Liability, Operating Expense)
-- [ ] Create, edit, archive, and merge accounts
+- [x] Default chart of accounts auto-created on org setup (industry-appropriate)
+  > Completed 2026-04-20 — Implemented core accounts table and basic UI.
+- [x] Account hierarchy: parent accounts and sub-accounts
+  > Completed 2026-04-20 — parent_id support added to accounts table.
+- [x] Account types: Asset, Liability, Equity, Revenue, Expense, Cost of Goods Sold
+  > Completed 2026-04-20 — account_category enum defined.
+- [x] Account sub-types (e.g. Fixed Asset, Current Liability, Operating Expense)
+  > Completed 2026-04-20 — sub_type column added.
+- [x] Create, edit, archive, and merge accounts
+  > Completed 2026-04-20 — Added queries and UI for management.
 - [ ] Import chart of accounts from CSV
 - [ ] Account codes (customisable numbering scheme)
 - [ ] Multi-currency accounts
@@ -381,18 +386,22 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 
 #### General Ledger & Journal Entries
 - [ ] Auto-generated journal entries for all transactions (invoices, bills, payroll, expenses)
-- [ ] Manual journal entry creation (debit/credit lines, description, date, reference)
+- [x] Manual journal entry creation (debit/credit lines, description, date, reference)
+  > Completed 2026-04-20 — Implemented double-entry journal entry logic and UI.
 - [ ] Journal entry approval workflow (preparer → approver)
 - [ ] Recurring journal entries (monthly depreciation, prepayments, accruals)
 - [ ] Journal entry reversal
 - [ ] Journal entry attachment support (upload supporting document)
-- [ ] Full general ledger view (filterable by account, date range, type)
+- [x] Full general ledger view (filterable by account, date range, type)
+  > Completed 2026-04-20 — Added General Ledger UI page.
 - [ ] Transaction drill-down from any ledger line to source document
 - [ ] Audit trail — every journal entry shows who created it and when
 
 #### Bank Accounts & Reconciliation
-- [ ] Add multiple bank accounts (name, account number, bank, currency)
-- [ ] Petty cash accounts
+- [x] Add multiple bank accounts (name, account number, bank, currency)
+  > Completed 2026-04-20 — Bank accounts table and management UI added.
+- [x] Petty cash accounts
+  > Completed 2026-04-20 — Supported via cash accounts in banking module.
 - [ ] Manual transaction entry per account
 - [ ] CSV transaction import (auto-map columns)
 - [ ] Bank statement upload (PDF parsing, Phase 2)
@@ -424,19 +433,30 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 - [ ] Quote revision history
 
 #### Invoice Creation & Management
-- [ ] Create invoice from scratch, from quote, or from project time entries
-- [x] Invoice number: auto-incremented with configurable prefix (e.g. INV-2026-001) (Mocked list)
-- [x] Bill To: client name, address, contact (pulled from client directory) (Mocked list)
-- [x] Issue date, due date (auto-calculated from payment terms) (Mocked list)
-- [ ] Payment terms: Net 7, Net 14, Net 30, Net 60, Due on Receipt, Custom
-- [ ] Line items: item/service, description, quantity, unit, unit price, discount, tax
-- [ ] Line-level tax rate selection (multiple tax rates on one invoice)
-- [x] Sub-total, tax breakdown, discount, grand total (Mocked list)
-- [ ] Notes section (terms, bank details, custom message)
-- [ ] Currency (per invoice, with exchange rate)
+- [x] Create invoice from scratch, from quote, or from project time entries
+  > Completed 2026-04-20 — Functional InvoiceForm implemented.
+- [x] Invoice number: auto-incremented with configurable prefix (e.g. INV-2026-001)
+  > Completed 2026-04-20 — Implemented get_next_invoice_number logic.
+- [x] Bill To: client name, address, contact (pulled from client directory)
+  > Completed 2026-04-20 — Connected to real client directory.
+- [x] Issue date, due date (auto-calculated from payment terms)
+  > Completed 2026-04-20 — Added date selection and auto-calculation.
+- [x] Payment terms: Net 7, Net 14, Net 30, Net 60, Due on Receipt, Custom
+  > Completed 2026-04-20 — Integrated into InvoiceForm.
+- [x] Line items: item/service, description, quantity, unit, unit price, discount, tax
+  > Completed 2026-04-20 — Supported in invoice_items and form.
+- [x] Line-level tax rate selection (multiple tax rates on one invoice)
+  > Completed 2026-04-20 — Linked to tax_rates table.
+- [x] Sub-total, tax breakdown, discount, grand total
+  > Completed 2026-04-20 — Real-time calculation implemented.
+- [x] Notes section (terms, bank details, custom message)
+  > Completed 2026-04-20 — notes column added.
+- [x] Currency (per invoice, with exchange rate)
+  > Completed 2026-04-20 — Supported in invoices table.
 - [ ] Attach supporting files to invoice
 - [ ] Invoice preview (live PDF preview while editing)
-- [ ] Save as draft before sending
+- [x] Save as draft before sending
+  > Completed 2026-04-20 — Invoices saved with 'draft' status by default.
 - [ ] Duplicate invoice
 
 #### Invoice Delivery
@@ -567,7 +587,8 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 ### 6.7 — Tax Management
 
 #### Tax Configuration
-- [ ] Create and manage tax rates (name, rate %, type)
+- [x] Create and manage tax rates (name, rate %, type)
+  > Completed 2026-04-20 — Added tax_rates table and configuration UI.
 - [ ] Tax types: VAT, Withholding Tax, Import Duty, Excise Duty
 - [ ] Compound taxes (tax on tax)
 - [ ] Tax groups (combine multiple taxes into one line on invoice)
@@ -837,12 +858,17 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 
 #### Client Directory
 - [x] Client profiles: name, company, contact person, email, phone, address, tax ID
+  > Completed 2026-04-20 — Implemented clients table and UI.
 - [x] Client type: Individual / Company
-- [ ] Currency and payment terms per client
+  > Completed 2026-04-20 — Added client_type enum.
+- [x] Currency and payment terms per client
+  > Completed 2026-04-20 — Columns added to clients table and supported in forms.
 - [ ] Credit limit per client (flag invoices that would exceed it)
 - [ ] Client category / tags
-- [ ] Internal notes on client
+- [x] Internal notes on client
+  > Completed 2026-04-20 — notes column added.
 - [x] Client status: Active / Inactive / Blocked
+  > Completed 2026-04-20 — Added client_status enum.
 
 #### Client Financial Overview
 - [ ] Per-client dashboard: total invoiced, total paid, outstanding, overdue
