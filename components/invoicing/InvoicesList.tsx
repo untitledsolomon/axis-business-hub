@@ -1,5 +1,4 @@
-import { Metadata } from "next";
-import { InvoicesList } from "@/components/invoicing/InvoicesList";
+"use client";
 
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useOrg } from "@/hooks/use-org";
@@ -12,7 +11,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, MoreHorizontal, FileDown, CheckCircle, Send } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, FileDown, Send, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,13 +32,17 @@ import {
 } from "@/components/ui/dialog";
 import { InvoiceForm } from "@/components/invoicing/InvoiceForm";
 import { useState, useEffect } from "react";
-import { Invoice } from "@/lib/types";
 import { format } from "date-fns";
 
-function InvoicesContent() {
+export function InvoicesList() {
+  const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
   const { data: invoices, isLoading } = useInvoices(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -56,6 +59,8 @@ function InvoicesContent() {
     }
   };
 
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -67,7 +72,7 @@ function InvoicesContent() {
         </div>
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-axis-blue hover:bg-blue-800">
+            <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Create Invoice">
               <Plus className="mr-2 h-4 w-4" /> Create Invoice
             </Button>
           </DialogTrigger>
@@ -94,7 +99,7 @@ function InvoicesContent() {
       </div>
 
       <div className="rounded-md border bg-white shadow-sm overflow-hidden">
-        <Table>
+        <Table aria-label="Invoices list">
           <TableHeader>
             <TableRow className="bg-axis-light/50">
               <TableHead className="font-semibold w-[120px]">Invoice #</TableHead>
@@ -108,34 +113,40 @@ function InvoicesContent() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <Skeleton className="h-4 w-full" />
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                </TableRow>
+              ))
             ) : invoices && invoices.length > 0 ? (
-              invoices.map((invoice: Invoice) => (
+              invoices.map((invoice) => (
                 <TableRow key={invoice.id} className="hover:bg-axis-light/30">
                   <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                  <TableCell>{invoice.client?.name}</TableCell>
+                  <TableCell>{invoice.client?.name || '—'}</TableCell>
                   <TableCell className="text-sm">
-                    {format(new Date(invoice.issue_date), "MMM dd, yyyy")}
+                    {invoice.issue_date ? format(new Date(invoice.issue_date), "MMM dd, yyyy") : '—'}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {format(new Date(invoice.due_date), "MMM dd, yyyy")}
+                    {invoice.due_date ? format(new Date(invoice.due_date), "MMM dd, yyyy") : '—'}
                   </TableCell>
                   <TableCell>
                     {getStatusBadge(invoice.status)}
                   </TableCell>
                   <TableCell className="text-right font-semibold text-axis-blue">
-                    {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Open menu">
+                        <Button variant="ghost" size="icon" aria-label={`Open menu for ${invoice.invoice_number}`}>
                           <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
+                          <span className="sr-only">Open menu for {invoice.invoice_number}</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -158,7 +169,7 @@ function InvoicesContent() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No invoices found.
                 </TableCell>
               </TableRow>
@@ -168,12 +179,4 @@ function InvoicesContent() {
       </div>
     </div>
   );
-}
-export const metadata: Metadata = {
-  title: "Invoices",
-  description: "Manage your customer billing and track payments.",
-};
-
-export default function InvoicesPage() {
-  return <InvoicesList />;
 }

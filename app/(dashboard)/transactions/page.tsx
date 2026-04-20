@@ -153,9 +153,9 @@ export default function TransactionsPage() {
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Open menu">
+                      <Button variant="ghost" size="icon" aria-label={`Open menu for ${transaction.description}`}>
                         <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Open menu</span>
+                        <span className="sr-only">Open menu for {transaction.description}</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">

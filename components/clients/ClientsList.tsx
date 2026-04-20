@@ -1,5 +1,4 @@
-import { Metadata } from "next";
-import { ClientsList } from "@/components/clients/ClientsList";
+"use client";
 
 import { useClients } from "@/hooks/clients/use-clients";
 import { useOrg } from "@/hooks/use-org";
@@ -35,10 +34,17 @@ import { ClientForm } from "@/components/clients/ClientForm";
 import { useState, useEffect } from "react";
 import { Client } from "@/lib/types";
 
-function ClientsContent() {
+export function ClientsList() {
+  const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
   const { data: clients, isLoading } = useClients(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6">
@@ -51,7 +57,7 @@ function ClientsContent() {
         </div>
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-axis-blue hover:bg-blue-800">
+            <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Client">
               <Plus className="mr-2 h-4 w-4" /> Add Client
             </Button>
           </DialogTrigger>
@@ -157,7 +163,7 @@ function ClientsContent() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={5} className="h-24 text-center">
                   No clients found.
                 </TableCell>
               </TableRow>
@@ -167,12 +173,4 @@ function ClientsContent() {
       </div>
     </div>
   );
-}
-export const metadata: Metadata = {
-  title: "Clients",
-  description: "Manage your client directory and their financial relationships.",
-};
-
-export default function ClientsPage() {
-  return <ClientsList />;
 }
