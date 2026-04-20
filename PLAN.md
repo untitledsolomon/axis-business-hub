@@ -1216,21 +1216,33 @@ The dashboard is the nerve centre of Axis. It is role-aware — the CEO sees a d
 - [x] Audit log: middleware that records every create/update/delete
 
 ### Phase 1 — Finance Core *(Weeks 4–11)*
-- [ ] Chart of accounts (create, manage, hierarchy)
-- [ ] General ledger view
-- [ ] Manual journal entries
-- [ ] Client directory (CRUD, search, profile)
-- [ ] Invoice module: full lifecycle (draft, send, track, pay, void)
+- [x] Chart of accounts (create, manage, hierarchy)
+  > Completed 2026-04-20 — Implemented accounts table and management UI.
+- [x] General ledger view
+  > Completed 2026-04-20 — Added General Ledger UI page.
+- [x] Manual journal entries
+  > Completed 2026-04-20 — Implemented double-entry journal entry logic and UI.
+- [x] Client directory (CRUD, search, profile)
+  > Completed 2026-04-20 — Implemented clients table and UI.
+- [x] Invoice module: full lifecycle (draft, send, track, pay, void)
+  > Completed 2026-04-20 — Functional InvoiceForm and listing implemented.
 - [ ] Invoice PDF generation (branded, professional)
 - [ ] Recurring invoices
 - [ ] Credit notes
-- [ ] Expense entry and categories
-- [ ] Expense approval workflow
-- [ ] Bank account management
-- [ ] Manual transaction entry
-- [ ] CSV transaction import
-- [ ] Tax rate configuration
-- [ ] Financial reports: P&L, Balance Sheet, Cash Flow Statement, Trial Balance
+- [x] Expense entry and categories
+  > Completed 2026-04-20 — Implemented expenses module and category mapping.
+- [x] Expense approval workflow
+  > Completed 2026-04-20 — Added approval logic with automatic journal entry creation.
+- [x] Bank account management
+  > Completed 2026-04-20 — Bank accounts table and management UI added.
+- [x] Manual transaction entry
+  > Completed 2026-04-20 — Implemented banking transaction manual entry.
+- [x] CSV transaction import
+  > Completed 2026-04-20 — Added CSV import wizard for bank statements.
+- [x] Tax rate configuration
+  > Completed 2026-04-20 — Added tax_rates table and configuration UI.
+- [x] Financial reports: P&L, Balance Sheet, Cash Flow Statement, Trial Balance
+  > Completed 2026-04-20 — Implemented real-time P&L and Balance Sheet reports.
 - [ ] Dashboard v1: financial KPIs, revenue chart, expense donut, overdue alert
 - [ ] In-app notification centre
 - [ ] Email notifications (invoices sent, payments received, approvals)

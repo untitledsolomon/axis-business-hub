@@ -11,7 +11,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, MoreHorizontal, Mail, Phone, UserPlus } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Mail, Phone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -119,39 +119,45 @@ function ClientsContent() {
                         </div>
                       )}
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      client.status === "active" ? "default" :
-                      client.status === "inactive" ? "secondary" : "outline"
-                    }
-                    className={
-                      client.status === "active" ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20" :
-                      ""
-                    }
-                  >
-                    {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Open menu">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Open menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View details</DropdownMenuItem>
-                      <DropdownMenuItem>Edit client</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>Create invoice</DropdownMenuItem>
-                      <DropdownMenuItem className="text-axis-red">Delete client</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        client.status === "active" ? "default" :
+                        client.status === "inactive" ? "secondary" : "outline"
+                      }
+                      className={
+                        client.status === "active" ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20" :
+                        ""
+                      }
+                    >
+                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label="Open menu">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>View details</DropdownMenuItem>
+                        <DropdownMenuItem>Edit client</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>Create invoice</DropdownMenuItem>
+                        <DropdownMenuItem className="text-axis-red">Delete client</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                  No clients found.
                 </TableCell>
               </TableRow>
             )}

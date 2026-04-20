@@ -11,7 +11,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, MoreHorizontal, FileText, FileDown } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, FileDown, CheckCircle, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +33,7 @@ import {
 import { InvoiceForm } from "@/components/invoicing/InvoiceForm";
 import { useState, useEffect } from "react";
 import { Invoice } from "@/lib/types";
+import { format } from "date-fns";
 
 function InvoicesContent() {
   const { currentOrg } = useOrg();
@@ -105,47 +106,59 @@ function InvoicesContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.map((invoice) => (
-              <TableRow key={invoice.id} className="hover:bg-axis-light/30">
-                <TableCell className="font-medium">{invoice.number}</TableCell>
-                <TableCell>{invoice.client}</TableCell>
-                <TableCell className="font-semibold text-axis-blue">
-                  ${invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  <Skeleton className="h-4 w-full" />
                 </TableCell>
-                <TableCell className="text-sm">
-                  {format(invoice.issueDate, "MMM dd, yyyy")}
-                </TableCell>
-                <TableCell className="text-sm">
-                  {format(invoice.dueDate, "MMM dd, yyyy")}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={getStatusColor(invoice.status)}>
-                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Open menu">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Open menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>
-                        <FileDown className="mr-2 h-4 w-4" /> Download PDF
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Send className="mr-2 h-4 w-4" /> Send to Client
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <CheckCircle className="mr-2 h-4 w-4" /> Mark as Paid
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-axis-red">Void Invoice</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+              </TableRow>
+            ) : invoices && invoices.length > 0 ? (
+              invoices.map((invoice: Invoice) => (
+                <TableRow key={invoice.id} className="hover:bg-axis-light/30">
+                  <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                  <TableCell>{invoice.client?.name}</TableCell>
+                  <TableCell className="text-sm">
+                    {format(new Date(invoice.issue_date), "MMM dd, yyyy")}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {format(new Date(invoice.due_date), "MMM dd, yyyy")}
+                  </TableCell>
+                  <TableCell>
+                    {getStatusBadge(invoice.status)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-axis-blue">
+                    {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label="Open menu">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>
+                          <FileDown className="mr-2 h-4 w-4" /> Download PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Send className="mr-2 h-4 w-4" /> Send to Client
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>
+                          <CheckCircle className="mr-2 h-4 w-4" /> Mark as Paid
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-axis-red">Void Invoice</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                  No invoices found.
                 </TableCell>
               </TableRow>
             )}
