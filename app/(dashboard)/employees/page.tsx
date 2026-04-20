@@ -162,9 +162,9 @@ export default function EmployeesPage() {
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Open menu">
+                      <Button variant="ghost" size="icon" aria-label={`Open menu for ${employee.name}`}>
                         <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Open menu</span>
+                        <span className="sr-only">Open menu for {employee.name}</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
