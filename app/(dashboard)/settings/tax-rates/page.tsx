@@ -76,6 +76,7 @@ export default function TaxRatesPage() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" aria-label={`Open menu for ${tax.name}`}>
                         <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Open menu for {tax.name}</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
