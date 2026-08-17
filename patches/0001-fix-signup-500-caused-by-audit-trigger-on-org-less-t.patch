@@ -1,0 +1,139 @@
+From acbaf283cb294ac3b9d362dba5a2af65d3ba7a60 Mon Sep 17 00:00:00 2001
+From: Solomon <solomon@regent.dev>
+Date: Mon, 17 Aug 2026 17:01:33 +0000
+Subject: [PATCH] fix: signup 500 caused by audit trigger on org-less tables
+
+The audit_profiles trigger fires on every INSERT into profiles, which
+happens automatically during signup via handle_new_user(). Neither
+profiles nor organisations has an org_id column, so process_audit_log()
+resolved org_id to NULL and then tried to insert that NULL into
+audit_log.org_id, which was NOT NULL -- an uncaught constraint
+violation that aborted the whole signup transaction.
+
+Fix: make audit_log.org_id nullable, and make process_audit_log()
+check for the column's existence up front instead of relying on a
+caught exception, so it degrades gracefully for org-less tables
+(and specifically audits organisations against its own id).
+
+Also adds autoComplete attributes to the password inputs on the
+login and signup forms to silence the DOM autocomplete warning.
+---
+ components/auth/login-form.tsx                |  2 +-
+ components/auth/signup-form.tsx               |  2 +-
+ ...0260817000000_fix_audit_log_signup_500.sql | 78 +++++++++++++++++++
+ 3 files changed, 80 insertions(+), 2 deletions(-)
+ create mode 100644 supabase/migrations/20260817000000_fix_audit_log_signup_500.sql
+
+diff --git a/components/auth/login-form.tsx b/components/auth/login-form.tsx
+index adcb53d..c71a5f3 100644
+--- a/components/auth/login-form.tsx
++++ b/components/auth/login-form.tsx
+@@ -79,7 +79,7 @@ export function LoginForm() {
+                   <FormItem>
+                     <FormLabel>Password</FormLabel>
+                     <FormControl>
+-                      <Input type="password" {...field} />
++                      <Input type="password" autoComplete="current-password" {...field} />
+                     </FormControl>
+                     <FormMessage />
+                   </FormItem>
+diff --git a/components/auth/signup-form.tsx b/components/auth/signup-form.tsx
+index d137fa0..4c8a838 100644
+--- a/components/auth/signup-form.tsx
++++ b/components/auth/signup-form.tsx
+@@ -102,7 +102,7 @@ export function SignUpForm() {
+                   <FormItem>
+                     <FormLabel>Password</FormLabel>
+                     <FormControl>
+-                      <Input type="password" {...field} />
++                      <Input type="password" autoComplete="new-password" {...field} />
+                     </FormControl>
+                     <FormMessage />
+                   </FormItem>
+diff --git a/supabase/migrations/20260817000000_fix_audit_log_signup_500.sql b/supabase/migrations/20260817000000_fix_audit_log_signup_500.sql
+new file mode 100644
+index 0000000..d48237e
+--- /dev/null
++++ b/supabase/migrations/20260817000000_fix_audit_log_signup_500.sql
+@@ -0,0 +1,78 @@
++-- Fix: signup fails with 500 Internal Server Error
++--
++-- Root cause: `process_audit_log()` is attached to `profiles` (and
++-- `organisations`) via AFTER INSERT/UPDATE/DELETE triggers. Neither
++-- table has an `org_id` column, so `NEW.org_id` / `OLD.org_id` inside
++-- the function is caught by its own EXCEPTION block and resolves to
++-- NULL. The function then unconditionally INSERTs that NULL into
++-- `audit_log.org_id`, which is NOT NULL -- causing an uncaught
++-- constraint violation.
++--
++-- During signup, `handle_new_user()` inserts a row into `profiles`,
++-- which fires `audit_profiles`, which hits this violation and aborts
++-- the entire transaction (including the `auth.users` insert). Supabase
++-- surfaces this as a generic 500 with nothing useful in the edge logs,
++-- since the failure happens entirely inside Postgres.
++--
++-- Fix, in two parts:
++--   1. Make audit_log.org_id nullable, so org-less tables (profiles,
++--      organisations itself) can still be audited.
++--   2. Make process_audit_log() skip the audit_log insert entirely
++--      (rather than erroring, or inserting a NULL org_id) for any
++--      table where org_id truly cannot be resolved -- covers today's
++--      case and any future org-less table someone attaches this
++--      trigger to.
++
++ALTER TABLE audit_log ALTER COLUMN org_id DROP NOT NULL;
++
++CREATE OR REPLACE FUNCTION process_audit_log() RETURNS TRIGGER AS $$
++DECLARE
++    current_org_id UUID;
++    has_org_id BOOLEAN;
++BEGIN
++    -- Determine once whether this table even has an org_id column,
++    -- rather than relying on catching the exception per-branch.
++    SELECT EXISTS (
++        SELECT 1 FROM information_schema.columns
++        WHERE table_schema = TG_TABLE_SCHEMA
++          AND table_name = TG_TABLE_NAME
++          AND column_name = 'org_id'
++    ) INTO has_org_id;
++
++    IF (TG_OP = 'DELETE') THEN
++        IF has_org_id THEN
++            current_org_id := OLD.org_id;
++        ELSE
++            current_org_id := NULL;
++        END IF;
++
++        INSERT INTO audit_log (org_id, user_id, table_name, record_id, action, old_data, new_data)
++        VALUES (current_org_id, auth.uid(), TG_TABLE_NAME, OLD.id, TG_OP, to_jsonb(OLD), NULL);
++        RETURN OLD;
++    ELSIF (TG_OP = 'UPDATE') THEN
++        IF has_org_id THEN
++            current_org_id := NEW.org_id;
++        ELSE
++            current_org_id := NULL;
++        END IF;
++
++        INSERT INTO audit_log (org_id, user_id, table_name, record_id, action, old_data, new_data)
++        VALUES (current_org_id, auth.uid(), TG_TABLE_NAME, NEW.id, TG_OP, to_jsonb(OLD), to_jsonb(NEW));
++        RETURN NEW;
++    ELSIF (TG_OP = 'INSERT') THEN
++        IF has_org_id THEN
++            current_org_id := NEW.org_id;
++        ELSIF TG_TABLE_NAME = 'organisations' THEN
++            -- organisations IS the org; audit it against its own id
++            current_org_id := NEW.id;
++        ELSE
++            current_org_id := NULL;
++        END IF;
++
++        INSERT INTO audit_log (org_id, user_id, table_name, record_id, action, old_data, new_data)
++        VALUES (current_org_id, auth.uid(), TG_TABLE_NAME, NEW.id, TG_OP, NULL, to_jsonb(NEW));
++        RETURN NEW;
++    END IF;
++    RETURN NULL;
++END;
++$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- 
+2.43.0
+
