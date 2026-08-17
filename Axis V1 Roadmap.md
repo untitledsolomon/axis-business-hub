@@ -85,12 +85,13 @@ This avoids building three unrelated inventory systems. The custody view depends
 
 ### Phase 1 — Finish Wiring the Core
 Goal: everything that already has a schema/query layer actually renders real data.
-- [ ] Wire `transactions/page.tsx` to real transaction/journal data
-- [ ] Wire `finance/ledger/page.tsx` to real journal entries
-- [ ] Wire `finance/banking/page.tsx` to real bank account data
+- [x] Wire `transactions/page.tsx` to real transaction/journal data — now `TransactionsView`, classifies each journal entry as income/expense by joined account category, backed by `useJournalEntries`
+- [x] Wire `finance/ledger/page.tsx` to real journal entries — now `LedgerView`, backed by `useJournalEntries`, "New Journal Entry" wired to existing `JournalEntryForm`
+- [x] Wire `finance/banking/page.tsx` to real bank account data — now `BankingView`, backed by `useBankAccounts`, "Add Account" wired to existing `BankAccountForm`
 - [ ] Wire dashboard widgets (RevenueChart, RecentActivity) to real aggregated data
 - [ ] Verify Clients/Invoices/Accounts pages handle real-world data cleanly (edge cases, empty states, error states)
-- [ ] Confirm client management UI needs no further schema changes (schema already covers name, company, contact, email, phone, address, currency, payment terms, status — likely sufficient as-is)
+- [x] Confirm client management UI needs no further schema changes — confirmed sufficient as-is
+- [ ] Compute real running balance for bank accounts (currently shows placeholder — balance must be derived from the linked GL account's journal entries; not yet implemented, flagged in code)
 
 **Exit criteria:** Trevix and Next Level Store's real transactions can be entered and reported on accurately, end to end, with no mock data remaining in the core financial flow.
 

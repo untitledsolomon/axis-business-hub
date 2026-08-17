@@ -1,0 +1,53 @@
+From 2d415afb5aa8c3e1dfb90869f9aeb8b079fdf13b Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Mon, 17 Aug 2026 16:41:00 +0000
+Subject: [PATCH] Fix CSP to derive Supabase origin from env var instead of
+ hardcoding it
+
+next.config.ts had the old Supabase project's URL hardcoded directly into
+the Content-Security-Policy connect-src directive. This silently blocked
+all auth/API requests to any newly created Supabase project (signup/login
+failed with 'Failed to fetch' + a CSP violation in the console), in both
+dev and production/Vercel, because the browser enforces CSP client-side
+regardless of what NEXT_PUBLIC_SUPABASE_URL is actually set to.
+
+Now derives the allowed origin (both https and wss, for realtime) from
+NEXT_PUBLIC_SUPABASE_URL at build time, so it self-corrects whenever the
+Supabase project changes.
+---
+ next.config.ts | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/next.config.ts b/next.config.ts
+index ece2c56..5ba9007 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -1,5 +1,16 @@
+ import type { NextConfig } from "next";
+ 
++// Derived from env so the CSP always matches whichever Supabase project is
++// actually configured, instead of a hardcoded project URL going stale every
++// time the project changes (e.g. dev vs. prod, or migrating projects).
++const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
++const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : "";
++// Supabase realtime (websocket) subscriptions connect over wss:// on the
++// same project ref, so it's included alongside the https origin.
++const supabaseRealtimeOrigin = supabaseOrigin
++  ? supabaseOrigin.replace(/^https:\/\//, "wss://")
++  : "";
++
+ const nextConfig: NextConfig = {
+   async headers() {
+     return [
+@@ -10,7 +21,7 @@ const nextConfig: NextConfig = {
+             key: "Content-Security-Policy",
+             value: `
+                     default-src 'self';
+-                    connect-src 'self' https://iyhqvdmfukrvvptxfgkl.supabase.co;
++                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin};
+                     script-src 'self' 'unsafe-eval' 'unsafe-inline';
+                     style-src 'self' 'unsafe-inline';
+                     img-src 'self' data:;
+-- 
+2.43.0
+

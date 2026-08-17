@@ -85,7 +85,7 @@ export async function getJournalEntries(orgId: string) {
     .from("journal_entries")
     .select(`
       *,
-      lines:journal_entry_lines(*)
+      lines:journal_entry_lines(*, account:accounts(id, name, category))
     `)
     .eq("org_id", orgId)
     .order("entry_date", { ascending: false });

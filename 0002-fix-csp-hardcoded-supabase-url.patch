@@ -1,0 +1,1445 @@
+From cc603e9fabbee812dc3636d5027d1ce792f7212c Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Mon, 17 Aug 2026 15:47:21 +0000
+Subject: [PATCH 1/2] Wire Transactions, Ledger, and Banking pages to real
+ Supabase data
+
+- Extract LedgerView, BankingView, TransactionsView as client components
+  following the existing AccountsList/ClientsList wiring pattern
+- Ledger and Banking now use the existing useJournalEntries/useBankAccounts
+  hooks and existing JournalEntryForm/BankAccountForm (both already built,
+  just not previously wired to any page)
+- Transactions classifies each journal entry as income/expense by joined
+  account category (revenue/expense), added account category to the
+  getJournalEntries query and JournalEntryLine type to support this
+- Update README to reflect actual positioning (done-for-you, not
+  self-serve SaaS) and real module status
+- Tick off completed Phase 1 items in the roadmap; flag bank account
+  running balance as a known gap (not yet computed)
+---
+ Axis V1 Roadmap.md                       |   9 +-
+ README.md                                |  69 +++---
+ app/(dashboard)/finance/banking/page.tsx | 125 +----------
+ app/(dashboard)/finance/ledger/page.tsx  | 158 +------------
+ app/(dashboard)/transactions/page.tsx    | 170 +-------------
+ components/finance/BankingView.tsx       | 180 +++++++++++++++
+ components/finance/LedgerView.tsx        | 236 ++++++++++++++++++++
+ components/finance/TransactionsView.tsx  | 273 +++++++++++++++++++++++
+ lib/finance/queries.ts                   |   2 +-
+ lib/types.ts                             |   5 +
+ 10 files changed, 749 insertions(+), 478 deletions(-)
+ create mode 100644 components/finance/BankingView.tsx
+ create mode 100644 components/finance/LedgerView.tsx
+ create mode 100644 components/finance/TransactionsView.tsx
+
+diff --git a/Axis V1 Roadmap.md b/Axis V1 Roadmap.md
+index 0642c0b..a73e2c3 100644
+--- a/Axis V1 Roadmap.md	
++++ b/Axis V1 Roadmap.md	
+@@ -85,12 +85,13 @@ This avoids building three unrelated inventory systems. The custody view depends
+ 
+ ### Phase 1 — Finish Wiring the Core
+ Goal: everything that already has a schema/query layer actually renders real data.
+-- [ ] Wire `transactions/page.tsx` to real transaction/journal data
+-- [ ] Wire `finance/ledger/page.tsx` to real journal entries
+-- [ ] Wire `finance/banking/page.tsx` to real bank account data
++- [x] Wire `transactions/page.tsx` to real transaction/journal data — now `TransactionsView`, classifies each journal entry as income/expense by joined account category, backed by `useJournalEntries`
++- [x] Wire `finance/ledger/page.tsx` to real journal entries — now `LedgerView`, backed by `useJournalEntries`, "New Journal Entry" wired to existing `JournalEntryForm`
++- [x] Wire `finance/banking/page.tsx` to real bank account data — now `BankingView`, backed by `useBankAccounts`, "Add Account" wired to existing `BankAccountForm`
+ - [ ] Wire dashboard widgets (RevenueChart, RecentActivity) to real aggregated data
+ - [ ] Verify Clients/Invoices/Accounts pages handle real-world data cleanly (edge cases, empty states, error states)
+-- [ ] Confirm client management UI needs no further schema changes (schema already covers name, company, contact, email, phone, address, currency, payment terms, status — likely sufficient as-is)
++- [x] Confirm client management UI needs no further schema changes — confirmed sufficient as-is
++- [ ] Compute real running balance for bank accounts (currently shows placeholder — balance must be derived from the linked GL account's journal entries; not yet implemented, flagged in code)
+ 
+ **Exit criteria:** Trevix and Next Level Store's real transactions can be entered and reported on accurately, end to end, with no mock data remaining in the core financial flow.
+ 
+diff --git a/README.md b/README.md
+index 61082e2..c57902f 100644
+--- a/README.md
++++ b/README.md
+@@ -1,55 +1,72 @@
+-# AXIS – Business Operating System
++# Axis — Regent Business Hub
+ 
+-AXIS is a modern business management platform designed to be a lightweight, powerful alternative to tools like QuickBooks.
++Axis is Regent's operations system for the businesses it runs and the clients
++it serves directly. It is not built as a self-serve QuickBooks/Zoho
++alternative — it's the product behind a done-for-you engagement: Regent sets
++it up, configures it, and runs it alongside each client, rather than shipping
++it as off-the-shelf software.
+ 
+-## Phase 1: Core Foundation
++See `Axis V1 Roadmap.md` for the actual build plan, current scope decisions,
++and what's explicitly out of scope for v1.
+ 
+-The project has been migrated to **Next.js 15 (App Router)** and **React 19**.
++## Stack
+ 
+-### Core Modules (Phase 1)
+-- **Authentication**: Secure login system with protected routes via Middleware.
+-- **Layout System**: Modern SaaS UI with Sidebar navigation and Topbar.
+-- **Data Models**: Defined essential models for Clients, Invoices, Employees, and Transactions.
++- **Framework**: Next.js 15 (App Router), React 19
++- **Backend**: Supabase (Postgres, Auth, RLS, Edge Functions)
++- **Data fetching**: TanStack Query
++- **UI**: shadcn/ui (Radix UI) + Tailwind CSS
++- **Icons**: Lucide React
++
++## Module status
++
++This reflects the actual code, not aspiration. See the roadmap doc for the
++full breakdown and phase plan.
++
++**Wired to real data:**
++- Auth (Supabase, multi-tenant orgs, RLS)
++- Clients
++- Invoices (+ PDF generation via Edge Function)
++- Chart of Accounts
++- Transactions, General Ledger, Banking — journal-entry-backed, using the
++  `create_journal_entry_v1` double-entry RPC
++
++**Not yet built:**
++- Item-tracking core (inventory / asset custody / lifecycle views)
++- Employee / HR / shift module
++- Real running balance calculation on bank accounts
+ 
+ ## Getting Started
+ 
+ ### Prerequisites
+ - Node.js (Latest LTS recommended)
+ - npm
++- A Supabase project (URL + anon key)
+ 
+ ### Installation
+ 
+-The project is configured to handle peer dependency conflicts automatically via `.npmrc`.
+-
+ ```sh
+-# Step 1: Clone the repository
++# Clone the repository
+ git clone https://github.com/untitledsolomon/axis-business-hub.git
+-
+-# Step 2: Navigate to the project directory
+ cd axis-business-hub
+ 
+-# Step 3: Install dependencies
++# Install dependencies
+ npm install
+ 
+-# Step 4: Start the development server
++# Configure environment
++cp .env.example .env.local
++# then fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
++
++# Run migrations against your Supabase project (see supabase/migrations)
++
++# Start the development server
+ npm run dev
+ ```
+ 
+ ### Build
+ 
+-To create a production build:
+-
+ ```sh
+ npm run build
+ ```
+ 
+-## Technologies Used
+-- **Framework**: Next.js 15 (App Router)
+-- **UI Library**: Shadcn UI (Radix UI)
+-- **Styling**: Tailwind CSS
+-- **Icons**: Lucide React
+-- **Toast Notifications**: Sonner
+-- **State Management**: React Context
+-
+ ## License
+-Private
++Private — Regent
+diff --git a/app/(dashboard)/finance/banking/page.tsx b/app/(dashboard)/finance/banking/page.tsx
+index 3cedac4..0fab583 100644
+--- a/app/(dashboard)/finance/banking/page.tsx
++++ b/app/(dashboard)/finance/banking/page.tsx
+@@ -1,132 +1,11 @@
+ import { Metadata } from "next";
+-import {
+-  Table,
+-  TableBody,
+-  TableCell,
+-  TableHead,
+-  TableHeader,
+-  TableRow
+-} from "@/components/ui/table";
+-import { Button } from "@/components/ui/button";
+-import { Plus, Landmark, CreditCard, MoreHorizontal, ArrowRightLeft } from "lucide-react";
+-import { Badge } from "@/components/ui/badge";
+-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+-import {
+-  DropdownMenu,
+-  DropdownMenuContent,
+-  DropdownMenuItem,
+-  DropdownMenuLabel,
+-  DropdownMenuSeparator,
+-  DropdownMenuTrigger
+-} from "@/components/ui/dropdown-menu";
++import { BankingView } from "@/components/finance/BankingView";
+ 
+ export const metadata: Metadata = {
+   title: "Banking | Axis",
+   description: "Manage your bank accounts and cash balances.",
+ };
+ 
+-const bankAccounts = [
+-  { id: "1", name: "Main Business Account", bank: "Stanbic Bank", number: "**** 1234", balance: 15240500, currency: "UGX", type: "Bank" },
+-  { id: "2", name: "USD Savings", bank: "ABSA", number: "**** 5678", balance: 520000, currency: "USD", type: "Bank" },
+-  { id: "3", name: "Office Petty Cash", bank: "N/A", number: "N/A", balance: 450000, currency: "UGX", type: "Cash" },
+-];
+-
+ export default function BankingPage() {
+-  return (
+-    <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Banking</h1>
+-          <p className="text-muted-foreground">
+-            Manage your bank accounts, cash floats, and track balances.
+-          </p>
+-        </div>
+-        <div className="flex gap-2">
+-          <Button variant="outline">
+-            <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
+-          </Button>
+-          <Button className="bg-axis-blue hover:bg-blue-800">
+-            <Plus className="mr-2 h-4 w-4" /> Add Account
+-          </Button>
+-        </div>
+-      </div>
+-
+-      <div className="grid gap-4 md:grid-cols-3">
+-        {bankAccounts.map((account) => (
+-          <Card key={account.id} className="hover:shadow-md transition-shadow">
+-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+-              <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
+-              {account.type === "Bank" ? (
+-                <Landmark className="h-4 w-4 text-muted-foreground" />
+-              ) : (
+-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+-              )}
+-            </CardHeader>
+-            <CardContent>
+-              <div className="text-2xl font-bold">
+-                {account.currency} {(account.balance / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+-              </div>
+-              <p className="text-xs text-muted-foreground mt-1">
+-                {account.bank} • {account.number}
+-              </p>
+-              <div className="mt-4 flex justify-between items-center">
+-                <Badge variant="outline" className="text-[10px] uppercase">
+-                  {account.type}
+-                </Badge>
+-                <Button variant="ghost" size="sm" className="h-8 text-axis-blue">
+-                  View Transactions
+-                </Button>
+-              </div>
+-            </CardContent>
+-          </Card>
+-        ))}
+-      </div>
+-
+-      <div className="rounded-md border bg-white shadow-sm overflow-hidden">
+-        <Table aria-label="Bank accounts list">
+-          <TableHeader>
+-            <TableRow className="bg-axis-light/50">
+-              <TableHead className="font-semibold">Account Name</TableHead>
+-              <TableHead className="font-semibold">Bank</TableHead>
+-              <TableHead className="font-semibold">Account Number</TableHead>
+-              <TableHead className="font-semibold">Currency</TableHead>
+-              <TableHead className="text-right font-semibold">Balance</TableHead>
+-              <TableHead className="text-right font-semibold">Actions</TableHead>
+-            </TableRow>
+-          </TableHeader>
+-          <TableBody>
+-            {bankAccounts.map((account) => (
+-              <TableRow key={account.id} className="hover:bg-axis-light/30">
+-                <TableCell className="font-medium">{account.name}</TableCell>
+-                <TableCell>{account.bank}</TableCell>
+-                <TableCell className="font-mono text-xs">{account.number}</TableCell>
+-                <TableCell>{account.currency}</TableCell>
+-                <TableCell className="text-right font-mono font-semibold">
+-                  {(account.balance / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+-                </TableCell>
+-                <TableCell className="text-right">
+-                  <DropdownMenu>
+-                    <DropdownMenuTrigger asChild>
+-                      <Button variant="ghost" size="icon" aria-label={`Open menu for ${account.name}`}>
+-                        <MoreHorizontal className="h-4 w-4" />
+-                        <span className="sr-only">Open menu for {account.name}</span>
+-                      </Button>
+-                    </DropdownMenuTrigger>
+-                    <DropdownMenuContent align="end">
+-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+-                      <DropdownMenuItem>Import Statement</DropdownMenuItem>
+-                      <DropdownMenuItem>Reconcile</DropdownMenuItem>
+-                      <DropdownMenuSeparator />
+-                      <DropdownMenuItem>Edit Details</DropdownMenuItem>
+-                      <DropdownMenuItem className="text-axis-red">Deactivate</DropdownMenuItem>
+-                    </DropdownMenuContent>
+-                  </DropdownMenu>
+-                </TableCell>
+-              </TableRow>
+-            ))}
+-          </TableBody>
+-        </Table>
+-      </div>
+-    </div>
+-  );
++  return <BankingView />;
+ }
+diff --git a/app/(dashboard)/finance/ledger/page.tsx b/app/(dashboard)/finance/ledger/page.tsx
+index 1bdf04c..f16acea 100644
+--- a/app/(dashboard)/finance/ledger/page.tsx
++++ b/app/(dashboard)/finance/ledger/page.tsx
+@@ -1,165 +1,11 @@
+ import { Metadata } from "next";
+-import {
+-  Table,
+-  TableBody,
+-  TableCell,
+-  TableHead,
+-  TableHeader,
+-  TableRow
+-} from "@/components/ui/table";
+-import { Button } from "@/components/ui/button";
+-import { Plus, Search, Filter, MoreHorizontal, FileSpreadsheet, History } from "lucide-react";
+-import { Input } from "@/components/ui/input";
+-import { Badge } from "@/components/ui/badge";
+-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+-import {
+-  DropdownMenu,
+-  DropdownMenuContent,
+-  DropdownMenuItem,
+-  DropdownMenuLabel,
+-  DropdownMenuSeparator,
+-  DropdownMenuTrigger
+-} from "@/components/ui/dropdown-menu";
++import { LedgerView } from "@/components/finance/LedgerView";
+ 
+ export const metadata: Metadata = {
+   title: "General Ledger | Axis",
+   description: "View and manage all journal entries and the general ledger.",
+ };
+ 
+-const journalEntries = [
+-  {
+-    id: "1",
+-    date: "2025-05-20",
+-    reference: "JE-001",
+-    description: "Monthly Office Rent Accrual",
+-    status: "posted",
+-    total: 2500000
+-  },
+-  {
+-    id: "2",
+-    date: "2025-05-18",
+-    reference: "INV-2025-001",
+-    description: "Revenue Recognition - Acme Corp",
+-    status: "posted",
+-    total: 1250000
+-  },
+-  {
+-    id: "3",
+-    date: "2025-05-15",
+-    reference: "JE-002",
+-    description: "Depreciation Expense - Computer Equipment",
+-    status: "draft",
+-    total: 450000
+-  },
+-];
+-
+ export default function LedgerPage() {
+-  return (
+-    <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">General Ledger</h1>
+-          <p className="text-muted-foreground">
+-            The source of truth for all financial transactions and journal entries.
+-          </p>
+-        </div>
+-        <div className="flex gap-2">
+-          <Button variant="outline">
+-            <History className="mr-2 h-4 w-4" /> Audit Log
+-          </Button>
+-          <Button className="bg-axis-blue hover:bg-blue-800">
+-            <Plus className="mr-2 h-4 w-4" /> New Journal Entry
+-          </Button>
+-        </div>
+-      </div>
+-
+-      <Tabs defaultValue="entries" className="w-full">
+-        <TabsList className="grid w-full max-w-md grid-cols-2">
+-          <TabsTrigger value="entries">Journal Entries</TabsTrigger>
+-          <TabsTrigger value="ledger">Account Ledger</TabsTrigger>
+-        </TabsList>
+-
+-        <TabsContent value="entries" className="space-y-4 pt-4">
+-          <div className="flex items-center gap-4">
+-            <div className="relative flex-1 max-w-sm">
+-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+-              <Input
+-                placeholder="Search entries..."
+-                className="pl-8 bg-white border-muted focus-visible:ring-axis-blue"
+-              />
+-            </div>
+-            <Button variant="outline">
+-              <Filter className="mr-2 h-4 w-4" /> Filters
+-            </Button>
+-          </div>
+-
+-          <div className="rounded-md border bg-white shadow-sm overflow-hidden">
+-            <Table>
+-              <TableHeader>
+-                <TableRow className="bg-axis-light/50">
+-                  <TableHead className="font-semibold w-[120px]">Date</TableHead>
+-                  <TableHead className="font-semibold w-[120px]">Reference</TableHead>
+-                  <TableHead className="font-semibold">Description</TableHead>
+-                  <TableHead className="font-semibold">Status</TableHead>
+-                  <TableHead className="text-right font-semibold">Total Amount</TableHead>
+-                  <TableHead className="text-right font-semibold">Actions</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {journalEntries.map((entry) => (
+-                  <TableRow key={entry.id} className="hover:bg-axis-light/30">
+-                    <TableCell className="text-sm">{entry.date}</TableCell>
+-                    <TableCell className="font-mono text-sm">{entry.reference}</TableCell>
+-                    <TableCell className="font-medium">{entry.description}</TableCell>
+-                    <TableCell>
+-                      <Badge variant={entry.status === "posted" ? "default" : "secondary"} className={entry.status === "posted" ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20" : ""}>
+-                        {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
+-                      </Badge>
+-                    </TableCell>
+-                    <TableCell className="text-right font-mono">
+-                      {(entry.total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+-                    </TableCell>
+-                    <TableCell className="text-right">
+-                      <DropdownMenu>
+-                        <DropdownMenuTrigger asChild>
+-                        <Button variant="ghost" size="icon" aria-label={`Open menu for ${entry.reference}`}>
+-                            <MoreHorizontal className="h-4 w-4" />
+-                            <span className="sr-only">Open menu for {entry.reference}</span>
+-                          </Button>
+-                        </DropdownMenuTrigger>
+-                        <DropdownMenuContent align="end">
+-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+-                          <DropdownMenuItem>View Details</DropdownMenuItem>
+-                          <DropdownMenuItem>Edit Entry</DropdownMenuItem>
+-                          <DropdownMenuSeparator />
+-                          {entry.status === "posted" ? (
+-                            <DropdownMenuItem className="text-axis-red">Void Entry</DropdownMenuItem>
+-                          ) : (
+-                            <DropdownMenuItem className="text-axis-green">Post Entry</DropdownMenuItem>
+-                          )}
+-                        </DropdownMenuContent>
+-                      </DropdownMenu>
+-                    </TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          </div>
+-        </TabsContent>
+-
+-        <TabsContent value="ledger" className="space-y-4 pt-4">
+-          <div className="flex flex-col items-center justify-center py-12 text-center bg-white border rounded-md border-dashed">
+-            <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
+-            <h3 className="text-lg font-semibold">Detailed Ledger View</h3>
+-            <p className="text-muted-foreground max-w-sm mx-auto">
+-              Select an account to view its full transaction history and running balance.
+-            </p>
+-            <Button variant="outline" className="mt-4 border-axis-blue text-axis-blue">
+-              Select Account
+-            </Button>
+-          </div>
+-        </TabsContent>
+-      </Tabs>
+-    </div>
+-  );
++  return <LedgerView />;
+ }
+diff --git a/app/(dashboard)/transactions/page.tsx b/app/(dashboard)/transactions/page.tsx
+index 57dc832..fe0877d 100644
+--- a/app/(dashboard)/transactions/page.tsx
++++ b/app/(dashboard)/transactions/page.tsx
+@@ -1,177 +1,11 @@
+ import { Metadata } from "next";
+-import {
+-  Table,
+-  TableBody,
+-  TableCell,
+-  TableHead,
+-  TableHeader,
+-  TableRow
+-} from "@/components/ui/table";
+-import { Button } from "@/components/ui/button";
+-import { Input } from "@/components/ui/input";
+-import { Badge } from "@/components/ui/badge";
+-import { Plus, Search, MoreHorizontal, ArrowUpRight, ArrowDownLeft, Filter } from "lucide-react";
+-import {
+-  DropdownMenu,
+-  DropdownMenuContent,
+-  DropdownMenuItem,
+-  DropdownMenuLabel,
+-  DropdownMenuSeparator,
+-  DropdownMenuTrigger
+-} from "@/components/ui/dropdown-menu";
++import { TransactionsView } from "@/components/finance/TransactionsView";
+ 
+ export const metadata: Metadata = {
+   title: "Transactions",
+   description: "View and manage all financial transactions and journal entries.",
+ };
+ 
+-const transactions = [
+-  {
+-    id: "1",
+-    date: "May 15, 2025",
+-    description: "Invoice Payment - INV-2025-001",
+-    category: "Sales",
+-    type: "income",
+-    amount: 12500.00,
+-    status: "completed",
+-  },
+-  {
+-    id: "2",
+-    date: "May 14, 2025",
+-    description: "Monthly Rent - Office HQ",
+-    category: "Operations",
+-    type: "expense",
+-    amount: 2500.00,
+-    status: "completed",
+-  },
+-  {
+-    id: "3",
+-    date: "May 12, 2025",
+-    description: "AWS Cloud Services",
+-    category: "Operations",
+-    type: "expense",
+-    amount: 450.75,
+-    status: "pending",
+-  },
+-  {
+-    id: "4",
+-    date: "May 10, 2025",
+-    description: "Salary Payment - John Doe",
+-    category: "Payroll",
+-    type: "expense",
+-    amount: 5000.00,
+-    status: "completed",
+-  },
+-  {
+-    id: "5",
+-    date: "May 08, 2025",
+-    description: "Client Project Deposit - Global Tech",
+-    category: "Sales",
+-    type: "income",
+-    amount: 3200.50,
+-    status: "completed",
+-  },
+-];
+-
+ export default function TransactionsPage() {
+-  return (
+-    <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Transactions</h1>
+-          <p className="text-muted-foreground">
+-            A real-time ledger of all organization financial activity.
+-          </p>
+-        </div>
+-        <div className="flex gap-2">
+-          <Button variant="outline" className="border-axis-blue text-axis-blue hover:bg-axis-blue/5">
+-            <Plus className="mr-2 h-4 w-4" /> Record Expense
+-          </Button>
+-          <Button className="bg-axis-blue hover:bg-blue-800">
+-            <Plus className="mr-2 h-4 w-4" /> Add Income
+-          </Button>
+-        </div>
+-      </div>
+-
+-      <div className="flex items-center gap-4">
+-        <div className="relative flex-1 max-w-sm">
+-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+-          <Input
+-            placeholder="Search transactions..."
+-            className="pl-8 bg-white border-muted focus-visible:ring-axis-blue"
+-          />
+-        </div>
+-        <Button variant="outline">
+-          <Filter className="mr-2 h-4 w-4" /> Filters
+-        </Button>
+-      </div>
+-
+-      <div className="rounded-md border bg-white shadow-sm overflow-hidden">
+-        <Table>
+-          <TableHeader>
+-            <TableRow className="bg-axis-light/50">
+-              <TableHead className="font-semibold w-[150px]">Date</TableHead>
+-              <TableHead className="font-semibold">Description</TableHead>
+-              <TableHead className="font-semibold">Category</TableHead>
+-              <TableHead className="font-semibold">Amount</TableHead>
+-              <TableHead className="font-semibold">Status</TableHead>
+-              <TableHead className="text-right font-semibold">Actions</TableHead>
+-            </TableRow>
+-          </TableHeader>
+-          <TableBody>
+-            {transactions.map((transaction) => (
+-              <TableRow key={transaction.id} className="hover:bg-axis-light/30">
+-                <TableCell className="text-sm">{transaction.date}</TableCell>
+-                <TableCell>
+-                  <div className="flex items-center gap-2">
+-                    {transaction.type === "income" ? (
+-                      <ArrowUpRight className="h-4 w-4 text-axis-green shrink-0" />
+-                    ) : (
+-                      <ArrowDownLeft className="h-4 w-4 text-axis-red shrink-0" />
+-                    )}
+-                    <span className="font-medium truncate">{transaction.description}</span>
+-                  </div>
+-                </TableCell>
+-                <TableCell>
+-                  <Badge variant="secondary" className="bg-axis-light text-axis-gray border-none">
+-                    {transaction.category}
+-                  </Badge>
+-                </TableCell>
+-                <TableCell className={transaction.type === "income" ? "text-axis-green font-semibold" : "text-axis-red font-semibold"}>
+-                  {transaction.type === "income" ? "+" : "-"}${transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+-                </TableCell>
+-                <TableCell>
+-                  <Badge
+-                    variant="outline"
+-                    className={
+-                      transaction.status === "completed" ? "bg-axis-green/5 text-axis-green border-axis-green/20" : "bg-axis-gray/5 text-axis-gray border-axis-gray/20"
+-                    }
+-                  >
+-                    {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+-                  </Badge>
+-                </TableCell>
+-                <TableCell className="text-right">
+-                  <DropdownMenu>
+-                    <DropdownMenuTrigger asChild>
+-                      <Button variant="ghost" size="icon" aria-label={`Open menu for ${transaction.description}`}>
+-                        <MoreHorizontal className="h-4 w-4" />
+-                        <span className="sr-only">Open menu for {transaction.description}</span>
+-                      </Button>
+-                    </DropdownMenuTrigger>
+-                    <DropdownMenuContent align="end">
+-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+-                      <DropdownMenuItem>View Journal Entry</DropdownMenuItem>
+-                      <DropdownMenuItem>View Attachment</DropdownMenuItem>
+-                      <DropdownMenuSeparator />
+-                      <DropdownMenuItem className="text-axis-red">Void Transaction</DropdownMenuItem>
+-                    </DropdownMenuContent>
+-                  </DropdownMenu>
+-                </TableCell>
+-              </TableRow>
+-            ))}
+-          </TableBody>
+-        </Table>
+-      </div>
+-    </div>
+-  );
++  return <TransactionsView />;
+ }
+diff --git a/components/finance/BankingView.tsx b/components/finance/BankingView.tsx
+new file mode 100644
+index 0000000..ac676af
+--- /dev/null
++++ b/components/finance/BankingView.tsx
+@@ -0,0 +1,180 @@
++"use client";
++
++import { useBankAccounts } from "@/hooks/finance/use-finance";
++import { useOrg } from "@/hooks/use-org";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow
++} from "@/components/ui/table";
++import { Button } from "@/components/ui/button";
++import { Plus, Landmark, MoreHorizontal, ArrowRightLeft, Wallet } from "lucide-react";
++import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
++import { Skeleton } from "@/components/ui/skeleton";
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuLabel,
++  DropdownMenuSeparator,
++  DropdownMenuTrigger
++} from "@/components/ui/dropdown-menu";
++import {
++  Dialog,
++  DialogContent,
++  DialogHeader,
++  DialogTitle,
++  DialogTrigger,
++} from "@/components/ui/dialog";
++import { BankAccountForm } from "@/components/finance/BankAccountForm";
++import { useState, useEffect } from "react";
++
++export function BankingView() {
++  const [mounted, setMounted] = useState(false);
++  const { currentOrg } = useOrg();
++  const { data: bankAccounts, isLoading } = useBankAccounts(currentOrg?.id || "");
++  const [isFormOpen, setIsFormOpen] = useState(false);
++
++  useEffect(() => {
++    setMounted(true);
++  }, []);
++
++  if (!mounted) return null;
++
++  return (
++    <div className="space-y-6">
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Banking</h1>
++          <p className="text-muted-foreground">
++            Manage your bank accounts, cash floats, and track balances.
++          </p>
++        </div>
++        <div className="flex gap-2">
++          <Button variant="outline">
++            <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
++          </Button>
++          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++            <DialogTrigger asChild>
++              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Account">
++                <Plus className="mr-2 h-4 w-4" /> Add Account
++              </Button>
++            </DialogTrigger>
++            <DialogContent className="sm:max-w-[500px]">
++              <DialogHeader>
++                <DialogTitle>Add Bank Account</DialogTitle>
++              </DialogHeader>
++              {currentOrg && (
++                <BankAccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              )}
++            </DialogContent>
++          </Dialog>
++        </div>
++      </div>
++
++      {isLoading ? (
++        <div className="grid gap-4 md:grid-cols-3">
++          {Array.from({ length: 3 }).map((_, i) => (
++            <Card key={i}>
++              <CardHeader className="pb-2">
++                <Skeleton className="h-4 w-32" />
++              </CardHeader>
++              <CardContent>
++                <Skeleton className="h-8 w-24 mb-2" />
++                <Skeleton className="h-3 w-40" />
++              </CardContent>
++            </Card>
++          ))}
++        </div>
++      ) : bankAccounts && bankAccounts.length > 0 ? (
++        <div className="grid gap-4 md:grid-cols-3">
++          {bankAccounts.map((account) => (
++            <Card key={account.id} className="hover:shadow-md transition-shadow">
++              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
++                <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
++                <Landmark className="h-4 w-4 text-muted-foreground" />
++              </CardHeader>
++              <CardContent>
++                {/* Running balance is derived from the linked GL account's journal entries
++                    and is not yet computed here — see account.account_id */}
++                <div className="text-2xl font-bold">
++                  {account.currency} —
++                </div>
++                <p className="text-xs text-muted-foreground mt-1">
++                  {account.bank_name || "—"} • {account.account_number || "N/A"}
++                </p>
++                <div className="mt-4 flex justify-end items-center">
++                  <Button variant="ghost" size="sm" className="h-8 text-axis-blue">
++                    View Transactions
++                  </Button>
++                </div>
++              </CardContent>
++            </Card>
++          ))}
++        </div>
++      ) : (
++        <div className="flex flex-col items-center justify-center py-12 text-center bg-white border rounded-md border-dashed">
++          <Wallet className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
++          <h3 className="text-lg font-semibold">No bank accounts yet</h3>
++          <p className="text-muted-foreground max-w-sm mx-auto">
++            Add your first bank account or cash float to start tracking balances.
++          </p>
++          <Button
++            variant="outline"
++            className="mt-4 border-axis-blue text-axis-blue"
++            onClick={() => setIsFormOpen(true)}
++          >
++            <Plus className="mr-2 h-4 w-4" /> Add Account
++          </Button>
++        </div>
++      )}
++
++      {bankAccounts && bankAccounts.length > 0 && (
++        <div className="rounded-md border bg-white shadow-sm overflow-hidden">
++          <Table aria-label="Bank accounts list">
++            <TableHeader>
++              <TableRow className="bg-axis-light/50">
++                <TableHead className="font-semibold">Account Name</TableHead>
++                <TableHead className="font-semibold">Bank</TableHead>
++                <TableHead className="font-semibold">Account Number</TableHead>
++                <TableHead className="font-semibold">Currency</TableHead>
++                <TableHead className="text-right font-semibold">Actions</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {bankAccounts.map((account) => (
++                <TableRow key={account.id} className="hover:bg-axis-light/30">
++                  <TableCell className="font-medium">{account.name}</TableCell>
++                  <TableCell>{account.bank_name || "—"}</TableCell>
++                  <TableCell className="font-mono text-xs">{account.account_number || "—"}</TableCell>
++                  <TableCell>{account.currency}</TableCell>
++                  <TableCell className="text-right">
++                    <DropdownMenu>
++                      <DropdownMenuTrigger asChild>
++                        <Button variant="ghost" size="icon" aria-label={`Open menu for ${account.name}`}>
++                          <MoreHorizontal className="h-4 w-4" />
++                          <span className="sr-only">Open menu for {account.name}</span>
++                        </Button>
++                      </DropdownMenuTrigger>
++                      <DropdownMenuContent align="end">
++                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
++                        <DropdownMenuItem>Import Statement</DropdownMenuItem>
++                        <DropdownMenuItem>Reconcile</DropdownMenuItem>
++                        <DropdownMenuSeparator />
++                        <DropdownMenuItem>Edit Details</DropdownMenuItem>
++                        <DropdownMenuItem className="text-axis-red">Deactivate</DropdownMenuItem>
++                      </DropdownMenuContent>
++                    </DropdownMenu>
++                  </TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/components/finance/LedgerView.tsx b/components/finance/LedgerView.tsx
+new file mode 100644
+index 0000000..519e236
+--- /dev/null
++++ b/components/finance/LedgerView.tsx
+@@ -0,0 +1,236 @@
++"use client";
++
++import { useJournalEntries } from "@/hooks/finance/use-finance";
++import { useOrg } from "@/hooks/use-org";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow
++} from "@/components/ui/table";
++import { Button } from "@/components/ui/button";
++import { Plus, Search, Filter, MoreHorizontal, FileSpreadsheet, History } from "lucide-react";
++import { Input } from "@/components/ui/input";
++import { Badge } from "@/components/ui/badge";
++import { Skeleton } from "@/components/ui/skeleton";
++import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuLabel,
++  DropdownMenuSeparator,
++  DropdownMenuTrigger
++} from "@/components/ui/dropdown-menu";
++import {
++  Dialog,
++  DialogContent,
++  DialogHeader,
++  DialogTitle,
++  DialogTrigger,
++} from "@/components/ui/dialog";
++import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
++import { useState, useEffect, useMemo } from "react";
++
++function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
++  if (!entry.lines || entry.lines.length === 0) return 0;
++  // Total of a balanced journal entry is the sum of its debit legs (== sum of credit legs)
++  return entry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
++}
++
++export function LedgerView() {
++  const [mounted, setMounted] = useState(false);
++  const { currentOrg } = useOrg();
++  const { data: entries, isLoading } = useJournalEntries(currentOrg?.id || "");
++  const [isFormOpen, setIsFormOpen] = useState(false);
++  const [search, setSearch] = useState("");
++
++  useEffect(() => {
++    setMounted(true);
++  }, []);
++
++  const filteredEntries = useMemo(() => {
++    if (!entries) return [];
++    if (!search.trim()) return entries;
++    const q = search.toLowerCase();
++    return entries.filter(
++      (e) =>
++        e.description?.toLowerCase().includes(q) ||
++        e.reference?.toLowerCase().includes(q)
++    );
++  }, [entries, search]);
++
++  if (!mounted) return null;
++
++  return (
++    <div className="space-y-6">
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">General Ledger</h1>
++          <p className="text-muted-foreground">
++            The source of truth for all financial transactions and journal entries.
++          </p>
++        </div>
++        <div className="flex gap-2">
++          <Button variant="outline">
++            <History className="mr-2 h-4 w-4" /> Audit Log
++          </Button>
++          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++            <DialogTrigger asChild>
++              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="New Journal Entry">
++                <Plus className="mr-2 h-4 w-4" /> New Journal Entry
++              </Button>
++            </DialogTrigger>
++            <DialogContent className="sm:max-w-[600px]">
++              <DialogHeader>
++                <DialogTitle>New Journal Entry</DialogTitle>
++              </DialogHeader>
++              {currentOrg && (
++                <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              )}
++            </DialogContent>
++          </Dialog>
++        </div>
++      </div>
++
++      <Tabs defaultValue="entries" className="w-full">
++        <TabsList className="grid w-full max-w-md grid-cols-2">
++          <TabsTrigger value="entries">Journal Entries</TabsTrigger>
++          <TabsTrigger value="ledger">Account Ledger</TabsTrigger>
++        </TabsList>
++
++        <TabsContent value="entries" className="space-y-4 pt-4">
++          <div className="flex items-center gap-4">
++            <div className="relative flex-1 max-w-sm">
++              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
++              <Input
++                placeholder="Search entries..."
++                className="pl-8 bg-white border-muted focus-visible:ring-axis-blue"
++                value={search}
++                onChange={(e) => setSearch(e.target.value)}
++              />
++            </div>
++            <Button variant="outline">
++              <Filter className="mr-2 h-4 w-4" /> Filters
++            </Button>
++          </div>
++
++          <div className="rounded-md border bg-white shadow-sm overflow-hidden">
++            <Table>
++              <TableHeader>
++                <TableRow className="bg-axis-light/50">
++                  <TableHead className="font-semibold w-[120px]">Date</TableHead>
++                  <TableHead className="font-semibold w-[120px]">Reference</TableHead>
++                  <TableHead className="font-semibold">Description</TableHead>
++                  <TableHead className="font-semibold">Status</TableHead>
++                  <TableHead className="text-right font-semibold">Total Amount</TableHead>
++                  <TableHead className="text-right font-semibold">Actions</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                {isLoading ? (
++                  Array.from({ length: 5 }).map((_, i) => (
++                    <TableRow key={i}>
++                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
++                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
++                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
++                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
++                      <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
++                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
++                    </TableRow>
++                  ))
++                ) : filteredEntries.length > 0 ? (
++                  filteredEntries.map((entry) => (
++                    <TableRow key={entry.id} className="hover:bg-axis-light/30">
++                      <TableCell className="text-sm">{entry.entry_date}</TableCell>
++                      <TableCell className="font-mono text-sm">{entry.reference || "—"}</TableCell>
++                      <TableCell className="font-medium">{entry.description || "—"}</TableCell>
++                      <TableCell>
++                        <Badge
++                          variant={entry.status === "posted" ? "default" : "secondary"}
++                          className={
++                            entry.status === "posted"
++                              ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20"
++                              : ""
++                          }
++                        >
++                          {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
++                        </Badge>
++                      </TableCell>
++                      <TableCell className="text-right font-mono">
++                        {(entryTotal(entry) / 100).toLocaleString(undefined, {
++                          minimumFractionDigits: 2,
++                        })}
++                      </TableCell>
++                      <TableCell className="text-right">
++                        <DropdownMenu>
++                          <DropdownMenuTrigger asChild>
++                            <Button
++                              variant="ghost"
++                              size="icon"
++                              aria-label={`Open menu for ${entry.reference || entry.id}`}
++                            >
++                              <MoreHorizontal className="h-4 w-4" />
++                              <span className="sr-only">
++                                Open menu for {entry.reference || entry.id}
++                              </span>
++                            </Button>
++                          </DropdownMenuTrigger>
++                          <DropdownMenuContent align="end">
++                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
++                            <DropdownMenuItem>View Details</DropdownMenuItem>
++                            <DropdownMenuItem>Edit Entry</DropdownMenuItem>
++                            <DropdownMenuSeparator />
++                            {entry.status === "posted" ? (
++                              <DropdownMenuItem className="text-axis-red">Void Entry</DropdownMenuItem>
++                            ) : (
++                              <DropdownMenuItem className="text-axis-green">Post Entry</DropdownMenuItem>
++                            )}
++                          </DropdownMenuContent>
++                        </DropdownMenu>
++                      </TableCell>
++                    </TableRow>
++                  ))
++                ) : (
++                  <TableRow>
++                    <TableCell colSpan={6} className="h-64 text-center">
++                      <div className="flex flex-col items-center justify-center space-y-2">
++                        <FileSpreadsheet className="h-12 w-12 text-muted-foreground opacity-20" />
++                        <h3 className="text-lg font-semibold">No journal entries found</h3>
++                        <p className="text-muted-foreground">
++                          Get started by recording your first journal entry.
++                        </p>
++                        <Button
++                          variant="outline"
++                          className="mt-4 border-axis-blue text-axis-blue"
++                          onClick={() => setIsFormOpen(true)}
++                        >
++                          <Plus className="mr-2 h-4 w-4" /> New Journal Entry
++                        </Button>
++                      </div>
++                    </TableCell>
++                  </TableRow>
++                )}
++              </TableBody>
++            </Table>
++          </div>
++        </TabsContent>
++
++        <TabsContent value="ledger" className="space-y-4 pt-4">
++          <div className="flex flex-col items-center justify-center py-12 text-center bg-white border rounded-md border-dashed">
++            <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
++            <h3 className="text-lg font-semibold">Detailed Ledger View</h3>
++            <p className="text-muted-foreground max-w-sm mx-auto">
++              Select an account to view its full transaction history and running balance.
++            </p>
++            <Button variant="outline" className="mt-4 border-axis-blue text-axis-blue">
++              Select Account
++            </Button>
++          </div>
++        </TabsContent>
++      </Tabs>
++    </div>
++  );
++}
+diff --git a/components/finance/TransactionsView.tsx b/components/finance/TransactionsView.tsx
+new file mode 100644
+index 0000000..cb33e37
+--- /dev/null
++++ b/components/finance/TransactionsView.tsx
+@@ -0,0 +1,273 @@
++"use client";
++
++import { useJournalEntries } from "@/hooks/finance/use-finance";
++import { useOrg } from "@/hooks/use-org";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow
++} from "@/components/ui/table";
++import { Button } from "@/components/ui/button";
++import { Input } from "@/components/ui/input";
++import { Badge } from "@/components/ui/badge";
++import { Skeleton } from "@/components/ui/skeleton";
++import { Plus, Search, MoreHorizontal, ArrowUpRight, ArrowDownLeft, Filter, Receipt } from "lucide-react";
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuLabel,
++  DropdownMenuSeparator,
++  DropdownMenuTrigger
++} from "@/components/ui/dropdown-menu";
++import {
++  Dialog,
++  DialogContent,
++  DialogHeader,
++  DialogTitle,
++  DialogTrigger,
++} from "@/components/ui/dialog";
++import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
++import { useState, useEffect, useMemo } from "react";
++import type { JournalEntry } from "@/lib/types";
++
++type TxType = "income" | "expense" | "other";
++
++interface DerivedTransaction {
++  id: string;
++  date: string;
++  description: string;
++  category: string;
++  type: TxType;
++  amount: number; // in cents
++  status: string;
++}
++
++/**
++ * A journal entry can touch many accounts across its lines. For the simplified
++ * Transactions view we classify the entry as "income" if its lines touch a
++ * revenue account, "expense" if they touch an expense account, and fall back
++ * to "other" (e.g. pure asset/liability transfers) otherwise. The displayed
++ * amount is the revenue/expense leg specifically, not the full entry total,
++ * so it reads correctly as "how much income/expense did this represent."
++ */
++function deriveTransaction(entry: JournalEntry): DerivedTransaction {
++  const lines = entry.lines || [];
++  const revenueLine = lines.find((l) => l.account?.category === "revenue");
++  const expenseLine = lines.find((l) => l.account?.category === "expense");
++
++  let type: TxType = "other";
++  let amount = 0;
++  let category = "General";
++
++  if (revenueLine) {
++    type = "income";
++    amount = revenueLine.credit || revenueLine.debit || 0;
++    category = revenueLine.account?.name || "Revenue";
++  } else if (expenseLine) {
++    type = "expense";
++    amount = expenseLine.debit || expenseLine.credit || 0;
++    category = expenseLine.account?.name || "Expense";
++  } else if (lines.length > 0) {
++    amount = lines.reduce((sum, l) => sum + (l.debit || 0), 0);
++    category = lines[0].account?.name || "General";
++  }
++
++  return {
++    id: entry.id,
++    date: entry.entry_date,
++    description: entry.description || entry.reference || "Untitled entry",
++    category,
++    type,
++    amount,
++    status: entry.status,
++  };
++}
++
++export function TransactionsView() {
++  const [mounted, setMounted] = useState(false);
++  const { currentOrg } = useOrg();
++  const { data: entries, isLoading } = useJournalEntries(currentOrg?.id || "");
++  const [isFormOpen, setIsFormOpen] = useState(false);
++  const [search, setSearch] = useState("");
++
++  useEffect(() => {
++    setMounted(true);
++  }, []);
++
++  const transactions = useMemo(() => {
++    if (!entries) return [];
++    const derived = entries.map(deriveTransaction);
++    if (!search.trim()) return derived;
++    const q = search.toLowerCase();
++    return derived.filter(
++      (t) => t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
++    );
++  }, [entries, search]);
++
++  if (!mounted) return null;
++
++  return (
++    <div className="space-y-6">
++      <div className="flex items-center justify-between">
++        <div>
++          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Transactions</h1>
++          <p className="text-muted-foreground">
++            A real-time ledger of all organization financial activity.
++          </p>
++        </div>
++        <div className="flex gap-2">
++          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++            <DialogTrigger asChild>
++              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Record Transaction">
++                <Plus className="mr-2 h-4 w-4" /> Record Transaction
++              </Button>
++            </DialogTrigger>
++            <DialogContent className="sm:max-w-[600px]">
++              <DialogHeader>
++                <DialogTitle>Record Transaction</DialogTitle>
++              </DialogHeader>
++              {currentOrg && (
++                <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              )}
++            </DialogContent>
++          </Dialog>
++        </div>
++      </div>
++
++      <div className="flex items-center gap-4">
++        <div className="relative flex-1 max-w-sm">
++          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
++          <Input
++            placeholder="Search transactions..."
++            className="pl-8 bg-white border-muted focus-visible:ring-axis-blue"
++            value={search}
++            onChange={(e) => setSearch(e.target.value)}
++          />
++        </div>
++        <Button variant="outline">
++          <Filter className="mr-2 h-4 w-4" /> Filters
++        </Button>
++      </div>
++
++      <div className="rounded-md border bg-white shadow-sm overflow-hidden">
++        <Table>
++          <TableHeader>
++            <TableRow className="bg-axis-light/50">
++              <TableHead className="font-semibold w-[150px]">Date</TableHead>
++              <TableHead className="font-semibold">Description</TableHead>
++              <TableHead className="font-semibold">Category</TableHead>
++              <TableHead className="font-semibold">Amount</TableHead>
++              <TableHead className="font-semibold">Status</TableHead>
++              <TableHead className="text-right font-semibold">Actions</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
++            {isLoading ? (
++              Array.from({ length: 5 }).map((_, i) => (
++                <TableRow key={i}>
++                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
++                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
++                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
++                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
++                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
++                  <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
++                </TableRow>
++              ))
++            ) : transactions.length > 0 ? (
++              transactions.map((transaction) => (
++                <TableRow key={transaction.id} className="hover:bg-axis-light/30">
++                  <TableCell className="text-sm">{transaction.date}</TableCell>
++                  <TableCell>
++                    <div className="flex items-center gap-2">
++                      {transaction.type === "income" ? (
++                        <ArrowUpRight className="h-4 w-4 text-axis-green shrink-0" />
++                      ) : transaction.type === "expense" ? (
++                        <ArrowDownLeft className="h-4 w-4 text-axis-red shrink-0" />
++                      ) : (
++                        <div className="h-4 w-4 shrink-0" />
++                      )}
++                      <span className="font-medium truncate">{transaction.description}</span>
++                    </div>
++                  </TableCell>
++                  <TableCell>
++                    <Badge variant="secondary" className="bg-axis-light text-axis-gray border-none">
++                      {transaction.category}
++                    </Badge>
++                  </TableCell>
++                  <TableCell
++                    className={
++                      transaction.type === "income"
++                        ? "text-axis-green font-semibold"
++                        : transaction.type === "expense"
++                        ? "text-axis-red font-semibold"
++                        : "font-semibold"
++                    }
++                  >
++                    {transaction.type === "income" ? "+" : transaction.type === "expense" ? "-" : ""}
++                    {(transaction.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
++                  </TableCell>
++                  <TableCell>
++                    <Badge
++                      variant="outline"
++                      className={
++                        transaction.status === "posted"
++                          ? "bg-axis-green/5 text-axis-green border-axis-green/20"
++                          : "bg-axis-gray/5 text-axis-gray border-axis-gray/20"
++                      }
++                    >
++                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
++                    </Badge>
++                  </TableCell>
++                  <TableCell className="text-right">
++                    <DropdownMenu>
++                      <DropdownMenuTrigger asChild>
++                        <Button
++                          variant="ghost"
++                          size="icon"
++                          aria-label={`Open menu for ${transaction.description}`}
++                        >
++                          <MoreHorizontal className="h-4 w-4" />
++                          <span className="sr-only">Open menu for {transaction.description}</span>
++                        </Button>
++                      </DropdownMenuTrigger>
++                      <DropdownMenuContent align="end">
++                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
++                        <DropdownMenuItem>View Journal Entry</DropdownMenuItem>
++                        <DropdownMenuItem>View Attachment</DropdownMenuItem>
++                        <DropdownMenuSeparator />
++                        <DropdownMenuItem className="text-axis-red">Void Transaction</DropdownMenuItem>
++                      </DropdownMenuContent>
++                    </DropdownMenu>
++                  </TableCell>
++                </TableRow>
++              ))
++            ) : (
++              <TableRow>
++                <TableCell colSpan={6} className="h-64 text-center">
++                  <div className="flex flex-col items-center justify-center space-y-2">
++                    <Receipt className="h-12 w-12 text-muted-foreground opacity-20" />
++                    <h3 className="text-lg font-semibold">No transactions found</h3>
++                    <p className="text-muted-foreground">
++                      Get started by recording your first transaction.
++                    </p>
++                    <Button
++                      variant="outline"
++                      className="mt-4 border-axis-blue text-axis-blue"
++                      onClick={() => setIsFormOpen(true)}
++                    >
++                      <Plus className="mr-2 h-4 w-4" /> Record Transaction
++                    </Button>
++                  </div>
++                </TableCell>
++              </TableRow>
++            )}
++          </TableBody>
++        </Table>
++      </div>
++    </div>
++  );
++}
+diff --git a/lib/finance/queries.ts b/lib/finance/queries.ts
+index 4784d14..26ec93d 100644
+--- a/lib/finance/queries.ts
++++ b/lib/finance/queries.ts
+@@ -85,7 +85,7 @@ export async function getJournalEntries(orgId: string) {
+     .from("journal_entries")
+     .select(`
+       *,
+-      lines:journal_entry_lines(*)
++      lines:journal_entry_lines(*, account:accounts(id, name, category))
+     `)
+     .eq("org_id", orgId)
+     .order("entry_date", { ascending: false });
+diff --git a/lib/types.ts b/lib/types.ts
+index 4b5660f..92bb367 100644
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -164,4 +164,9 @@ export interface JournalEntryLine {
+   credit: number; // In cents
+   description?: string;
+   created_at: string;
++  account?: {
++    id: string;
++    name: string;
++    category: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
++  };
+ }
+-- 
+2.43.0
+
+
+From 2d415afb5aa8c3e1dfb90869f9aeb8b079fdf13b Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Mon, 17 Aug 2026 16:41:00 +0000
+Subject: [PATCH 2/2] Fix CSP to derive Supabase origin from env var instead of
+ hardcoding it
+
+next.config.ts had the old Supabase project's URL hardcoded directly into
+the Content-Security-Policy connect-src directive. This silently blocked
+all auth/API requests to any newly created Supabase project (signup/login
+failed with 'Failed to fetch' + a CSP violation in the console), in both
+dev and production/Vercel, because the browser enforces CSP client-side
+regardless of what NEXT_PUBLIC_SUPABASE_URL is actually set to.
+
+Now derives the allowed origin (both https and wss, for realtime) from
+NEXT_PUBLIC_SUPABASE_URL at build time, so it self-corrects whenever the
+Supabase project changes.
+---
+ next.config.ts | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/next.config.ts b/next.config.ts
+index ece2c56..5ba9007 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -1,5 +1,16 @@
+ import type { NextConfig } from "next";
+ 
++// Derived from env so the CSP always matches whichever Supabase project is
++// actually configured, instead of a hardcoded project URL going stale every
++// time the project changes (e.g. dev vs. prod, or migrating projects).
++const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
++const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : "";
++// Supabase realtime (websocket) subscriptions connect over wss:// on the
++// same project ref, so it's included alongside the https origin.
++const supabaseRealtimeOrigin = supabaseOrigin
++  ? supabaseOrigin.replace(/^https:\/\//, "wss://")
++  : "";
++
+ const nextConfig: NextConfig = {
+   async headers() {
+     return [
+@@ -10,7 +21,7 @@ const nextConfig: NextConfig = {
+             key: "Content-Security-Policy",
+             value: `
+                     default-src 'self';
+-                    connect-src 'self' https://iyhqvdmfukrvvptxfgkl.supabase.co;
++                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin};
+                     script-src 'self' 'unsafe-eval' 'unsafe-inline';
+                     style-src 'self' 'unsafe-inline';
+                     img-src 'self' data:;
+-- 
+2.43.0
+

@@ -164,4 +164,9 @@ export interface JournalEntryLine {
   credit: number; // In cents
   description?: string;
   created_at: string;
+  account?: {
+    id: string;
+    name: string;
+    category: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+  };
 }
