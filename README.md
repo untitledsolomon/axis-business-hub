@@ -1,55 +1,72 @@
-# AXIS – Business Operating System
+# Axis — Regent Business Hub
 
-AXIS is a modern business management platform designed to be a lightweight, powerful alternative to tools like QuickBooks.
+Axis is Regent's operations system for the businesses it runs and the clients
+it serves directly. It is not built as a self-serve QuickBooks/Zoho
+alternative — it's the product behind a done-for-you engagement: Regent sets
+it up, configures it, and runs it alongside each client, rather than shipping
+it as off-the-shelf software.
 
-## Phase 1: Core Foundation
+See `Axis V1 Roadmap.md` for the actual build plan, current scope decisions,
+and what's explicitly out of scope for v1.
 
-The project has been migrated to **Next.js 15 (App Router)** and **React 19**.
+## Stack
 
-### Core Modules (Phase 1)
-- **Authentication**: Secure login system with protected routes via Middleware.
-- **Layout System**: Modern SaaS UI with Sidebar navigation and Topbar.
-- **Data Models**: Defined essential models for Clients, Invoices, Employees, and Transactions.
+- **Framework**: Next.js 15 (App Router), React 19
+- **Backend**: Supabase (Postgres, Auth, RLS, Edge Functions)
+- **Data fetching**: TanStack Query
+- **UI**: shadcn/ui (Radix UI) + Tailwind CSS
+- **Icons**: Lucide React
+
+## Module status
+
+This reflects the actual code, not aspiration. See the roadmap doc for the
+full breakdown and phase plan.
+
+**Wired to real data:**
+- Auth (Supabase, multi-tenant orgs, RLS)
+- Clients
+- Invoices (+ PDF generation via Edge Function)
+- Chart of Accounts
+- Transactions, General Ledger, Banking — journal-entry-backed, using the
+  `create_journal_entry_v1` double-entry RPC
+
+**Not yet built:**
+- Item-tracking core (inventory / asset custody / lifecycle views)
+- Employee / HR / shift module
+- Real running balance calculation on bank accounts
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js (Latest LTS recommended)
 - npm
+- A Supabase project (URL + anon key)
 
 ### Installation
 
-The project is configured to handle peer dependency conflicts automatically via `.npmrc`.
-
 ```sh
-# Step 1: Clone the repository
+# Clone the repository
 git clone https://github.com/untitledsolomon/axis-business-hub.git
-
-# Step 2: Navigate to the project directory
 cd axis-business-hub
 
-# Step 3: Install dependencies
+# Install dependencies
 npm install
 
-# Step 4: Start the development server
+# Configure environment
+cp .env.example .env.local
+# then fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# Run migrations against your Supabase project (see supabase/migrations)
+
+# Start the development server
 npm run dev
 ```
 
 ### Build
 
-To create a production build:
-
 ```sh
 npm run build
 ```
 
-## Technologies Used
-- **Framework**: Next.js 15 (App Router)
-- **UI Library**: Shadcn UI (Radix UI)
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Toast Notifications**: Sonner
-- **State Management**: React Context
-
 ## License
-Private
+Private — Regent
