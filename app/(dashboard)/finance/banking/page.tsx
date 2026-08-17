@@ -83,7 +83,7 @@ export default function BankingPage() {
       </div>
 
       <div className="rounded-md border bg-white shadow-sm overflow-hidden">
-        <Table>
+        <Table aria-label="Bank accounts list">
           <TableHeader>
             <TableRow className="bg-axis-light/50">
               <TableHead className="font-semibold">Account Name</TableHead>
@@ -107,8 +107,9 @@ export default function BankingPage() {
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" aria-label={`Open menu for ${account.name}`}>
                         <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Open menu for {account.name}</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
