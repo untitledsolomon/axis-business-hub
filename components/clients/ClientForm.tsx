@@ -216,7 +216,7 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
             )}
           />
         </div>
-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createClient.isPending}>
+        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createClient.isPending}>
           {createClient.isPending ? "Adding..." : "Add Client"}
         </Button>
       </form>

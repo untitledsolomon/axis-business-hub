@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccounts } from "@/hooks/finance/use-finance";
+import { useAccounts, useJournalEntries } from "@/hooks/finance/use-finance";
 import { useOrg } from "@/hooks/use-org";
 import {
   Table,
@@ -31,48 +31,66 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { AccountForm } from "@/components/finance/AccountForm";
-import { useState, useEffect } from "react";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { TableErrorState } from "@/components/shared/TableErrorState";
+import { useState, useEffect, useMemo } from "react";
+import { computeAccountBalance } from "@/lib/finance/balance";
 
 export function AccountsList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
-  const { data: accounts, isLoading } = useAccounts(currentOrg?.id || "");
+  const { data: accounts, isLoading, isError, refetch } = useAccounts(currentOrg?.id || "");
+  const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const balances = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const acc of accounts || []) {
+      map.set(acc.id, computeAccountBalance(acc.id, entries || [], acc.category));
+    }
+    return map;
+  }, [accounts, entries]);
+
+  const balancesLoading = isLoading || entriesLoading;
+
   if (!mounted) return null;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Chart of Accounts</h1>
-          <p className="text-muted-foreground">
-            View and manage your organization&apos;s financial accounts.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" /> Export
-          </Button>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Account">
-                <Plus className="mr-2 h-4 w-4" /> Add Account
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Add New Account</DialogTitle>
-              </DialogHeader>
-              {currentOrg && <AccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />}
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      <PageHeader
+        title="Chart of Accounts"
+        description="View and manage your organization's financial accounts."
+        actions={
+          <>
+            <Button variant="outline">
+              <Download className="mr-2 h-4 w-4" /> Export
+            </Button>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Add Account">
+                  <Plus className="mr-2 h-4 w-4" /> Add Account
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Account</DialogTitle>
+                </DialogHeader>
+                {currentOrg ? (
+                  <AccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+                ) : (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    You need an active organisation before adding an account.
+                  </p>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
+        }
+      />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -95,12 +113,14 @@ export function AccountsList() {
               <TableHead className="font-semibold">Account Name</TableHead>
               <TableHead className="font-semibold">Type</TableHead>
               <TableHead className="font-semibold">Sub-type</TableHead>
-              <TableHead className="text-right font-semibold">Balance (UGX)</TableHead>
+              <TableHead className="text-right font-semibold">Balance</TableHead>
               <TableHead className="text-right font-semibold">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isError ? (
+              <TableErrorState colSpan={6} onRetry={() => refetch()} />
+            ) : isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-4 w-12" /></TableCell>
@@ -128,8 +148,13 @@ export function AccountsList() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{account.sub_type}</TableCell>
                   <TableCell className="text-right font-mono">
-                    {/* Running balance calculation would go here in a full implementation */}
-                    0.00
+                    {balancesLoading ? (
+                      <Skeleton className="h-4 w-20 ml-auto" />
+                    ) : (
+                      ((balances.get(account.id) || 0) / 100).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

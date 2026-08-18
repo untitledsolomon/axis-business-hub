@@ -384,7 +384,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
           </div>
         </div>
 
-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createInvoice.isPending}>
+        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createInvoice.isPending}>
           {createInvoice.isPending ? "Creating Invoice..." : "Create Invoice"}
         </Button>
       </form>

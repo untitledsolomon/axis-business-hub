@@ -84,7 +84,7 @@ export function TaxRateForm({ orgId, onSuccess }: TaxRateFormProps) {
         />
         <Button
           type="submit"
-          className="w-full bg-axis-blue hover:bg-blue-800"
+          className="w-full bg-axis-blue hover:bg-axis-blue-light"
           disabled={createTaxRate.isPending}
         >
           {createTaxRate.isPending ? "Saving..." : "Save Tax Rate"}

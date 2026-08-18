@@ -270,7 +270,7 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
           </div>
         </div>
 
-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createJournalEntry.isPending}>
+        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createJournalEntry.isPending}>
           {createJournalEntry.isPending ? "Posting..." : "Post Journal Entry"}
         </Button>
       </form>

@@ -47,7 +47,7 @@ export function TaxRatesView() {
         </div>
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-axis-blue hover:bg-blue-800">
+            <Button className="bg-axis-blue hover:bg-axis-blue-light">
               <Plus className="mr-2 h-4 w-4" /> Add Tax Rate
             </Button>
           </DialogTrigger>

@@ -80,7 +80,7 @@ export function EmployeesView() {
             Manage your organization&apos;s workforce and team structure.
           </p>
         </div>
-        <Button className="bg-axis-blue hover:bg-blue-800" disabled title="Coming soon">
+        <Button className="bg-axis-blue hover:bg-axis-blue-light" disabled title="Coming soon">
           <Plus className="mr-2 h-4 w-4" /> Add Employee
         </Button>
       </div>
