@@ -87,8 +87,12 @@ export function LedgerView() {
               <DialogHeader>
                 <DialogTitle>New Journal Entry</DialogTitle>
               </DialogHeader>
-              {currentOrg && (
+              {currentOrg ? (
                 <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+              ) : (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
+                </p>
               )}
             </DialogContent>
           </Dialog>

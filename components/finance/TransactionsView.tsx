@@ -130,8 +130,12 @@ export function TransactionsView() {
               <DialogHeader>
                 <DialogTitle>Record Transaction</DialogTitle>
               </DialogHeader>
-              {currentOrg && (
+              {currentOrg ? (
                 <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+              ) : (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
+                </p>
               )}
             </DialogContent>
           </Dialog>
