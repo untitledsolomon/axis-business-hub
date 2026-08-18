@@ -29,7 +29,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold">Hello, {firstName} 👋</h1>
         <p className="text-muted-foreground mt-1">
-          Here's what's happening across your business today.
+          Here&apos;s what&apos;s happening across your business today.
         </p>
       </div>
 
