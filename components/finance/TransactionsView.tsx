@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { TableErrorState } from "@/components/shared/TableErrorState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Search, MoreHorizontal, ArrowUpRight, ArrowDownLeft, Filter, Receipt } from "lucide-react";
 import {
@@ -31,6 +33,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useState, useEffect, useMemo } from "react";
 import type { JournalEntry } from "@/lib/types";
 
@@ -90,7 +93,7 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
 export function TransactionsView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
-  const { data: entries, isLoading } = useJournalEntries(currentOrg?.id || "");
+  const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -112,17 +115,13 @@ export function TransactionsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Transactions</h1>
-          <p className="text-muted-foreground">
-            A real-time ledger of all organization financial activity.
-          </p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader
+        title="Transactions"
+        description="A real-time ledger of all organization financial activity."
+        actions={
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Record Transaction">
+              <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Record Transaction">
                 <Plus className="mr-2 h-4 w-4" /> Record Transaction
               </Button>
             </DialogTrigger>
@@ -139,8 +138,8 @@ export function TransactionsView() {
               )}
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+        }
+      />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -170,7 +169,9 @@ export function TransactionsView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isError ? (
+              <TableErrorState colSpan={6} onRetry={() => refetch()} />
+            ) : isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -215,16 +216,7 @@ export function TransactionsView() {
                     {(transaction.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        transaction.status === "posted"
-                          ? "bg-axis-green/5 text-axis-green border-axis-green/20"
-                          : "bg-axis-gray/5 text-axis-gray border-axis-gray/20"
-                      }
-                    >
-                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                    </Badge>
+                    <StatusBadge status={transaction.status} />
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

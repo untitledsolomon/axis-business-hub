@@ -1,6 +1,6 @@
 "use client";
 
-import { useBankAccounts } from "@/hooks/finance/use-finance";
+import { useBankAccounts, useJournalEntries } from "@/hooks/finance/use-finance";
 import { useOrg } from "@/hooks/use-org";
 import {
   Table,
@@ -30,54 +30,65 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { BankAccountForm } from "@/components/finance/BankAccountForm";
-import { useState, useEffect } from "react";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { useState, useEffect, useMemo } from "react";
+import { computeAccountBalance } from "@/lib/finance/balance";
 
 export function BankingView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
   const { data: bankAccounts, isLoading } = useBankAccounts(currentOrg?.id || "");
+  const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const balances = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const ba of bankAccounts || []) {
+      map.set(ba.id, computeAccountBalance(ba.account_id, entries || [], "asset"));
+    }
+    return map;
+  }, [bankAccounts, entries]);
+
+  const balancesLoading = isLoading || entriesLoading;
+
   if (!mounted) return null;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Banking</h1>
-          <p className="text-muted-foreground">
-            Manage your bank accounts, cash floats, and track balances.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
-          </Button>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Account">
-                <Plus className="mr-2 h-4 w-4" /> Add Account
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Add Bank Account</DialogTitle>
-              </DialogHeader>
-              {currentOrg ? (
-                <BankAccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
-              ) : (
-                <p className="text-sm text-muted-foreground py-6 text-center">
-                  You need an active organisation before adding a bank account.
-                </p>
-              )}
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      <PageHeader
+        title="Banking"
+        description="Manage your bank accounts, cash floats, and track balances."
+        actions={
+          <>
+            <Button variant="outline">
+              <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
+            </Button>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Add Account">
+                  <Plus className="mr-2 h-4 w-4" /> Add Account
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Add Bank Account</DialogTitle>
+                </DialogHeader>
+                {currentOrg ? (
+                  <BankAccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+                ) : (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    You need an active organisation before adding a bank account.
+                  </p>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
+        }
+      />
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-3">
@@ -102,10 +113,14 @@ export function BankingView() {
                 <Landmark className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {/* Running balance is derived from the linked GL account's journal entries
-                    and is not yet computed here — see account.account_id */}
-                <div className="text-2xl font-bold">
-                  {account.currency} —
+                <div className="text-2xl font-semibold font-mono tracking-tight">
+                  {balancesLoading ? (
+                    <Skeleton className="h-8 w-28" />
+                  ) : (
+                    `${account.currency} ${(
+                      (balances.get(account.id) || 0) / 100
+                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {account.bank_name || "—"} • {account.account_number || "N/A"}
@@ -145,6 +160,7 @@ export function BankingView() {
                 <TableHead className="font-semibold">Bank</TableHead>
                 <TableHead className="font-semibold">Account Number</TableHead>
                 <TableHead className="font-semibold">Currency</TableHead>
+                <TableHead className="text-right font-semibold">Balance</TableHead>
                 <TableHead className="text-right font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -155,6 +171,13 @@ export function BankingView() {
                   <TableCell>{account.bank_name || "—"}</TableCell>
                   <TableCell className="font-mono text-xs">{account.account_number || "—"}</TableCell>
                   <TableCell>{account.currency}</TableCell>
+                  <TableCell className="text-right font-mono">
+                    {balancesLoading
+                      ? "—"
+                      : ((balances.get(account.id) || 0) / 100).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

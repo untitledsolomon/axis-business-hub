@@ -11,9 +11,8 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, MoreHorizontal, FileDown, Send, CheckCircle } from "lucide-react";
+import { Plus, Search, Filter, MoreHorizontal, FileDown, Send, CheckCircle, Receipt } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -31,59 +30,51 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { InvoiceForm } from "@/components/invoicing/InvoiceForm";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { TableErrorState } from "@/components/shared/TableErrorState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 
 export function InvoicesList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
-  const { data: invoices, isLoading } = useInvoices(currentOrg?.id || "");
+  const { data: invoices, isLoading, isError, refetch } = useInvoices(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "paid":
-        return <Badge className="bg-axis-green/10 text-axis-green border-axis-green/20">Paid</Badge>;
-      case "draft":
-        return <Badge variant="secondary">Draft</Badge>;
-      case "sent":
-        return <Badge className="bg-axis-blue/10 text-axis-blue border-axis-blue/20">Sent</Badge>;
-      case "overdue":
-        return <Badge className="bg-axis-red/10 text-axis-red border-axis-red/20">Overdue</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
   if (!mounted) return null;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Invoices</h1>
-          <p className="text-muted-foreground">
-            Manage your customer billing and track payments.
-          </p>
-        </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Create Invoice">
-              <Plus className="mr-2 h-4 w-4" /> Create Invoice
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Invoice</DialogTitle>
-            </DialogHeader>
-            {currentOrg && <InvoiceForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />}
-          </DialogContent>
-        </Dialog>
-      </div>
+      <PageHeader
+        title="Invoices"
+        description="Manage your customer billing and track payments."
+        actions={
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Create Invoice">
+                <Plus className="mr-2 h-4 w-4" /> Create Invoice
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Invoice</DialogTitle>
+              </DialogHeader>
+              {currentOrg ? (
+                <InvoiceForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+              ) : (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  You need an active organisation before creating an invoice.
+                </p>
+              )}
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -112,7 +103,9 @@ export function InvoicesList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isError ? (
+              <TableErrorState colSpan={7} onRetry={() => refetch()} />
+            ) : isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
@@ -127,7 +120,7 @@ export function InvoicesList() {
             ) : invoices && invoices.length > 0 ? (
               invoices.map((invoice) => (
                 <TableRow key={invoice.id} className="hover:bg-axis-light/30">
-                  <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                  <TableCell className="font-medium font-mono text-sm">{invoice.invoice_number}</TableCell>
                   <TableCell>{invoice.client?.name || '—'}</TableCell>
                   <TableCell className="text-sm">
                     {invoice.issue_date ? format(new Date(invoice.issue_date), "MMM dd, yyyy") : '—'}
@@ -136,10 +129,10 @@ export function InvoicesList() {
                     {invoice.due_date ? format(new Date(invoice.due_date), "MMM dd, yyyy") : '—'}
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(invoice.status)}
+                    <StatusBadge status={invoice.status} />
                   </TableCell>
-                  <TableCell className="text-right font-semibold text-axis-blue">
-                    ${(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <TableCell className="text-right font-semibold font-mono text-axis-blue">
+                    {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -169,8 +162,21 @@ export function InvoicesList() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  No invoices found.
+                <TableCell colSpan={7} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <Receipt className="h-12 w-12 text-muted-foreground opacity-20" />
+                    <h3 className="text-lg font-semibold">No invoices yet</h3>
+                    <p className="text-muted-foreground">
+                      Get started by creating your first invoice.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="mt-4 border-axis-blue text-axis-blue"
+                      onClick={() => setIsFormOpen(true)}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Create Invoice
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

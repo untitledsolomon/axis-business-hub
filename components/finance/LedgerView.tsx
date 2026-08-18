@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus, Search, Filter, MoreHorizontal, FileSpreadsheet, History } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -32,6 +31,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
+import { TableErrorState } from "@/components/shared/TableErrorState";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useState, useEffect, useMemo } from "react";
 
 function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
@@ -43,7 +45,7 @@ function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
 export function LedgerView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
-  const { data: entries, isLoading } = useJournalEntries(currentOrg?.id || "");
+  const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -66,38 +68,36 @@ export function LedgerView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">General Ledger</h1>
-          <p className="text-muted-foreground">
-            The source of truth for all financial transactions and journal entries.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <History className="mr-2 h-4 w-4" /> Audit Log
-          </Button>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="New Journal Entry">
-                <Plus className="mr-2 h-4 w-4" /> New Journal Entry
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>New Journal Entry</DialogTitle>
-              </DialogHeader>
-              {currentOrg ? (
-                <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
-              ) : (
-                <p className="text-sm text-muted-foreground py-6 text-center">
-                  There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
-                </p>
-              )}
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      <PageHeader
+        title="General Ledger"
+        description="The source of truth for all financial transactions and journal entries."
+        actions={
+          <>
+            <Button variant="outline">
+              <History className="mr-2 h-4 w-4" /> Audit Log
+            </Button>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="New Journal Entry">
+                  <Plus className="mr-2 h-4 w-4" /> New Journal Entry
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>New Journal Entry</DialogTitle>
+                </DialogHeader>
+                {currentOrg ? (
+                  <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+                ) : (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
+                  </p>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
+        }
+      />
 
       <Tabs defaultValue="entries" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -134,7 +134,9 @@ export function LedgerView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {isError ? (
+                  <TableErrorState colSpan={6} onRetry={() => refetch()} />
+                ) : isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
@@ -152,16 +154,7 @@ export function LedgerView() {
                       <TableCell className="font-mono text-sm">{entry.reference || "—"}</TableCell>
                       <TableCell className="font-medium">{entry.description || "—"}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={entry.status === "posted" ? "default" : "secondary"}
-                          className={
-                            entry.status === "posted"
-                              ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20"
-                              : ""
-                          }
-                        >
-                          {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
-                        </Badge>
+                        <StatusBadge status={entry.status} />
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {(entryTotal(entry) / 100).toLocaleString(undefined, {

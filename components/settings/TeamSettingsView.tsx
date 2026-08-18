@@ -53,7 +53,7 @@ export function TeamSettingsView() {
             People with access to {currentOrg?.name ?? "this organisation"}.
           </p>
         </div>
-        <Button className="bg-axis-blue hover:bg-blue-800" disabled>
+        <Button className="bg-axis-blue hover:bg-axis-blue-light" disabled>
           <UserPlus className="mr-2 h-4 w-4" /> Invite Member
         </Button>
       </div>

@@ -11,9 +11,8 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, MoreHorizontal, Mail, Phone } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Mail, Phone, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -31,13 +30,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/ClientForm";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { TableErrorState } from "@/components/shared/TableErrorState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useState, useEffect } from "react";
 import { Client } from "@/lib/types";
 
 export function ClientsList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
-  const { data: clients, isLoading } = useClients(currentOrg?.id || "");
+  const { data: clients, isLoading, isError, refetch } = useClients(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
@@ -48,27 +50,31 @@ export function ClientsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Clients</h1>
-          <p className="text-muted-foreground">
-            Manage your client directory and their financial relationships.
-          </p>
-        </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Client">
-              <Plus className="mr-2 h-4 w-4" /> Add Client
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-            </DialogHeader>
-            {currentOrg && <ClientForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />}
-          </DialogContent>
-        </Dialog>
-      </div>
+      <PageHeader
+        title="Clients"
+        description="Manage your client directory and their financial relationships."
+        actions={
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Add Client">
+                <Plus className="mr-2 h-4 w-4" /> Add Client
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+              </DialogHeader>
+              {currentOrg ? (
+                <ClientForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+              ) : (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  You need an active organisation before adding a client.
+                </p>
+              )}
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -93,7 +99,9 @@ export function ClientsList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isError ? (
+              <TableErrorState colSpan={5} onRetry={() => refetch()} />
+            ) : isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-4 w-40" /></TableCell>
@@ -128,18 +136,7 @@ export function ClientsList() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        client.status === "active" ? "default" :
-                        client.status === "inactive" ? "secondary" : "outline"
-                      }
-                      className={
-                        client.status === "active" ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20" :
-                        ""
-                      }
-                    >
-                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
-                    </Badge>
+                    <StatusBadge status={client.status} />
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -163,8 +160,21 @@ export function ClientsList() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  No clients found.
+                <TableCell colSpan={5} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <Users className="h-12 w-12 text-muted-foreground opacity-20" />
+                    <h3 className="text-lg font-semibold">No clients yet</h3>
+                    <p className="text-muted-foreground">
+                      Get started by adding your first client.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="mt-4 border-axis-blue text-axis-blue"
+                      onClick={() => setIsFormOpen(true)}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Add Client
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

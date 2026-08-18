@@ -178,7 +178,7 @@ export function OrganisationSettingsView() {
             </div>
             <Button
               type="submit"
-              className="bg-axis-blue hover:bg-blue-800"
+              className="bg-axis-blue hover:bg-axis-blue-light"
               disabled={updateOrg.isPending}
             >
               {updateOrg.isPending ? "Saving..." : "Save Changes"}

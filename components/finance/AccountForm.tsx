@@ -158,7 +158,7 @@ export function AccountForm({ orgId, onSuccess }: AccountFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createAccount.isPending}>
+        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createAccount.isPending}>
           {createAccount.isPending ? "Creating..." : "Create Account"}
         </Button>
       </form>

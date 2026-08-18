@@ -1,0 +1,1563 @@
+From 0e4a0260d2015b083fe9cbabd4482ae713404a34 Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Tue, 18 Aug 2026 21:56:34 +0000
+Subject: [PATCH] Design system overhaul + restore lost Phase 1
+ balance/error-state work
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+DESIGN SYSTEM ("Institutional Ledger")
+Deliberately moves away from generic SaaS blue toward something reading
+as serious business/accounting software, per direction: professional,
+not "SaaSy."
+
+- app/globals.css: new HSL token set — deep navy primary, muted
+  forest-teal accent (success states), brick red (not alarm-red) for
+  destructive, warm off-white background. Headings use font-display.
+- app/layout.tsx: added Source Serif 4 (headings — signals a tool built
+  for keeping books, not a consumer app) and JetBrains Mono (all monetary
+  figures, tabular convention) alongside existing Inter. Also fixed
+  metadata still describing Axis as a "QuickBooks alternative" / tagged
+  "SaaS" — leftover from before the done-for-you repositioning.
+- tailwind.config.ts: remapped axis.blue/green/red/gray/light to
+  reference the new CSS variables instead of hardcoded hex. Every
+  existing bg-axis-blue etc. usage across the app picks up the new
+  palette automatically — this is why most files below show as modified
+  despite no logic changes, only a global hover-color fix (see below).
+- Global fix: hover:bg-blue-800 (Tailwind's default blue, disconnected
+  from the new navy token) was hardcoded identically in 19 files, always
+  paired with bg-axis-blue. Replaced with hover:bg-axis-blue-light
+  everywhere so hover states stay in sync with the token system.
+
+SHARED COMPONENTS
+- components/shared/PageHeader.tsx (new): replaces the near-identical
+  hand-rolled title/description/actions header block that was previously
+  duplicated with slightly different markup across 6 pages.
+- components/shared/StatusBadge.tsx (new): consistent status styling
+  (invoice, journal entry, employee statuses) replacing three different
+  ad-hoc badge-coloring approaches across Ledger, Transactions, and
+  Invoices.
+- components/dashboard/StatCard.tsx: stat values now use font-mono for
+  tabular alignment.
+
+REGRESSION FIX: restored work lost from an earlier, never-actually-merged
+patch (confirmed via git log — only the original wiring patch landed,
+a later "Phase 1 complete" patch did not, apparently lost in local
+patch-file mixups on a prior session):
+- lib/finance/balance.ts (recreated): the computeAccountBalance double-
+  entry balance calculation.
+- components/shared/TableErrorState.tsx (recreated): distinguishes a
+  failed fetch from genuinely empty data.
+- BankingView, AccountsList: real computed balances restored (had
+  silently reverted to a hardcoded 0.00 / placeholder "—").
+- LedgerView, TransactionsView, ClientsList, InvoicesList: isError/
+  refetch + TableErrorState restored.
+- ClientsList, InvoicesList, AccountsList: the silent
+  `{currentOrg && <Form />}` pattern (renders nothing with no
+  explanation if org is missing) replaced with a visible fallback
+  message, matching the fix already applied to Ledger/Transactions/
+  Banking in an earlier session.
+- InvoicesList: also fixed a real currency bug found while restoring
+  this file — amounts were hardcoded with a literal "$" regardless of
+  invoice.currency (wrong for a UGX-based business).
+
+Verified: tsc --noEmit clean, eslint clean on every touched file.
+Production build not verified in this sandbox (no network access to
+Google Fonts here — confirmed unrelated to code correctness in prior
+sessions the same way).
+---
+ app/globals.css                               | 119 ++++++++++--------
+ app/layout.tsx                                |  38 +++---
+ components/auth/login-form.tsx                |   2 +-
+ components/auth/signup-form.tsx               |   2 +-
+ components/clients/ClientForm.tsx             |   2 +-
+ components/clients/ClientsList.tsx            |  88 +++++++------
+ components/dashboard/StatCard.tsx             |   2 +-
+ components/employees/EmployeesView.tsx        |   2 +-
+ components/finance/AccountForm.tsx            |   2 +-
+ components/finance/AccountsList.tsx           |  91 +++++++++-----
+ components/finance/BankAccountForm.tsx        |   2 +-
+ components/finance/BankingView.tsx            |  99 +++++++++------
+ components/finance/JournalEntryForm.tsx       |   2 +-
+ components/finance/LedgerView.tsx             |  83 ++++++------
+ components/finance/TaxRateForm.tsx            |   2 +-
+ components/finance/TransactionsView.tsx       |  38 +++---
+ components/invoicing/InvoiceForm.tsx          |   2 +-
+ components/invoicing/InvoicesList.tsx         |  98 ++++++++-------
+ .../settings/OrganisationSettingsView.tsx     |   2 +-
+ components/settings/TaxRateForm.tsx           |   2 +-
+ components/settings/TaxRatesView.tsx          |   2 +-
+ components/settings/TeamSettingsView.tsx      |   2 +-
+ components/shared/PageHeader.tsx              |  29 +++++
+ components/shared/StatusBadge.tsx             |  53 ++++++++
+ components/shared/TableErrorState.tsx         |  36 ++++++
+ lib/finance/balance.ts                        |  31 +++++
+ tailwind.config.ts                            |  24 ++--
+ 27 files changed, 542 insertions(+), 313 deletions(-)
+ create mode 100644 components/shared/PageHeader.tsx
+ create mode 100644 components/shared/StatusBadge.tsx
+ create mode 100644 components/shared/TableErrorState.tsx
+ create mode 100644 lib/finance/balance.ts
+
+diff --git a/app/globals.css b/app/globals.css
+index 1bb8733..7cb1253 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -3,85 +3,94 @@
+ @tailwind components;
+ @tailwind utilities;
+ 
++/*
++ * Axis design system — "Institutional Ledger"
++ * A deliberate move away from generic SaaS-blue: deep navy over a warm
++ * off-white, muted forest-teal for positive states, brick (not alarm) red
++ * for negative ones. Serif display type signals a tool built for keeping
++ * books, not a consumer app. Monetary figures always render in the mono
++ * face with tabular numerals.
++ */
++
+ @layer base {
+   :root {
+-    --background: 210 40% 98%;
+-    --foreground: 222 47% 11%;
++    --background: 60 11% 96%;
++    --foreground: 215 18% 13%;
+ 
+     --card: 0 0% 100%;
+-    --card-foreground: 222 47% 11%;
++    --card-foreground: 215 18% 13%;
+ 
+     --popover: 0 0% 100%;
+-    --popover-foreground: 222 47% 11%;
++    --popover-foreground: 215 18% 13%;
+ 
+-    --primary: 222 47% 33%;
+-    --primary-foreground: 210 40% 98%;
++    --primary: 211 55% 23%;
++    --primary-foreground: 60 11% 96%;
+ 
+-    --secondary: 220 14% 96%;
+-    --secondary-foreground: 222 47% 11%;
++    --secondary: 48 13% 92%;
++    --secondary-foreground: 215 18% 13%;
+ 
+-    --muted: 220 14% 96%;
+-    --muted-foreground: 215 16% 47%;
++    --muted: 48 13% 92%;
++    --muted-foreground: 216 2% 43%;
+ 
+-    --accent: 220 14% 96%;
+-    --accent-foreground: 222 47% 11%;
++    --accent: 160 27% 33%;
++    --accent-foreground: 60 11% 96%;
+ 
+-    --destructive: 0 84% 60%;
+-    --destructive-foreground: 210 40% 98%;
++    --destructive: 0 41% 39%;
++    --destructive-foreground: 60 11% 96%;
+ 
+-    --border: 214 32% 91%;
+-    --input: 214 32% 91%;
+-    --ring: 222 47% 11%;
++    --border: 43 11% 88%;
++    --input: 43 11% 88%;
++    --ring: 211 55% 23%;
+ 
+-    --radius: 0.5rem;
++    --radius: 0.375rem;
+ 
+-    --sidebar-background: 222 47% 11%;
+-    --sidebar-foreground: 210 40% 98%;
+-    --sidebar-primary: 217 91% 60%;
+-    --sidebar-primary-foreground: 0 0% 100%;
+-    --sidebar-accent: 220 14% 18%;
+-    --sidebar-accent-foreground: 210 40% 98%;
+-    --sidebar-border: 220 14% 18%;
+-    --sidebar-ring: 217 91% 60%;
++    --sidebar-background: 212 49% 15%;
++    --sidebar-foreground: 60 11% 92%;
++    --sidebar-primary: 160 27% 40%;
++    --sidebar-primary-foreground: 60 11% 96%;
++    --sidebar-accent: 213 51% 24%;
++    --sidebar-accent-foreground: 60 11% 96%;
++    --sidebar-border: 213 40% 22%;
++    --sidebar-ring: 160 27% 40%;
+   }
+ 
+   .dark {
+-    --background: 222 47% 11%;
+-    --foreground: 210 40% 98%;
++    --background: 215 24% 10%;
++    --foreground: 60 11% 92%;
+ 
+-    --card: 222 47% 11%;
+-    --card-foreground: 210 40% 98%;
++    --card: 215 22% 13%;
++    --card-foreground: 60 11% 92%;
+ 
+-    --popover: 222 47% 11%;
+-    --popover-foreground: 210 40% 98%;
++    --popover: 215 22% 13%;
++    --popover-foreground: 60 11% 92%;
+ 
+-    --primary: 210 40% 98%;
+-    --primary-foreground: 222 47% 11%;
++    --primary: 209 45% 55%;
++    --primary-foreground: 215 24% 10%;
+ 
+-    --secondary: 217 33% 17%;
+-    --secondary-foreground: 210 40% 98%;
++    --secondary: 215 18% 18%;
++    --secondary-foreground: 60 11% 92%;
+ 
+-    --muted: 217 33% 17%;
+-    --muted-foreground: 215 20% 65%;
++    --muted: 215 18% 18%;
++    --muted-foreground: 216 8% 62%;
+ 
+-    --accent: 217 33% 17%;
+-    --accent-foreground: 210 40% 98%;
++    --accent: 160 22% 45%;
++    --accent-foreground: 215 24% 10%;
+ 
+-    --destructive: 0 62% 30%;
+-    --destructive-foreground: 210 40% 98%;
++    --destructive: 0 45% 48%;
++    --destructive-foreground: 60 11% 92%;
+ 
+-    --border: 217 33% 17%;
+-    --input: 217 33% 17%;
+-    --ring: 213 27% 84%;
++    --border: 215 18% 20%;
++    --input: 215 18% 20%;
++    --ring: 209 45% 55%;
+ 
+-    --sidebar-background: 220 14% 10%;
+-    --sidebar-foreground: 210 40% 98%;
+-    --sidebar-primary: 217 91% 60%;
+-    --sidebar-primary-foreground: 0 0% 100%;
+-    --sidebar-accent: 220 14% 15%;
+-    --sidebar-accent-foreground: 210 40% 98%;
+-    --sidebar-border: 220 14% 15%;
+-    --sidebar-ring: 217 91% 60%;
++    --sidebar-background: 215 26% 8%;
++    --sidebar-foreground: 60 11% 88%;
++    --sidebar-primary: 160 22% 45%;
++    --sidebar-primary-foreground: 215 24% 10%;
++    --sidebar-accent: 215 20% 15%;
++    --sidebar-accent-foreground: 60 11% 92%;
++    --sidebar-border: 215 20% 15%;
++    --sidebar-ring: 160 22% 45%;
+   }
+ }
+ 
+@@ -93,6 +102,10 @@
+   body {
+     @apply bg-background text-foreground;
+   }
++
++  h1, h2, h3 {
++    @apply font-display;
++  }
+ }
+ 
+ /* Custom scrollbar styles */
+diff --git a/app/layout.tsx b/app/layout.tsx
+index cd12c39..f0fe62f 100644
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -1,5 +1,5 @@
+ import type { Metadata } from "next";
+-import { Inter } from "next/font/google";
++import { Inter, Source_Serif_4, JetBrains_Mono } from "next/font/google";
+ import "./globals.css";
+ import { Toaster } from "@/components/ui/toaster";
+ import { Toaster as Sonner } from "@/components/ui/sonner";
+@@ -8,37 +8,47 @@ import { AuthProvider } from "@/hooks/use-auth";
+ import { OrgProvider } from "@/hooks/use-org";
+ import { QueryProvider } from "@/providers/query-provider";
+ 
+-const inter = Inter({ subsets: ["latin"] });
++const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
++const sourceSerif = Source_Serif_4({
++  subsets: ["latin"],
++  variable: "--font-display",
++  weight: ["500", "600", "700"],
++});
++const jetbrainsMono = JetBrains_Mono({
++  subsets: ["latin"],
++  variable: "--font-mono",
++  weight: ["400", "500", "600"],
++});
+ 
+ export const metadata: Metadata = {
+   metadataBase: new URL("https://axis.example.com"),
+   title: {
+-    default: "AXIS - Business Operating System",
+-    template: "%s | AXIS",
++    default: "Axis | Regent Business Hub",
++    template: "%s | Axis",
+   },
+-  description: "AXIS is a modern business management platform designed as a lightweight alternative to QuickBooks, focusing on invoicing, clients, employees, and financial tracking.",
+-  keywords: ["business management", "invoicing", "client tracking", "employee management", "financial tracking", "SaaS"],
+-  authors: [{ name: "AXIS Team" }],
++  description: "Axis is Regent's operations system for the businesses it runs and the clients it serves directly — invoicing, clients, employees, and financial tracking, set up and run as a done-for-you engagement.",
++  keywords: ["business operations", "invoicing", "client management", "employee management", "financial tracking", "East Africa"],
++  authors: [{ name: "Regent" }],
+   openGraph: {
+     type: "website",
+     locale: "en_US",
+     url: "https://axis.example.com",
+-    siteName: "AXIS",
+-    title: "AXIS - Business Operating System",
+-    description: "Modern business management platform for invoicing, clients, and financial tracking.",
++    siteName: "Axis",
++    title: "Axis | Regent Business Hub",
++    description: "Regent's operations system for invoicing, clients, and financial tracking.",
+     images: [
+       {
+         url: "/og-image.png",
+         width: 1200,
+         height: 630,
+-        alt: "AXIS - Business Operating System",
++        alt: "Axis | Regent Business Hub",
+       },
+     ],
+   },
+   twitter: {
+     card: "summary_large_image",
+-    title: "AXIS - Business Operating System",
+-    description: "Modern business management platform for invoicing, clients, and financial tracking.",
++    title: "Axis | Regent Business Hub",
++    description: "Regent's operations system for invoicing, clients, and financial tracking.",
+     images: ["/og-image.png"],
+   },
+   robots: {
+@@ -54,7 +64,7 @@ export default function RootLayout({
+ }>) {
+   return (
+     <html lang="en">
+-      <body className={inter.className}>
++      <body className={`${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} font-sans`}>
+         <QueryProvider>
+           <AuthProvider>
+             <OrgProvider>
+diff --git a/components/auth/login-form.tsx b/components/auth/login-form.tsx
+index c71a5f3..f5cf742 100644
+--- a/components/auth/login-form.tsx
++++ b/components/auth/login-form.tsx
+@@ -87,7 +87,7 @@ export function LoginForm() {
+               />
+             </CardContent>
+             <CardFooter className="flex flex-col space-y-4">
+-              <Button className="w-full bg-axis-blue hover:bg-blue-800" type="submit" disabled={isLoading}>
++              <Button className="w-full bg-axis-blue hover:bg-axis-blue-light" type="submit" disabled={isLoading}>
+                 {isLoading ? "Signing in..." : "Sign in"}
+               </Button>
+               <div className="text-sm text-center text-muted-foreground">
+diff --git a/components/auth/signup-form.tsx b/components/auth/signup-form.tsx
+index 4c8a838..dc1d261 100644
+--- a/components/auth/signup-form.tsx
++++ b/components/auth/signup-form.tsx
+@@ -110,7 +110,7 @@ export function SignUpForm() {
+               />
+             </CardContent>
+             <CardFooter className="flex flex-col space-y-4">
+-              <Button className="w-full bg-axis-blue hover:bg-blue-800" type="submit" disabled={isLoading}>
++              <Button className="w-full bg-axis-blue hover:bg-axis-blue-light" type="submit" disabled={isLoading}>
+                 {isLoading ? "Creating account..." : "Sign up"}
+               </Button>
+               <div className="text-sm text-center text-muted-foreground">
+diff --git a/components/clients/ClientForm.tsx b/components/clients/ClientForm.tsx
+index b5af95a..ebd5833 100644
+--- a/components/clients/ClientForm.tsx
++++ b/components/clients/ClientForm.tsx
+@@ -216,7 +216,7 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
+             )}
+           />
+         </div>
+-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createClient.isPending}>
++        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createClient.isPending}>
+           {createClient.isPending ? "Adding..." : "Add Client"}
+         </Button>
+       </form>
+diff --git a/components/clients/ClientsList.tsx b/components/clients/ClientsList.tsx
+index 3a88ec5..3c09611 100644
+--- a/components/clients/ClientsList.tsx
++++ b/components/clients/ClientsList.tsx
+@@ -11,9 +11,8 @@ import {
+   TableRow
+ } from "@/components/ui/table";
+ import { Button } from "@/components/ui/button";
+-import { Plus, Search, MoreHorizontal, Mail, Phone } from "lucide-react";
++import { Plus, Search, MoreHorizontal, Mail, Phone, Users } from "lucide-react";
+ import { Input } from "@/components/ui/input";
+-import { Badge } from "@/components/ui/badge";
+ import { Skeleton } from "@/components/ui/skeleton";
+ import {
+   DropdownMenu,
+@@ -31,13 +30,16 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { ClientForm } from "@/components/clients/ClientForm";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { TableErrorState } from "@/components/shared/TableErrorState";
++import { StatusBadge } from "@/components/shared/StatusBadge";
+ import { useState, useEffect } from "react";
+ import { Client } from "@/lib/types";
+ 
+ export function ClientsList() {
+   const [mounted, setMounted] = useState(false);
+   const { currentOrg } = useOrg();
+-  const { data: clients, isLoading } = useClients(currentOrg?.id || "");
++  const { data: clients, isLoading, isError, refetch } = useClients(currentOrg?.id || "");
+   const [isFormOpen, setIsFormOpen] = useState(false);
+ 
+   useEffect(() => {
+@@ -48,27 +50,31 @@ export function ClientsList() {
+ 
+   return (
+     <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Clients</h1>
+-          <p className="text-muted-foreground">
+-            Manage your client directory and their financial relationships.
+-          </p>
+-        </div>
+-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+-          <DialogTrigger asChild>
+-            <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Client">
+-              <Plus className="mr-2 h-4 w-4" /> Add Client
+-            </Button>
+-          </DialogTrigger>
+-          <DialogContent className="sm:max-w-[600px]">
+-            <DialogHeader>
+-              <DialogTitle>Add New Client</DialogTitle>
+-            </DialogHeader>
+-            {currentOrg && <ClientForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />}
+-          </DialogContent>
+-        </Dialog>
+-      </div>
++      <PageHeader
++        title="Clients"
++        description="Manage your client directory and their financial relationships."
++        actions={
++          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++            <DialogTrigger asChild>
++              <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Add Client">
++                <Plus className="mr-2 h-4 w-4" /> Add Client
++              </Button>
++            </DialogTrigger>
++            <DialogContent className="sm:max-w-[600px]">
++              <DialogHeader>
++                <DialogTitle>Add New Client</DialogTitle>
++              </DialogHeader>
++              {currentOrg ? (
++                <ClientForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              ) : (
++                <p className="text-sm text-muted-foreground py-6 text-center">
++                  You need an active organisation before adding a client.
++                </p>
++              )}
++            </DialogContent>
++          </Dialog>
++        }
++      />
+ 
+       <div className="flex items-center gap-4">
+         <div className="relative flex-1 max-w-sm">
+@@ -93,7 +99,9 @@ export function ClientsList() {
+             </TableRow>
+           </TableHeader>
+           <TableBody>
+-            {isLoading ? (
++            {isError ? (
++              <TableErrorState colSpan={5} onRetry={() => refetch()} />
++            ) : isLoading ? (
+               Array.from({ length: 5 }).map((_, i) => (
+                 <TableRow key={i}>
+                   <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+@@ -128,18 +136,7 @@ export function ClientsList() {
+                     </div>
+                   </TableCell>
+                   <TableCell>
+-                    <Badge
+-                      variant={
+-                        client.status === "active" ? "default" :
+-                        client.status === "inactive" ? "secondary" : "outline"
+-                      }
+-                      className={
+-                        client.status === "active" ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20" :
+-                        ""
+-                      }
+-                    >
+-                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+-                    </Badge>
++                    <StatusBadge status={client.status} />
+                   </TableCell>
+                   <TableCell className="text-right">
+                     <DropdownMenu>
+@@ -163,8 +160,21 @@ export function ClientsList() {
+               ))
+             ) : (
+               <TableRow>
+-                <TableCell colSpan={5} className="h-24 text-center">
+-                  No clients found.
++                <TableCell colSpan={5} className="h-64 text-center">
++                  <div className="flex flex-col items-center justify-center space-y-2">
++                    <Users className="h-12 w-12 text-muted-foreground opacity-20" />
++                    <h3 className="text-lg font-semibold">No clients yet</h3>
++                    <p className="text-muted-foreground">
++                      Get started by adding your first client.
++                    </p>
++                    <Button
++                      variant="outline"
++                      className="mt-4 border-axis-blue text-axis-blue"
++                      onClick={() => setIsFormOpen(true)}
++                    >
++                      <Plus className="mr-2 h-4 w-4" /> Add Client
++                    </Button>
++                  </div>
+                 </TableCell>
+               </TableRow>
+             )}
+diff --git a/components/dashboard/StatCard.tsx b/components/dashboard/StatCard.tsx
+index 9dce3e7..da52ebf 100644
+--- a/components/dashboard/StatCard.tsx
++++ b/components/dashboard/StatCard.tsx
+@@ -23,7 +23,7 @@ export function StatCard({ title, value, icon, trend, subtitle, className }: Sta
+         <div className="flex items-center justify-between">
+           <div>
+             <p className="text-sm font-medium text-muted-foreground">{title}</p>
+-            <p className="text-2xl font-bold mt-1">{value}</p>
++            <p className="text-2xl font-semibold font-mono tracking-tight mt-1">{value}</p>
+             {trend && (
+               <div className="flex items-center mt-1">
+                 <span 
+diff --git a/components/employees/EmployeesView.tsx b/components/employees/EmployeesView.tsx
+index 935456d..9521dc2 100644
+--- a/components/employees/EmployeesView.tsx
++++ b/components/employees/EmployeesView.tsx
+@@ -80,7 +80,7 @@ export function EmployeesView() {
+             Manage your organization&apos;s workforce and team structure.
+           </p>
+         </div>
+-        <Button className="bg-axis-blue hover:bg-blue-800" disabled title="Coming soon">
++        <Button className="bg-axis-blue hover:bg-axis-blue-light" disabled title="Coming soon">
+           <Plus className="mr-2 h-4 w-4" /> Add Employee
+         </Button>
+       </div>
+diff --git a/components/finance/AccountForm.tsx b/components/finance/AccountForm.tsx
+index 1a76fdd..ff8bf1e 100644
+--- a/components/finance/AccountForm.tsx
++++ b/components/finance/AccountForm.tsx
+@@ -158,7 +158,7 @@ export function AccountForm({ orgId, onSuccess }: AccountFormProps) {
+             </FormItem>
+           )}
+         />
+-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createAccount.isPending}>
++        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createAccount.isPending}>
+           {createAccount.isPending ? "Creating..." : "Create Account"}
+         </Button>
+       </form>
+diff --git a/components/finance/AccountsList.tsx b/components/finance/AccountsList.tsx
+index 1efbe9f..52780ca 100644
+--- a/components/finance/AccountsList.tsx
++++ b/components/finance/AccountsList.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import { useAccounts } from "@/hooks/finance/use-finance";
++import { useAccounts, useJournalEntries } from "@/hooks/finance/use-finance";
+ import { useOrg } from "@/hooks/use-org";
+ import {
+   Table,
+@@ -31,48 +31,66 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { AccountForm } from "@/components/finance/AccountForm";
+-import { useState, useEffect } from "react";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { TableErrorState } from "@/components/shared/TableErrorState";
++import { useState, useEffect, useMemo } from "react";
++import { computeAccountBalance } from "@/lib/finance/balance";
+ 
+ export function AccountsList() {
+   const [mounted, setMounted] = useState(false);
+   const { currentOrg } = useOrg();
+-  const { data: accounts, isLoading } = useAccounts(currentOrg?.id || "");
++  const { data: accounts, isLoading, isError, refetch } = useAccounts(currentOrg?.id || "");
++  const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
+   const [isFormOpen, setIsFormOpen] = useState(false);
+ 
+   useEffect(() => {
+     setMounted(true);
+   }, []);
+ 
++  const balances = useMemo(() => {
++    const map = new Map<string, number>();
++    for (const acc of accounts || []) {
++      map.set(acc.id, computeAccountBalance(acc.id, entries || [], acc.category));
++    }
++    return map;
++  }, [accounts, entries]);
++
++  const balancesLoading = isLoading || entriesLoading;
++
+   if (!mounted) return null;
+ 
+   return (
+     <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Chart of Accounts</h1>
+-          <p className="text-muted-foreground">
+-            View and manage your organization&apos;s financial accounts.
+-          </p>
+-        </div>
+-        <div className="flex gap-2">
+-          <Button variant="outline">
+-            <Download className="mr-2 h-4 w-4" /> Export
+-          </Button>
+-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+-            <DialogTrigger asChild>
+-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Account">
+-                <Plus className="mr-2 h-4 w-4" /> Add Account
+-              </Button>
+-            </DialogTrigger>
+-            <DialogContent className="sm:max-w-[500px]">
+-              <DialogHeader>
+-                <DialogTitle>Add New Account</DialogTitle>
+-              </DialogHeader>
+-              {currentOrg && <AccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />}
+-            </DialogContent>
+-          </Dialog>
+-        </div>
+-      </div>
++      <PageHeader
++        title="Chart of Accounts"
++        description="View and manage your organization's financial accounts."
++        actions={
++          <>
++            <Button variant="outline">
++              <Download className="mr-2 h-4 w-4" /> Export
++            </Button>
++            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++              <DialogTrigger asChild>
++                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Add Account">
++                  <Plus className="mr-2 h-4 w-4" /> Add Account
++                </Button>
++              </DialogTrigger>
++              <DialogContent className="sm:max-w-[500px]">
++                <DialogHeader>
++                  <DialogTitle>Add New Account</DialogTitle>
++                </DialogHeader>
++                {currentOrg ? (
++                  <AccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++                ) : (
++                  <p className="text-sm text-muted-foreground py-6 text-center">
++                    You need an active organisation before adding an account.
++                  </p>
++                )}
++              </DialogContent>
++            </Dialog>
++          </>
++        }
++      />
+ 
+       <div className="flex items-center gap-4">
+         <div className="relative flex-1 max-w-sm">
+@@ -95,12 +113,14 @@ export function AccountsList() {
+               <TableHead className="font-semibold">Account Name</TableHead>
+               <TableHead className="font-semibold">Type</TableHead>
+               <TableHead className="font-semibold">Sub-type</TableHead>
+-              <TableHead className="text-right font-semibold">Balance (UGX)</TableHead>
++              <TableHead className="text-right font-semibold">Balance</TableHead>
+               <TableHead className="text-right font-semibold">Actions</TableHead>
+             </TableRow>
+           </TableHeader>
+           <TableBody>
+-            {isLoading ? (
++            {isError ? (
++              <TableErrorState colSpan={6} onRetry={() => refetch()} />
++            ) : isLoading ? (
+               Array.from({ length: 5 }).map((_, i) => (
+                 <TableRow key={i}>
+                   <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+@@ -128,8 +148,13 @@ export function AccountsList() {
+                   </TableCell>
+                   <TableCell className="text-sm text-muted-foreground">{account.sub_type}</TableCell>
+                   <TableCell className="text-right font-mono">
+-                    {/* Running balance calculation would go here in a full implementation */}
+-                    0.00
++                    {balancesLoading ? (
++                      <Skeleton className="h-4 w-20 ml-auto" />
++                    ) : (
++                      ((balances.get(account.id) || 0) / 100).toLocaleString(undefined, {
++                        minimumFractionDigits: 2,
++                      })
++                    )}
+                   </TableCell>
+                   <TableCell className="text-right">
+                     <DropdownMenu>
+diff --git a/components/finance/BankAccountForm.tsx b/components/finance/BankAccountForm.tsx
+index 136f345..2637f26 100644
+--- a/components/finance/BankAccountForm.tsx
++++ b/components/finance/BankAccountForm.tsx
+@@ -160,7 +160,7 @@ export function BankAccountForm({ orgId, onSuccess }: BankAccountFormProps) {
+             </FormItem>
+           )}
+         />
+-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createBankAccount.isPending}>
++        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createBankAccount.isPending}>
+           {createBankAccount.isPending ? "Creating..." : "Create Bank Account"}
+         </Button>
+       </form>
+diff --git a/components/finance/BankingView.tsx b/components/finance/BankingView.tsx
+index a3630d8..94e681f 100644
+--- a/components/finance/BankingView.tsx
++++ b/components/finance/BankingView.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import { useBankAccounts } from "@/hooks/finance/use-finance";
++import { useBankAccounts, useJournalEntries } from "@/hooks/finance/use-finance";
+ import { useOrg } from "@/hooks/use-org";
+ import {
+   Table,
+@@ -30,54 +30,65 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { BankAccountForm } from "@/components/finance/BankAccountForm";
+-import { useState, useEffect } from "react";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { useState, useEffect, useMemo } from "react";
++import { computeAccountBalance } from "@/lib/finance/balance";
+ 
+ export function BankingView() {
+   const [mounted, setMounted] = useState(false);
+   const { currentOrg } = useOrg();
+   const { data: bankAccounts, isLoading } = useBankAccounts(currentOrg?.id || "");
++  const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
+   const [isFormOpen, setIsFormOpen] = useState(false);
+ 
+   useEffect(() => {
+     setMounted(true);
+   }, []);
+ 
++  const balances = useMemo(() => {
++    const map = new Map<string, number>();
++    for (const ba of bankAccounts || []) {
++      map.set(ba.id, computeAccountBalance(ba.account_id, entries || [], "asset"));
++    }
++    return map;
++  }, [bankAccounts, entries]);
++
++  const balancesLoading = isLoading || entriesLoading;
++
+   if (!mounted) return null;
+ 
+   return (
+     <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Banking</h1>
+-          <p className="text-muted-foreground">
+-            Manage your bank accounts, cash floats, and track balances.
+-          </p>
+-        </div>
+-        <div className="flex gap-2">
+-          <Button variant="outline">
+-            <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
+-          </Button>
+-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+-            <DialogTrigger asChild>
+-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Add Account">
+-                <Plus className="mr-2 h-4 w-4" /> Add Account
+-              </Button>
+-            </DialogTrigger>
+-            <DialogContent className="sm:max-w-[500px]">
+-              <DialogHeader>
+-                <DialogTitle>Add Bank Account</DialogTitle>
+-              </DialogHeader>
+-              {currentOrg ? (
+-                <BankAccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+-              ) : (
+-                <p className="text-sm text-muted-foreground py-6 text-center">
+-                  You need an active organisation before adding a bank account.
+-                </p>
+-              )}
+-            </DialogContent>
+-          </Dialog>
+-        </div>
+-      </div>
++      <PageHeader
++        title="Banking"
++        description="Manage your bank accounts, cash floats, and track balances."
++        actions={
++          <>
++            <Button variant="outline">
++              <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
++            </Button>
++            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++              <DialogTrigger asChild>
++                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Add Account">
++                  <Plus className="mr-2 h-4 w-4" /> Add Account
++                </Button>
++              </DialogTrigger>
++              <DialogContent className="sm:max-w-[500px]">
++                <DialogHeader>
++                  <DialogTitle>Add Bank Account</DialogTitle>
++                </DialogHeader>
++                {currentOrg ? (
++                  <BankAccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++                ) : (
++                  <p className="text-sm text-muted-foreground py-6 text-center">
++                    You need an active organisation before adding a bank account.
++                  </p>
++                )}
++              </DialogContent>
++            </Dialog>
++          </>
++        }
++      />
+ 
+       {isLoading ? (
+         <div className="grid gap-4 md:grid-cols-3">
+@@ -102,10 +113,14 @@ export function BankingView() {
+                 <Landmark className="h-4 w-4 text-muted-foreground" />
+               </CardHeader>
+               <CardContent>
+-                {/* Running balance is derived from the linked GL account's journal entries
+-                    and is not yet computed here — see account.account_id */}
+-                <div className="text-2xl font-bold">
+-                  {account.currency} —
++                <div className="text-2xl font-semibold font-mono tracking-tight">
++                  {balancesLoading ? (
++                    <Skeleton className="h-8 w-28" />
++                  ) : (
++                    `${account.currency} ${(
++                      (balances.get(account.id) || 0) / 100
++                    ).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
++                  )}
+                 </div>
+                 <p className="text-xs text-muted-foreground mt-1">
+                   {account.bank_name || "—"} • {account.account_number || "N/A"}
+@@ -145,6 +160,7 @@ export function BankingView() {
+                 <TableHead className="font-semibold">Bank</TableHead>
+                 <TableHead className="font-semibold">Account Number</TableHead>
+                 <TableHead className="font-semibold">Currency</TableHead>
++                <TableHead className="text-right font-semibold">Balance</TableHead>
+                 <TableHead className="text-right font-semibold">Actions</TableHead>
+               </TableRow>
+             </TableHeader>
+@@ -155,6 +171,13 @@ export function BankingView() {
+                   <TableCell>{account.bank_name || "—"}</TableCell>
+                   <TableCell className="font-mono text-xs">{account.account_number || "—"}</TableCell>
+                   <TableCell>{account.currency}</TableCell>
++                  <TableCell className="text-right font-mono">
++                    {balancesLoading
++                      ? "—"
++                      : ((balances.get(account.id) || 0) / 100).toLocaleString(undefined, {
++                          minimumFractionDigits: 2,
++                        })}
++                  </TableCell>
+                   <TableCell className="text-right">
+                     <DropdownMenu>
+                       <DropdownMenuTrigger asChild>
+diff --git a/components/finance/JournalEntryForm.tsx b/components/finance/JournalEntryForm.tsx
+index 8004552..4bd1b12 100644
+--- a/components/finance/JournalEntryForm.tsx
++++ b/components/finance/JournalEntryForm.tsx
+@@ -270,7 +270,7 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
+           </div>
+         </div>
+ 
+-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createJournalEntry.isPending}>
++        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createJournalEntry.isPending}>
+           {createJournalEntry.isPending ? "Posting..." : "Post Journal Entry"}
+         </Button>
+       </form>
+diff --git a/components/finance/LedgerView.tsx b/components/finance/LedgerView.tsx
+index 33d46f4..d7e001a 100644
+--- a/components/finance/LedgerView.tsx
++++ b/components/finance/LedgerView.tsx
+@@ -13,7 +13,6 @@ import {
+ import { Button } from "@/components/ui/button";
+ import { Plus, Search, Filter, MoreHorizontal, FileSpreadsheet, History } from "lucide-react";
+ import { Input } from "@/components/ui/input";
+-import { Badge } from "@/components/ui/badge";
+ import { Skeleton } from "@/components/ui/skeleton";
+ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+ import {
+@@ -32,6 +31,9 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
++import { TableErrorState } from "@/components/shared/TableErrorState";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { StatusBadge } from "@/components/shared/StatusBadge";
+ import { useState, useEffect, useMemo } from "react";
+ 
+ function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
+@@ -43,7 +45,7 @@ function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
+ export function LedgerView() {
+   const [mounted, setMounted] = useState(false);
+   const { currentOrg } = useOrg();
+-  const { data: entries, isLoading } = useJournalEntries(currentOrg?.id || "");
++  const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
+   const [isFormOpen, setIsFormOpen] = useState(false);
+   const [search, setSearch] = useState("");
+ 
+@@ -66,38 +68,36 @@ export function LedgerView() {
+ 
+   return (
+     <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">General Ledger</h1>
+-          <p className="text-muted-foreground">
+-            The source of truth for all financial transactions and journal entries.
+-          </p>
+-        </div>
+-        <div className="flex gap-2">
+-          <Button variant="outline">
+-            <History className="mr-2 h-4 w-4" /> Audit Log
+-          </Button>
+-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+-            <DialogTrigger asChild>
+-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="New Journal Entry">
+-                <Plus className="mr-2 h-4 w-4" /> New Journal Entry
+-              </Button>
+-            </DialogTrigger>
+-            <DialogContent className="sm:max-w-[600px]">
+-              <DialogHeader>
+-                <DialogTitle>New Journal Entry</DialogTitle>
+-              </DialogHeader>
+-              {currentOrg ? (
+-                <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+-              ) : (
+-                <p className="text-sm text-muted-foreground py-6 text-center">
+-                  There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
+-                </p>
+-              )}
+-            </DialogContent>
+-          </Dialog>
+-        </div>
+-      </div>
++      <PageHeader
++        title="General Ledger"
++        description="The source of truth for all financial transactions and journal entries."
++        actions={
++          <>
++            <Button variant="outline">
++              <History className="mr-2 h-4 w-4" /> Audit Log
++            </Button>
++            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++              <DialogTrigger asChild>
++                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="New Journal Entry">
++                  <Plus className="mr-2 h-4 w-4" /> New Journal Entry
++                </Button>
++              </DialogTrigger>
++              <DialogContent className="sm:max-w-[600px]">
++                <DialogHeader>
++                  <DialogTitle>New Journal Entry</DialogTitle>
++                </DialogHeader>
++                {currentOrg ? (
++                  <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++                ) : (
++                  <p className="text-sm text-muted-foreground py-6 text-center">
++                    There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
++                  </p>
++                )}
++              </DialogContent>
++            </Dialog>
++          </>
++        }
++      />
+ 
+       <Tabs defaultValue="entries" className="w-full">
+         <TabsList className="grid w-full max-w-md grid-cols-2">
+@@ -134,7 +134,9 @@ export function LedgerView() {
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+-                {isLoading ? (
++                {isError ? (
++                  <TableErrorState colSpan={6} onRetry={() => refetch()} />
++                ) : isLoading ? (
+                   Array.from({ length: 5 }).map((_, i) => (
+                     <TableRow key={i}>
+                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+@@ -152,16 +154,7 @@ export function LedgerView() {
+                       <TableCell className="font-mono text-sm">{entry.reference || "—"}</TableCell>
+                       <TableCell className="font-medium">{entry.description || "—"}</TableCell>
+                       <TableCell>
+-                        <Badge
+-                          variant={entry.status === "posted" ? "default" : "secondary"}
+-                          className={
+-                            entry.status === "posted"
+-                              ? "bg-axis-green/10 text-axis-green hover:bg-axis-green/20 border-axis-green/20"
+-                              : ""
+-                          }
+-                        >
+-                          {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
+-                        </Badge>
++                        <StatusBadge status={entry.status} />
+                       </TableCell>
+                       <TableCell className="text-right font-mono">
+                         {(entryTotal(entry) / 100).toLocaleString(undefined, {
+diff --git a/components/finance/TaxRateForm.tsx b/components/finance/TaxRateForm.tsx
+index 7ee0482..510d273 100644
+--- a/components/finance/TaxRateForm.tsx
++++ b/components/finance/TaxRateForm.tsx
+@@ -88,7 +88,7 @@ export function TaxRateForm({ orgId, onSuccess }: TaxRateFormProps) {
+             </FormItem>
+           )}
+         />
+-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createTaxRate.isPending}>
++        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createTaxRate.isPending}>
+           {createTaxRate.isPending ? "Creating..." : "Create Tax Rate"}
+         </Button>
+       </form>
+diff --git a/components/finance/TransactionsView.tsx b/components/finance/TransactionsView.tsx
+index 486ef0d..711fa6c 100644
+--- a/components/finance/TransactionsView.tsx
++++ b/components/finance/TransactionsView.tsx
+@@ -13,6 +13,8 @@ import {
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+ import { Badge } from "@/components/ui/badge";
++import { TableErrorState } from "@/components/shared/TableErrorState";
++import { StatusBadge } from "@/components/shared/StatusBadge";
+ import { Skeleton } from "@/components/ui/skeleton";
+ import { Plus, Search, MoreHorizontal, ArrowUpRight, ArrowDownLeft, Filter, Receipt } from "lucide-react";
+ import {
+@@ -31,6 +33,7 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
++import { PageHeader } from "@/components/shared/PageHeader";
+ import { useState, useEffect, useMemo } from "react";
+ import type { JournalEntry } from "@/lib/types";
+ 
+@@ -90,7 +93,7 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
+ export function TransactionsView() {
+   const [mounted, setMounted] = useState(false);
+   const { currentOrg } = useOrg();
+-  const { data: entries, isLoading } = useJournalEntries(currentOrg?.id || "");
++  const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
+   const [isFormOpen, setIsFormOpen] = useState(false);
+   const [search, setSearch] = useState("");
+ 
+@@ -112,17 +115,13 @@ export function TransactionsView() {
+ 
+   return (
+     <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Transactions</h1>
+-          <p className="text-muted-foreground">
+-            A real-time ledger of all organization financial activity.
+-          </p>
+-        </div>
+-        <div className="flex gap-2">
++      <PageHeader
++        title="Transactions"
++        description="A real-time ledger of all organization financial activity."
++        actions={
+           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+             <DialogTrigger asChild>
+-              <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Record Transaction">
++              <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Record Transaction">
+                 <Plus className="mr-2 h-4 w-4" /> Record Transaction
+               </Button>
+             </DialogTrigger>
+@@ -139,8 +138,8 @@ export function TransactionsView() {
+               )}
+             </DialogContent>
+           </Dialog>
+-        </div>
+-      </div>
++        }
++      />
+ 
+       <div className="flex items-center gap-4">
+         <div className="relative flex-1 max-w-sm">
+@@ -170,7 +169,9 @@ export function TransactionsView() {
+             </TableRow>
+           </TableHeader>
+           <TableBody>
+-            {isLoading ? (
++            {isError ? (
++              <TableErrorState colSpan={6} onRetry={() => refetch()} />
++            ) : isLoading ? (
+               Array.from({ length: 5 }).map((_, i) => (
+                 <TableRow key={i}>
+                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+@@ -215,16 +216,7 @@ export function TransactionsView() {
+                     {(transaction.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                   </TableCell>
+                   <TableCell>
+-                    <Badge
+-                      variant="outline"
+-                      className={
+-                        transaction.status === "posted"
+-                          ? "bg-axis-green/5 text-axis-green border-axis-green/20"
+-                          : "bg-axis-gray/5 text-axis-gray border-axis-gray/20"
+-                      }
+-                    >
+-                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+-                    </Badge>
++                    <StatusBadge status={transaction.status} />
+                   </TableCell>
+                   <TableCell className="text-right">
+                     <DropdownMenu>
+diff --git a/components/invoicing/InvoiceForm.tsx b/components/invoicing/InvoiceForm.tsx
+index d260813..6ad136f 100644
+--- a/components/invoicing/InvoiceForm.tsx
++++ b/components/invoicing/InvoiceForm.tsx
+@@ -384,7 +384,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
+           </div>
+         </div>
+ 
+-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createInvoice.isPending}>
++        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createInvoice.isPending}>
+           {createInvoice.isPending ? "Creating Invoice..." : "Create Invoice"}
+         </Button>
+       </form>
+diff --git a/components/invoicing/InvoicesList.tsx b/components/invoicing/InvoicesList.tsx
+index f5438cb..5e8d409 100644
+--- a/components/invoicing/InvoicesList.tsx
++++ b/components/invoicing/InvoicesList.tsx
+@@ -11,9 +11,8 @@ import {
+   TableRow
+ } from "@/components/ui/table";
+ import { Button } from "@/components/ui/button";
+-import { Plus, Search, Filter, MoreHorizontal, FileDown, Send, CheckCircle } from "lucide-react";
++import { Plus, Search, Filter, MoreHorizontal, FileDown, Send, CheckCircle, Receipt } from "lucide-react";
+ import { Input } from "@/components/ui/input";
+-import { Badge } from "@/components/ui/badge";
+ import { Skeleton } from "@/components/ui/skeleton";
+ import {
+   DropdownMenu,
+@@ -31,59 +30,51 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { InvoiceForm } from "@/components/invoicing/InvoiceForm";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { TableErrorState } from "@/components/shared/TableErrorState";
++import { StatusBadge } from "@/components/shared/StatusBadge";
+ import { useState, useEffect } from "react";
+ import { format } from "date-fns";
+ 
+ export function InvoicesList() {
+   const [mounted, setMounted] = useState(false);
+   const { currentOrg } = useOrg();
+-  const { data: invoices, isLoading } = useInvoices(currentOrg?.id || "");
++  const { data: invoices, isLoading, isError, refetch } = useInvoices(currentOrg?.id || "");
+   const [isFormOpen, setIsFormOpen] = useState(false);
+ 
+   useEffect(() => {
+     setMounted(true);
+   }, []);
+ 
+-  const getStatusBadge = (status: string) => {
+-    switch (status) {
+-      case "paid":
+-        return <Badge className="bg-axis-green/10 text-axis-green border-axis-green/20">Paid</Badge>;
+-      case "draft":
+-        return <Badge variant="secondary">Draft</Badge>;
+-      case "sent":
+-        return <Badge className="bg-axis-blue/10 text-axis-blue border-axis-blue/20">Sent</Badge>;
+-      case "overdue":
+-        return <Badge className="bg-axis-red/10 text-axis-red border-axis-red/20">Overdue</Badge>;
+-      default:
+-        return <Badge variant="outline">{status}</Badge>;
+-    }
+-  };
+-
+   if (!mounted) return null;
+ 
+   return (
+     <div className="space-y-6">
+-      <div className="flex items-center justify-between">
+-        <div>
+-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Invoices</h1>
+-          <p className="text-muted-foreground">
+-            Manage your customer billing and track payments.
+-          </p>
+-        </div>
+-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+-          <DialogTrigger asChild>
+-            <Button className="bg-axis-blue hover:bg-blue-800" aria-label="Create Invoice">
+-              <Plus className="mr-2 h-4 w-4" /> Create Invoice
+-            </Button>
+-          </DialogTrigger>
+-          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+-            <DialogHeader>
+-              <DialogTitle>Create New Invoice</DialogTitle>
+-            </DialogHeader>
+-            {currentOrg && <InvoiceForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />}
+-          </DialogContent>
+-        </Dialog>
+-      </div>
++      <PageHeader
++        title="Invoices"
++        description="Manage your customer billing and track payments."
++        actions={
++          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
++            <DialogTrigger asChild>
++              <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Create Invoice">
++                <Plus className="mr-2 h-4 w-4" /> Create Invoice
++              </Button>
++            </DialogTrigger>
++            <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
++              <DialogHeader>
++                <DialogTitle>Create New Invoice</DialogTitle>
++              </DialogHeader>
++              {currentOrg ? (
++                <InvoiceForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              ) : (
++                <p className="text-sm text-muted-foreground py-6 text-center">
++                  You need an active organisation before creating an invoice.
++                </p>
++              )}
++            </DialogContent>
++          </Dialog>
++        }
++      />
+ 
+       <div className="flex items-center gap-4">
+         <div className="relative flex-1 max-w-sm">
+@@ -112,7 +103,9 @@ export function InvoicesList() {
+             </TableRow>
+           </TableHeader>
+           <TableBody>
+-            {isLoading ? (
++            {isError ? (
++              <TableErrorState colSpan={7} onRetry={() => refetch()} />
++            ) : isLoading ? (
+               Array.from({ length: 5 }).map((_, i) => (
+                 <TableRow key={i}>
+                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+@@ -127,7 +120,7 @@ export function InvoicesList() {
+             ) : invoices && invoices.length > 0 ? (
+               invoices.map((invoice) => (
+                 <TableRow key={invoice.id} className="hover:bg-axis-light/30">
+-                  <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
++                  <TableCell className="font-medium font-mono text-sm">{invoice.invoice_number}</TableCell>
+                   <TableCell>{invoice.client?.name || '—'}</TableCell>
+                   <TableCell className="text-sm">
+                     {invoice.issue_date ? format(new Date(invoice.issue_date), "MMM dd, yyyy") : '—'}
+@@ -136,10 +129,10 @@ export function InvoicesList() {
+                     {invoice.due_date ? format(new Date(invoice.due_date), "MMM dd, yyyy") : '—'}
+                   </TableCell>
+                   <TableCell>
+-                    {getStatusBadge(invoice.status)}
++                    <StatusBadge status={invoice.status} />
+                   </TableCell>
+-                  <TableCell className="text-right font-semibold text-axis-blue">
+-                    ${(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
++                  <TableCell className="text-right font-semibold font-mono text-axis-blue">
++                    {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                   </TableCell>
+                   <TableCell className="text-right">
+                     <DropdownMenu>
+@@ -169,8 +162,21 @@ export function InvoicesList() {
+               ))
+             ) : (
+               <TableRow>
+-                <TableCell colSpan={7} className="h-24 text-center">
+-                  No invoices found.
++                <TableCell colSpan={7} className="h-64 text-center">
++                  <div className="flex flex-col items-center justify-center space-y-2">
++                    <Receipt className="h-12 w-12 text-muted-foreground opacity-20" />
++                    <h3 className="text-lg font-semibold">No invoices yet</h3>
++                    <p className="text-muted-foreground">
++                      Get started by creating your first invoice.
++                    </p>
++                    <Button
++                      variant="outline"
++                      className="mt-4 border-axis-blue text-axis-blue"
++                      onClick={() => setIsFormOpen(true)}
++                    >
++                      <Plus className="mr-2 h-4 w-4" /> Create Invoice
++                    </Button>
++                  </div>
+                 </TableCell>
+               </TableRow>
+             )}
+diff --git a/components/settings/OrganisationSettingsView.tsx b/components/settings/OrganisationSettingsView.tsx
+index fc67740..c929bb8 100644
+--- a/components/settings/OrganisationSettingsView.tsx
++++ b/components/settings/OrganisationSettingsView.tsx
+@@ -178,7 +178,7 @@ export function OrganisationSettingsView() {
+             </div>
+             <Button
+               type="submit"
+-              className="bg-axis-blue hover:bg-blue-800"
++              className="bg-axis-blue hover:bg-axis-blue-light"
+               disabled={updateOrg.isPending}
+             >
+               {updateOrg.isPending ? "Saving..." : "Save Changes"}
+diff --git a/components/settings/TaxRateForm.tsx b/components/settings/TaxRateForm.tsx
+index f97cd75..9babbc6 100644
+--- a/components/settings/TaxRateForm.tsx
++++ b/components/settings/TaxRateForm.tsx
+@@ -84,7 +84,7 @@ export function TaxRateForm({ orgId, onSuccess }: TaxRateFormProps) {
+         />
+         <Button
+           type="submit"
+-          className="w-full bg-axis-blue hover:bg-blue-800"
++          className="w-full bg-axis-blue hover:bg-axis-blue-light"
+           disabled={createTaxRate.isPending}
+         >
+           {createTaxRate.isPending ? "Saving..." : "Save Tax Rate"}
+diff --git a/components/settings/TaxRatesView.tsx b/components/settings/TaxRatesView.tsx
+index 8bc1022..6e4d213 100644
+--- a/components/settings/TaxRatesView.tsx
++++ b/components/settings/TaxRatesView.tsx
+@@ -47,7 +47,7 @@ export function TaxRatesView() {
+         </div>
+         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+           <DialogTrigger asChild>
+-            <Button className="bg-axis-blue hover:bg-blue-800">
++            <Button className="bg-axis-blue hover:bg-axis-blue-light">
+               <Plus className="mr-2 h-4 w-4" /> Add Tax Rate
+             </Button>
+           </DialogTrigger>
+diff --git a/components/settings/TeamSettingsView.tsx b/components/settings/TeamSettingsView.tsx
+index 038534e..580c536 100644
+--- a/components/settings/TeamSettingsView.tsx
++++ b/components/settings/TeamSettingsView.tsx
+@@ -53,7 +53,7 @@ export function TeamSettingsView() {
+             People with access to {currentOrg?.name ?? "this organisation"}.
+           </p>
+         </div>
+-        <Button className="bg-axis-blue hover:bg-blue-800" disabled>
++        <Button className="bg-axis-blue hover:bg-axis-blue-light" disabled>
+           <UserPlus className="mr-2 h-4 w-4" /> Invite Member
+         </Button>
+       </div>
+diff --git a/components/shared/PageHeader.tsx b/components/shared/PageHeader.tsx
+new file mode 100644
+index 0000000..0a8a319
+--- /dev/null
++++ b/components/shared/PageHeader.tsx
+@@ -0,0 +1,29 @@
++import { ReactNode } from "react";
++
++interface PageHeaderProps {
++  title: string;
++  description?: string;
++  actions?: ReactNode;
++}
++
++/**
++ * Standard page header used across all list/view pages (Clients, Invoices,
++ * Ledger, Banking, Accounts, Transactions, Dashboard). Consolidates the
++ * title/description/actions layout that was previously hand-rolled with
++ * slightly different markup on every page.
++ */
++export function PageHeader({ title, description, actions }: PageHeaderProps) {
++  return (
++    <div className="flex items-center justify-between">
++      <div>
++        <h1 className="font-display text-3xl font-semibold tracking-tight text-primary">
++          {title}
++        </h1>
++        {description && (
++          <p className="text-muted-foreground mt-1">{description}</p>
++        )}
++      </div>
++      {actions && <div className="flex gap-2">{actions}</div>}
++    </div>
++  );
++}
+diff --git a/components/shared/StatusBadge.tsx b/components/shared/StatusBadge.tsx
+new file mode 100644
+index 0000000..a778e67
+--- /dev/null
++++ b/components/shared/StatusBadge.tsx
+@@ -0,0 +1,53 @@
++import { Badge } from "@/components/ui/badge";
++import { cn } from "@/lib/utils";
++
++type StatusTone = "success" | "warning" | "danger" | "neutral" | "info";
++
++const STATUS_MAP: Record<string, { label: string; tone: StatusTone }> = {
++  // Invoices
++  paid: { label: "Paid", tone: "success" },
++  sent: { label: "Sent", tone: "info" },
++  viewed: { label: "Viewed", tone: "info" },
++  partial: { label: "Partial", tone: "warning" },
++  overdue: { label: "Overdue", tone: "danger" },
++  voided: { label: "Voided", tone: "neutral" },
++  // Journal entries
++  posted: { label: "Posted", tone: "success" },
++  draft: { label: "Draft", tone: "neutral" },
++  void: { label: "Void", tone: "neutral" },
++  // Employees
++  active: { label: "Active", tone: "success" },
++  on_leave: { label: "On Leave", tone: "warning" },
++  terminated: { label: "Terminated", tone: "danger" },
++};
++
++const TONE_CLASSES: Record<StatusTone, string> = {
++  success: "bg-axis-green/10 text-axis-green border-axis-green/20",
++  warning: "bg-axis-amber/10 text-axis-amber border-axis-amber/20",
++  danger: "bg-axis-red/10 text-axis-red border-axis-red/20",
++  info: "bg-axis-blue/10 text-axis-blue border-axis-blue/20",
++  neutral: "bg-axis-gray/10 text-axis-gray border-axis-gray/20",
++};
++
++interface StatusBadgeProps {
++  status: string;
++  className?: string;
++}
++
++/**
++ * Renders a consistently-styled badge for any known status value across
++ * the app (invoices, journal entries, employees). Falls back to a plain
++ * neutral badge with the raw status text for anything not in the map,
++ * rather than silently rendering nothing for an unrecognized status.
++ */
++export function StatusBadge({ status, className }: StatusBadgeProps) {
++  const entry = STATUS_MAP[status];
++  const label = entry?.label ?? status.charAt(0).toUpperCase() + status.slice(1);
++  const tone = entry?.tone ?? "neutral";
++
++  return (
++    <Badge variant="outline" className={cn(TONE_CLASSES[tone], className)}>
++      {label}
++    </Badge>
++  );
++}
+diff --git a/components/shared/TableErrorState.tsx b/components/shared/TableErrorState.tsx
+new file mode 100644
+index 0000000..3fdae8e
+--- /dev/null
++++ b/components/shared/TableErrorState.tsx
+@@ -0,0 +1,36 @@
++import { TableCell, TableRow } from "@/components/ui/table";
++import { Button } from "@/components/ui/button";
++import { AlertTriangle } from "lucide-react";
++
++interface TableErrorStateProps {
++  colSpan: number;
++  message?: string;
++  onRetry?: () => void;
++}
++
++/**
++ * Renders inside a <TableBody> when a query's isError is true. Distinct from
++ * the "no data yet" empty state — this means the fetch itself failed (network,
++ * RLS denial, expired session), which should never be silently presented as
++ * "there's nothing here."
++ */
++export function TableErrorState({ colSpan, message, onRetry }: TableErrorStateProps) {
++  return (
++    <TableRow>
++      <TableCell colSpan={colSpan} className="h-64 text-center">
++        <div className="flex flex-col items-center justify-center space-y-2">
++          <AlertTriangle className="h-10 w-10 text-axis-red opacity-70" />
++          <h3 className="text-lg font-semibold">Couldn&apos;t load this data</h3>
++          <p className="text-muted-foreground max-w-sm mx-auto">
++            {message || "Something went wrong while fetching this from the server. Please try again."}
++          </p>
++          {onRetry && (
++            <Button variant="outline" className="mt-2 border-axis-red text-axis-red" onClick={onRetry}>
++              Retry
++            </Button>
++          )}
++        </div>
++      </TableCell>
++    </TableRow>
++  );
++}
+diff --git a/lib/finance/balance.ts b/lib/finance/balance.ts
+new file mode 100644
+index 0000000..b75c569
+--- /dev/null
++++ b/lib/finance/balance.ts
+@@ -0,0 +1,31 @@
++import type { JournalEntry } from "@/lib/types";
++
++/**
++ * Computes a running balance for a given GL account from posted journal
++ * entries, following standard double-entry convention:
++ *   asset / expense accounts:      balance = debits - credits
++ *   liability / equity / revenue:  balance = credits - debits
++ * Draft/void entries are excluded — only posted entries affect the balance.
++ */
++export function computeAccountBalance(
++  accountId: string | undefined,
++  entries: JournalEntry[],
++  category?: "asset" | "liability" | "equity" | "revenue" | "expense"
++): number {
++  if (!accountId) return 0;
++  let debitTotal = 0;
++  let creditTotal = 0;
++
++  for (const entry of entries) {
++    if (entry.status !== "posted") continue;
++    for (const line of entry.lines || []) {
++      if (line.account_id === accountId) {
++        debitTotal += line.debit || 0;
++        creditTotal += line.credit || 0;
++      }
++    }
++  }
++
++  const normalDebitBalance = category === "asset" || category === "expense" || category === undefined;
++  return normalDebitBalance ? debitTotal - creditTotal : creditTotal - debitTotal;
++}
+diff --git a/tailwind.config.ts b/tailwind.config.ts
+index 800135e..f04d6a4 100644
+--- a/tailwind.config.ts
++++ b/tailwind.config.ts
+@@ -63,15 +63,18 @@ export default {
+ 					border: 'hsl(var(--sidebar-border))',
+ 					ring: 'hsl(var(--sidebar-ring))'
+ 				},
+-				// Custom Axis colors
++				// Axis semantic colors — reference the same CSS variables as the
++				// primary/accent/destructive tokens, so bg-axis-blue etc. (used
++				// throughout the app) stay in sync with the design system instead
++				// of being a separate hardcoded palette.
+ 				axis: {
+-					blue: '#1E3A8A',
+-					'blue-light': '#3B5DC9',
+-					gray: '#64748B',
+-					green: '#059669',
+-					red: '#E11D48',
+-					amber: '#D97706',
+-					light: '#F8FAFC'
++					blue: 'hsl(var(--primary))',
++					'blue-light': 'hsl(var(--primary) / 0.85)',
++					gray: 'hsl(var(--muted-foreground))',
++					green: 'hsl(var(--accent))',
++					red: 'hsl(var(--destructive))',
++					amber: '#9C6B1F',
++					light: 'hsl(var(--muted))'
+ 				},
+ 			},
+ 			borderRadius: {
+@@ -79,6 +82,11 @@ export default {
+ 				md: 'calc(var(--radius) - 2px)',
+ 				sm: 'calc(var(--radius) - 4px)'
+ 			},
++			fontFamily: {
++				sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
++				display: ['var(--font-display)', 'ui-serif', 'serif'],
++				mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
++			},
+ 			keyframes: {
+ 				'accordion-down': {
+ 					from: {
+-- 
+2.43.0
+

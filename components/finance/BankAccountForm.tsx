@@ -160,7 +160,7 @@ export function BankAccountForm({ orgId, onSuccess }: BankAccountFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createBankAccount.isPending}>
+        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createBankAccount.isPending}>
           {createBankAccount.isPending ? "Creating..." : "Create Bank Account"}
         </Button>
       </form>

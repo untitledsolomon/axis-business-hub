@@ -63,21 +63,29 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Custom Axis colors
+				// Axis semantic colors — reference the same CSS variables as the
+				// primary/accent/destructive tokens, so bg-axis-blue etc. (used
+				// throughout the app) stay in sync with the design system instead
+				// of being a separate hardcoded palette.
 				axis: {
-					blue: '#1E3A8A',
-					'blue-light': '#3B5DC9',
-					gray: '#64748B',
-					green: '#059669',
-					red: '#E11D48',
-					amber: '#D97706',
-					light: '#F8FAFC'
+					blue: 'hsl(var(--primary))',
+					'blue-light': 'hsl(var(--primary) / 0.85)',
+					gray: 'hsl(var(--muted-foreground))',
+					green: 'hsl(var(--accent))',
+					red: 'hsl(var(--destructive))',
+					amber: '#9C6B1F',
+					light: 'hsl(var(--muted))'
 				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			fontFamily: {
+				sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
+				display: ['var(--font-display)', 'ui-serif', 'serif'],
+				mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
 			},
 			keyframes: {
 				'accordion-down': {

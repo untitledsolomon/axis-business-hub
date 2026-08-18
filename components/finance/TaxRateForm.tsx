@@ -88,7 +88,7 @@ export function TaxRateForm({ orgId, onSuccess }: TaxRateFormProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full bg-axis-blue hover:bg-blue-800" disabled={createTaxRate.isPending}>
+        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createTaxRate.isPending}>
           {createTaxRate.isPending ? "Creating..." : "Create Tax Rate"}
         </Button>
       </form>
