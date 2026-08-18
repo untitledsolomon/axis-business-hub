@@ -1,0 +1,139 @@
+From 1a876a540433b09296c41a41af1705cfaaab8de9 Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Tue, 18 Aug 2026 09:50:53 +0000
+Subject: [PATCH] Fix silent empty-form bug: seed default Chart of Accounts on
+ org creation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Root cause: create_new_organisation() created an org and membership but no
+accounts. Every form referencing an account (JournalEntryForm's line items,
+BankAccountForm's linked GL account) uses a <Select> populated from
+useAccounts() — with zero accounts, that dropdown silently has no options.
+The dialog opened, showed its title, but had nothing usable inside it,
+which looked like a rendering bug but was actually missing seed data.
+
+- New migration: create_new_organisation() now atomically seeds a standard
+  starter Chart of Accounts (Cash, Bank, AR/AP, Owner's Equity, Sales/
+  Service Revenue, and common expense categories) for every newly created
+  org, so this can't happen to any future client onboarding (Tekowa,
+  Excom, Etihad).
+- Applied the same migration live to the current Supabase project and
+  manually seeded the existing 'Regent' org, which predates this fix.
+- Replaced the silent  pattern in LedgerView,
+  TransactionsView, and BankingView with a visible fallback message when
+  there's no current org, instead of an empty dialog with no explanation.
+  This guards against the same class of bug recurring for any future
+  reason currentOrg might be null.
+
+Verified: tsc --noEmit clean, eslint clean (checked specifically for
+react/no-unescaped-entities, since raw apostrophes in the new fallback
+messages were caught and fixed with &apos; before commit).
+---
+ components/finance/BankingView.tsx            |  6 +++-
+ components/finance/LedgerView.tsx             |  6 +++-
+ components/finance/TransactionsView.tsx       |  6 +++-
+ ...01_seed_default_accounts_on_org_create.sql | 36 +++++++++++++++++++
+ 4 files changed, 51 insertions(+), 3 deletions(-)
+ create mode 100644 supabase/migrations/20260818000001_seed_default_accounts_on_org_create.sql
+
+diff --git a/components/finance/BankingView.tsx b/components/finance/BankingView.tsx
+index ac676af..a3630d8 100644
+--- a/components/finance/BankingView.tsx
++++ b/components/finance/BankingView.tsx
+@@ -67,8 +67,12 @@ export function BankingView() {
+               <DialogHeader>
+                 <DialogTitle>Add Bank Account</DialogTitle>
+               </DialogHeader>
+-              {currentOrg && (
++              {currentOrg ? (
+                 <BankAccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              ) : (
++                <p className="text-sm text-muted-foreground py-6 text-center">
++                  You need an active organisation before adding a bank account.
++                </p>
+               )}
+             </DialogContent>
+           </Dialog>
+diff --git a/components/finance/LedgerView.tsx b/components/finance/LedgerView.tsx
+index 519e236..33d46f4 100644
+--- a/components/finance/LedgerView.tsx
++++ b/components/finance/LedgerView.tsx
+@@ -87,8 +87,12 @@ export function LedgerView() {
+               <DialogHeader>
+                 <DialogTitle>New Journal Entry</DialogTitle>
+               </DialogHeader>
+-              {currentOrg && (
++              {currentOrg ? (
+                 <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              ) : (
++                <p className="text-sm text-muted-foreground py-6 text-center">
++                  There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
++                </p>
+               )}
+             </DialogContent>
+           </Dialog>
+diff --git a/components/finance/TransactionsView.tsx b/components/finance/TransactionsView.tsx
+index cb33e37..486ef0d 100644
+--- a/components/finance/TransactionsView.tsx
++++ b/components/finance/TransactionsView.tsx
+@@ -130,8 +130,12 @@ export function TransactionsView() {
+               <DialogHeader>
+                 <DialogTitle>Record Transaction</DialogTitle>
+               </DialogHeader>
+-              {currentOrg && (
++              {currentOrg ? (
+                 <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
++              ) : (
++                <p className="text-sm text-muted-foreground py-6 text-center">
++                  There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
++                </p>
+               )}
+             </DialogContent>
+           </Dialog>
+diff --git a/supabase/migrations/20260818000001_seed_default_accounts_on_org_create.sql b/supabase/migrations/20260818000001_seed_default_accounts_on_org_create.sql
+new file mode 100644
+index 0000000..5bca02e
+--- /dev/null
++++ b/supabase/migrations/20260818000001_seed_default_accounts_on_org_create.sql
+@@ -0,0 +1,36 @@
++-- Every organisation created via create_new_organisation() previously had
++-- zero accounts, which meant any form referencing an account (Journal
++-- Entry, Bank Account) rendered its Account dropdown with no options — the
++-- dialog would open, show its title, but have nothing usable inside it.
++-- This wasn't a rendering bug; it was missing seed data. Real accounting
++-- software always ships a starter Chart of Accounts for exactly this
++-- reason. This migration makes org creation atomically seed one.
++
++CREATE OR REPLACE FUNCTION create_new_organisation(org_name TEXT, org_slug TEXT, user_id UUID)
++RETURNS UUID AS $$
++DECLARE
++    new_org_id UUID;
++BEGIN
++    INSERT INTO organisations (name, slug)
++    VALUES (org_name, org_slug)
++    RETURNING id INTO new_org_id;
++
++    INSERT INTO organisation_members (org_id, user_id, role)
++    VALUES (new_org_id, user_id, 'owner');
++
++    INSERT INTO accounts (org_id, code, name, category, sub_type, currency, is_active) VALUES
++        (new_org_id, '1000', 'Cash', 'asset', 'Current Asset', 'UGX', true),
++        (new_org_id, '1010', 'Bank Account', 'asset', 'Current Asset', 'UGX', true),
++        (new_org_id, '1200', 'Accounts Receivable', 'asset', 'Current Asset', 'UGX', true),
++        (new_org_id, '2000', 'Accounts Payable', 'liability', 'Current Liability', 'UGX', true),
++        (new_org_id, '3000', 'Owner''s Equity', 'equity', 'Equity', 'UGX', true),
++        (new_org_id, '4000', 'Sales Revenue', 'revenue', 'Operating Revenue', 'UGX', true),
++        (new_org_id, '4010', 'Service Revenue', 'revenue', 'Operating Revenue', 'UGX', true),
++        (new_org_id, '5000', 'Rent Expense', 'expense', 'Operating Expense', 'UGX', true),
++        (new_org_id, '5010', 'Salaries Expense', 'expense', 'Operating Expense', 'UGX', true),
++        (new_org_id, '5020', 'Utilities Expense', 'expense', 'Operating Expense', 'UGX', true),
++        (new_org_id, '5030', 'General Expense', 'expense', 'Operating Expense', 'UGX', true);
++
++    RETURN new_org_id;
++END;
++$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- 
+2.43.0
+

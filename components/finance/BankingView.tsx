@@ -67,8 +67,12 @@ export function BankingView() {
               <DialogHeader>
                 <DialogTitle>Add Bank Account</DialogTitle>
               </DialogHeader>
-              {currentOrg && (
+              {currentOrg ? (
                 <BankAccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
+              ) : (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  You need an active organisation before adding a bank account.
+                </p>
               )}
             </DialogContent>
           </Dialog>
