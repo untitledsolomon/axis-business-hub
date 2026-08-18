@@ -1,0 +1,92 @@
+From 1f2231f128dc869a9c15a4514f009218cd4cacef Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Tue, 18 Aug 2026 10:01:09 +0000
+Subject: [PATCH] Fix infinite recursion in organisation_members RLS policy
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The "Members can view fellow org members" policy on organisation_members
+checked membership by querying organisation_members itself, which under
+RLS re-triggers the same policy, recursing infinitely. Postgres throws
+"infinite recursion detected in policy for relation organisation_members"
+instead of hanging.
+
+This wasn't surfacing as a visible error in the app: useOrg()'s query
+against organisation_members simply failed/returned empty under RLS,
+so the organisation dropdown appeared empty even for a correctly set up
+user with valid membership. Verified this live: querying as the actual
+authenticated user reproduced the exact recursion error, even though the
+underlying data (org + membership) was correct in every respect.
+
+This affected every user account, not just one — it would have silently
+blocked every future client (Tekowa, Excom, Etihad) from ever loading
+their organisation after signup/onboarding.
+
+Fix: added is_org_member(org_id) as a SECURITY DEFINER helper function,
+which runs with elevated privileges and so can check membership without
+re-triggering RLS on the table it's protecting. Rewrote the recursive
+policy to use it, and also rewrote the organisations/audit_log policies
+to use the same helper for consistency (they weren't recursive, but
+matching the pattern avoids the same class of bug resurfacing there).
+
+Applied live to the production Supabase project and verified via a
+role-simulated query as the actual affected user — confirmed the
+recursion error is gone and the correct org now resolves.
+---
+ ...18000002_fix_org_members_rls_recursion.sql | 43 +++++++++++++++++++
+ 1 file changed, 43 insertions(+)
+ create mode 100644 supabase/migrations/20260818000002_fix_org_members_rls_recursion.sql
+
+diff --git a/supabase/migrations/20260818000002_fix_org_members_rls_recursion.sql b/supabase/migrations/20260818000002_fix_org_members_rls_recursion.sql
+new file mode 100644
+index 0000000..e4daa54
+--- /dev/null
++++ b/supabase/migrations/20260818000002_fix_org_members_rls_recursion.sql
+@@ -0,0 +1,43 @@
++-- The "Members can view fellow org members" policy on organisation_members
++-- checks membership by querying organisation_members itself (as
++-- my_membership). Under RLS, that subquery triggers the same policy again,
++-- which queries the table again, recursing infinitely. Postgres detects
++-- this and throws "infinite recursion detected in policy for relation
++-- organisation_members" instead of hanging.
++--
++-- This error wasn't surfacing visibly in the app — Supabase's client just
++-- returned an empty/failed result for the query in useOrg(), which is why
++-- the organisation dropdown appeared empty even though the underlying data
++-- (org, membership) was correct. This affected every user, not just one
++-- broken account — it would have blocked every future client (Tekowa,
++-- Excom, Etihad) from ever seeing their organisation.
++--
++-- Standard fix: a SECURITY DEFINER helper function bypasses RLS internally
++-- (it runs with the privileges of the function owner, not the calling
++-- user), so it can safely check membership without re-triggering the
++-- policy it's used inside of.
++
++CREATE OR REPLACE FUNCTION is_org_member(check_org_id UUID)
++RETURNS BOOLEAN AS $$
++  SELECT EXISTS (
++    SELECT 1 FROM organisation_members
++    WHERE org_id = check_org_id AND user_id = auth.uid()
++  );
++$$ LANGUAGE sql SECURITY DEFINER STABLE;
++
++DROP POLICY IF EXISTS "Members can view fellow org members" ON organisation_members;
++CREATE POLICY "Members can view fellow org members" ON organisation_members
++    FOR SELECT USING (is_org_member(org_id));
++
++-- The "organisations" and "audit_log" policies reference organisation_members
++-- directly (not itself), so they don't recurse — but they're rewritten here
++-- too, using the same helper, for consistency and to avoid the same class
++-- of bug if organisation_members' policy structure changes again later.
++
++DROP POLICY IF EXISTS "Members can view their organisations" ON organisations;
++CREATE POLICY "Members can view their organisations" ON organisations
++    FOR SELECT USING (is_org_member(id));
++
++DROP POLICY IF EXISTS "Members can view their org audit logs" ON audit_log;
++CREATE POLICY "Members can view their org audit logs" ON audit_log
++    FOR SELECT USING (is_org_member(org_id));
+-- 
+2.43.0
+
