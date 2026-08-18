@@ -1,0 +1,61 @@
+From 457de95b9524551ff09a2a1b8d1dfd3b7ee8dbc4 Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Tue, 18 Aug 2026 11:55:53 +0000
+Subject: [PATCH] Fix invoice page crash: Radix Select empty-string value
+
+The Invoices page crashed with a full-page error ("We hit a snag loading
+this page") whenever InvoiceForm rendered. Root cause: the tax rate
+dropdown had <SelectItem value="">None</SelectItem> -- Radix Select
+explicitly disallows an empty string as an item value, since empty
+string is reserved internally to mean "clear the selection." This threw
+a real React error, caught by the app-level error boundary.
+
+Fixed by using "none" as the sentinel value instead, translating it back
+to an empty string in onValueChange so the existing
+`tax_rate_id: item.tax_rate_id || undefined` logic downstream continues
+to correctly omit tax_rate_id when nothing is selected -- no behavior
+change to what gets saved, only to what Radix considers a valid item
+value.
+
+Verified live as the actual authenticated user: a real invoice insert
+(with a real client) succeeded under RLS with no errors, confirming the
+database path was never the problem -- this was purely a client-side
+render crash. Test data cleaned up after verification.
+
+Separately, also applied the existing (already-committed, not-yet-applied)
+employees_foundation migration live to the production Supabase project.
+The employees table didn't exist there yet, which caused every page
+(including Invoices) to log a 404 from AppSidebar/CommandPalette's global
+employees query -- unrelated to the crash itself, but noisy in the same
+browser session and worth closing while investigating.
+---
+ components/invoicing/InvoiceForm.tsx | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/components/invoicing/InvoiceForm.tsx b/components/invoicing/InvoiceForm.tsx
+index 5c54b89..d260813 100644
+--- a/components/invoicing/InvoiceForm.tsx
++++ b/components/invoicing/InvoiceForm.tsx
+@@ -312,14 +312,17 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
+                     name={`items.${index}.tax_rate_id`}
+                     render={({ field }) => (
+                       <FormItem>
+-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
++                        <Select
++                          onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
++                          defaultValue={field.value || "none"}
++                        >
+                           <FormControl>
+                             <SelectTrigger>
+                               <SelectValue placeholder="Tax" />
+                             </SelectTrigger>
+                           </FormControl>
+                           <SelectContent>
+-                            <SelectItem value="">None</SelectItem>
++                            <SelectItem value="none">None</SelectItem>
+                             {taxRates?.map((tax) => (
+                               <SelectItem key={tax.id} value={tax.id}>
+                                 {tax.name}
+-- 
+2.43.0
+

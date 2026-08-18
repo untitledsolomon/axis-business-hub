@@ -312,14 +312,17 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
                     name={`items.${index}.tax_rate_id`}
                     render={({ field }) => (
                       <FormItem>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                          defaultValue={field.value || "none"}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Tax" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
                             {taxRates?.map((tax) => (
                               <SelectItem key={tax.id} value={tax.id}>
                                 {tax.name}
