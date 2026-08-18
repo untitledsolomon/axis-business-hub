@@ -66,9 +66,11 @@ export default {
 				// Custom Axis colors
 				axis: {
 					blue: '#1E3A8A',
+					'blue-light': '#3B5DC9',
 					gray: '#64748B',
 					green: '#059669',
 					red: '#E11D48',
+					amber: '#D97706',
 					light: '#F8FAFC'
 				},
 			},

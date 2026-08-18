@@ -57,21 +57,21 @@ export interface Invoice {
   items?: InvoiceItem[];
 }
 
-export type EmployeeRole = 'admin' | 'staff' | 'manager';
 export type EmployeeStatus = 'active' | 'on_leave' | 'terminated';
 
 export interface Employee {
   id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: EmployeeRole;
-  status: EmployeeStatus;
-  hireDate: string;
-  salary?: number;
+  org_id: string;
+  full_name: string;
+  email?: string;
+  phone?: string;
+  role: string;
   department?: string;
-  createdAt: string;
-  updatedAt: string;
+  status: EmployeeStatus;
+  hire_date: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export type TransactionType = 'income' | 'expense';

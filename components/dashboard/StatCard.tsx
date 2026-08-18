@@ -11,10 +11,11 @@ interface StatCardProps {
     value: string;
     positive: boolean;
   };
+  subtitle?: string;
   className?: string;
 }
 
-export function StatCard({ title, value, icon, trend, className }: StatCardProps) {
+export function StatCard({ title, value, icon, trend, subtitle, className }: StatCardProps) {
   return (
     <Card className={cn("overflow-hidden", className)}>
       <h2 className="sr-only">{title}</h2>
@@ -35,6 +36,9 @@ export function StatCard({ title, value, icon, trend, className }: StatCardProps
                 </span>
                 <span className="text-xs text-muted-foreground ml-1">vs last period</span>
               </div>
+            )}
+            {subtitle && !trend && (
+              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
             )}
           </div>
           <div className="bg-primary/10 p-3 rounded-full">
