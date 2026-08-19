@@ -1,0 +1,255 @@
+From b8de0ff84ccef8c08385224e1060982568577843 Mon Sep 17 00:00:00 2001
+From: "Claude (Axis wiring session)" <dawn@regentplatform.com>
+Date: Wed, 19 Aug 2026 08:09:48 +0000
+Subject: [PATCH] Fix visual composition gap vs axis-shine reference
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Your screenshot of the live site showed a real, valid problem: the
+earlier design patch only swapped color tokens and fonts, but never
+did the actual composition work (elevation, spacing rhythm, nav
+grouping) that makes axis-shine feel like a considered product rather
+than "default shadcn with new colors." This closes that specific gap,
+based on directly reading axis-shine's actual component source
+(stat-card.tsx, app-shell.tsx, styles.css) rather than guessing.
+
+- app/globals.css: --radius bumped from 0.375rem to 0.75rem (axis-shine's
+  actual base radius). Added .panel utility (real two-stop shadow,
+  matching axis-shine's --shadow-card exactly) and .numeric utility
+  (tabular-nums) — previously missing entirely.
+- components/ui/card.tsx: strengthened the base Card's shadow/radius to
+  match .panel. This is the single highest-leverage fix, since Card is
+  used everywhere (dashboard widgets, dialogs, every list page) — one
+  change propagates real elevation app-wide instead of needing to touch
+  every file that renders a card.
+- components/dashboard/StatCard.tsx: rebuilt to match axis-shine's actual
+  stat-card.tsx composition — .panel treatment, pill-shaped trend badge
+  with arrow icon (was plain colored text), proper spacing rhythm
+  (mt-3/mt-2/gap-0.5, matching axis-shine's exact values).
+- components/layouts/AppSidebar.tsx: nav items restructured into labeled
+  sections (Overview / Workspace / System) with uppercase tracked-wide
+  labels, matching axis-shine's grouped-nav pattern — previously a flat
+  unlabeled list, which was one of the more visually obvious gaps in the
+  screenshot.
+
+Kept the flush (non-floating-card) shell layout per explicit direction
+to avoid the "SaaSy" floating-shell look axis-shine uses — this patch
+adds real composition/elevation without reintroducing that.
+
+Verified: tsc --noEmit clean, eslint clean on all touched files.
+---
+ app/globals.css                   | 11 +++++-
+ components/dashboard/StatCard.tsx | 58 ++++++++++++++-----------------
+ components/layouts/AppSidebar.tsx | 47 ++++++++++++++++++-------
+ components/ui/card.tsx            |  2 +-
+ 4 files changed, 72 insertions(+), 46 deletions(-)
+
+diff --git a/app/globals.css b/app/globals.css
+index 7cb1253..a1264cf 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -42,7 +42,7 @@
+     --input: 43 11% 88%;
+     --ring: 211 55% 23%;
+ 
+-    --radius: 0.375rem;
++    --radius: 0.75rem;
+ 
+     --sidebar-background: 212 49% 15%;
+     --sidebar-foreground: 60 11% 92%;
+@@ -135,4 +135,13 @@
+   .axis-transition {
+     @apply transition-all duration-300 ease-in-out;
+   }
++
++  .panel {
++    @apply bg-card border border-border rounded-xl;
++    box-shadow: 0 1px 2px hsl(215 18% 13% / 0.06), 0 1px 3px hsl(215 18% 13% / 0.05);
++  }
++
++  .numeric {
++    font-variant-numeric: tabular-nums;
++  }
+ }
+diff --git a/components/dashboard/StatCard.tsx b/components/dashboard/StatCard.tsx
+index da52ebf..f6a626c 100644
+--- a/components/dashboard/StatCard.tsx
++++ b/components/dashboard/StatCard.tsx
+@@ -1,6 +1,5 @@
+-
+ import { ReactNode } from "react";
+-import { Card, CardContent } from "@/components/ui/card";
++import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+ import { cn } from "@/lib/utils";
+ 
+ interface StatCardProps {
+@@ -16,36 +15,33 @@ interface StatCardProps {
+ }
+ 
+ export function StatCard({ title, value, icon, trend, subtitle, className }: StatCardProps) {
++  const Arrow = trend?.positive ? ArrowUpRight : ArrowDownRight;
+   return (
+-    <Card className={cn("overflow-hidden", className)}>
+-      <h2 className="sr-only">{title}</h2>
+-      <CardContent className="p-6">
+-        <div className="flex items-center justify-between">
+-          <div>
+-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+-            <p className="text-2xl font-semibold font-mono tracking-tight mt-1">{value}</p>
+-            {trend && (
+-              <div className="flex items-center mt-1">
+-                <span 
+-                  className={cn(
+-                    "text-xs font-medium",
+-                    trend.positive ? "text-axis-green" : "text-axis-red"
+-                  )}
+-                >
+-                  {trend.positive ? "+" : ""}{trend.value}
+-                </span>
+-                <span className="text-xs text-muted-foreground ml-1">vs last period</span>
+-              </div>
+-            )}
+-            {subtitle && !trend && (
+-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
++    <div className={cn("panel p-5", className)}>
++      <div className="flex items-start justify-between">
++        <p className="text-sm font-medium text-muted-foreground">{title}</p>
++        <div className="text-muted-foreground/60">{icon}</div>
++      </div>
++      <p className="numeric mt-3 text-2xl font-semibold font-mono tracking-tight text-foreground">
++        {value}
++      </p>
++      <div className="mt-2 flex items-center justify-between gap-2">
++        {subtitle && !trend && (
++          <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
++        )}
++        {trend && (
++          <span
++            className={cn(
++              "inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium",
++              trend.positive ? "bg-axis-green/10 text-axis-green" : "bg-axis-red/10 text-axis-red"
+             )}
+-          </div>
+-          <div className="bg-primary/10 p-3 rounded-full">
+-            {icon}
+-          </div>
+-        </div>
+-      </CardContent>
+-    </Card>
++          >
++            <Arrow className="size-3" />
++            {trend.value}
++          </span>
++        )}
++        {trend && <span className="text-xs text-muted-foreground">vs last period</span>}
++      </div>
++    </div>
+   );
+ }
+diff --git a/components/layouts/AppSidebar.tsx b/components/layouts/AppSidebar.tsx
+index cfdacd0..9c3408a 100644
+--- a/components/layouts/AppSidebar.tsx
++++ b/components/layouts/AppSidebar.tsx
+@@ -57,8 +57,11 @@ export function AppSidebar() {
+   const { user, signOut } = useAuth();
+   const pathname = usePathname();
+ 
+-  const navItems: NavItem[] = [
++  const overviewItems: NavLeaf[] = [
+     { title: "Dashboard", icon: Home, href: "/" },
++  ];
++
++  const workspaceItems: NavItem[] = [
+     { title: "Clients", icon: UserSquare2, href: "/clients" },
+     { title: "Invoices", icon: FileText, href: "/invoices" },
+     { title: "Employees", icon: Users, href: "/employees" },
+@@ -72,9 +75,18 @@ export function AppSidebar() {
+         { title: "General Ledger", icon: FileText, href: "/finance/ledger" },
+       ],
+     },
++  ];
++
++  const systemItems: NavLeaf[] = [
+     { title: "Settings", icon: Settings, href: "/settings" },
+   ];
+ 
++  const navSections: { label: string; items: NavItem[] }[] = [
++    { label: "Overview", items: overviewItems },
++    { label: "Workspace", items: workspaceItems },
++    { label: "System", items: systemItems },
++  ];
++
+   const isActive = (href: string) =>
+     href === "/" ? pathname === "/" : pathname === href || pathname?.startsWith(href + "/");
+ 
+@@ -82,9 +94,11 @@ export function AppSidebar() {
+ 
+   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+     const initial: Record<string, boolean> = {};
+-    navItems.forEach((item) => {
+-      if (isGroup(item) && groupIsActive(item)) initial[item.title] = true;
+-    });
++    navSections.forEach((section) =>
++      section.items.forEach((item) => {
++        if (isGroup(item) && groupIsActive(item)) initial[item.title] = true;
++      })
++    );
+     return initial;
+   });
+ 
+@@ -118,11 +132,17 @@ export function AppSidebar() {
+         </Button>
+       </SidebarHeader>
+ 
+-      <SidebarContent>
+-        <SidebarGroup>
+-          <SidebarGroupContent>
+-            <SidebarMenu>
+-              {navItems.map((item) => {
++      <SidebarContent className="space-y-6 py-2">
++        {navSections.map((section) => (
++          <SidebarGroup key={section.label} className="px-0">
++            {expanded && (
++              <p className="px-5 pb-2 text-[0.68rem] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
++                {section.label}
++              </p>
++            )}
++            <SidebarGroupContent>
++              <SidebarMenu>
++                {section.items.map((item) => {
+                 if (isGroup(item)) {
+                   const active = groupIsActive(item);
+                   const open = expanded && (openGroups[item.title] ?? active);
+@@ -185,10 +205,11 @@ export function AppSidebar() {
+                     </SidebarMenuButton>
+                   </SidebarMenuItem>
+                 );
+-              })}
+-            </SidebarMenu>
+-          </SidebarGroupContent>
+-        </SidebarGroup>
++                })}
++              </SidebarMenu>
++            </SidebarGroupContent>
++          </SidebarGroup>
++        ))}
+       </SidebarContent>
+ 
+       <SidebarFooter className="p-4 border-t">
+diff --git a/components/ui/card.tsx b/components/ui/card.tsx
+index f60fcb6..1315778 100644
+--- a/components/ui/card.tsx
++++ b/components/ui/card.tsx
+@@ -11,7 +11,7 @@ const Card = React.forwardRef<
+   <div
+     ref={ref}
+     className={cn(
+-      "rounded-lg border bg-card text-card-foreground shadow-sm",
++      "rounded-xl border bg-card text-card-foreground shadow-[0_1px_2px_hsl(215_18%_13%/0.06),0_1px_3px_hsl(215_18%_13%/0.05)]",
+       className
+     )}
+     {...props}
+-- 
+2.43.0
+
