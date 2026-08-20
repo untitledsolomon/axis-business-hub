@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useOrg } from "@/hooks/use-org";
 import {
@@ -12,17 +13,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, MoreHorizontal, FileDown, Send, CheckCircle, Receipt, AlertTriangle } from "lucide-react";
+import { Plus, Search, Filter, Receipt, CheckCircle, FileDown, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +24,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { InvoiceForm } from "@/components/invoicing/InvoiceForm";
+import { InvoiceActions } from "@/components/invoicing/InvoiceActions";
+import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -72,10 +67,12 @@ export function InvoicesList() {
         actions={
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
-              <Button aria-label="Create Invoice">
-                <Plus className="size-4" />
-                Create Invoice
-              </Button>
+              <ActionTooltip label="Create a new invoice for a client">
+                <Button aria-label="Create Invoice">
+                  <Plus className="size-4" />
+                  Create Invoice
+                </Button>
+              </ActionTooltip>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -157,7 +154,11 @@ export function InvoicesList() {
               ) : invoices && invoices.length > 0 ? (
                 invoices.map((invoice) => (
                   <TableRow key={invoice.id}>
-                    <TableCell className="numeric font-medium">{invoice.invoice_number}</TableCell>
+                    <TableCell className="numeric font-medium">
+                      <Link href={`/invoices/${invoice.id}`} className="hover:text-primary hover:underline">
+                        {invoice.invoice_number}
+                      </Link>
+                    </TableCell>
                     <TableCell>{invoice.client?.name || "—"}</TableCell>
                     <TableCell className="numeric text-muted-foreground">
                       {invoice.issue_date ? format(new Date(invoice.issue_date), "MMM dd, yyyy") : "—"}
@@ -172,28 +173,7 @@ export function InvoicesList() {
                       {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`Open menu for ${invoice.invoice_number}`}>
-                            <MoreHorizontal className="size-4" />
-                            <span className="sr-only">Open menu for {invoice.invoice_number}</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>
-                            <FileDown className="size-4" /> Download PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Send className="size-4" /> Send to Client
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <CheckCircle className="size-4" /> Mark as Paid
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Void Invoice</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {currentOrg && <InvoiceActions orgId={currentOrg.id} invoice={invoice} />}
                     </TableCell>
                   </TableRow>
                 ))
