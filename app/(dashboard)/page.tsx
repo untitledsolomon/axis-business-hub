@@ -3,6 +3,7 @@
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { useDashboardSummary } from "@/hooks/dashboard/use-dashboard-summary";
 import { useAuth } from "@/hooks/use-auth";
 import { Users, FileText, TrendingUp, Wallet } from "lucide-react";
@@ -25,56 +26,52 @@ export default function DashboardPage() {
     "there";
 
   return (
-    <div className="flex flex-col gap-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">Hello, {firstName} 👋</h1>
-        <p className="text-muted-foreground mt-1">
-          Here&apos;s what&apos;s happening across your business today.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title={`Hello, ${firstName} 👋`}
+        description="Here's what's happening across your business today."
+      />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Revenue This Month"
-          value={summary.isLoading ? "—" : fmtUGX(summary.revenueThisMonth)}
-          icon={<Wallet className="h-4 w-4 text-axis-blue" />}
-          trend={
-            summary.isLoading
-              ? undefined
-              : { value: fmtPct(summary.revenueChangePct), positive: summary.revenueChangePct >= 0 }
-          }
-        />
-        <StatCard
-          title="Active Clients"
-          value={summary.isLoading ? "—" : summary.activeClients.toString()}
-          icon={<Users className="h-4 w-4 text-axis-blue" />}
-        />
-        <StatCard
-          title="Outstanding Invoices"
-          value={summary.isLoading ? "—" : summary.outstandingCount.toString()}
-          icon={<FileText className="h-4 w-4 text-axis-blue" />}
-          subtitle={summary.isLoading ? undefined : `${fmtUGX(summary.outstandingTotal)} total`}
-        />
-        <StatCard
-          title="Net Profit"
-          value={summary.isLoading ? "—" : fmtUGX(summary.netProfitThisMonth)}
-          icon={<TrendingUp className="h-4 w-4 text-axis-blue" />}
-          trend={
-            summary.isLoading
-              ? undefined
-              : { value: fmtPct(summary.netProfitChangePct), positive: summary.netProfitChangePct >= 0 }
-          }
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4">
-          <RevenueChart />
+      <div className="space-y-4 p-4 md:p-6">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title="Revenue This Month"
+            value={summary.isLoading ? "—" : fmtUGX(summary.revenueThisMonth)}
+            icon={<Wallet className="size-4" />}
+            trend={
+              summary.isLoading
+                ? undefined
+                : { value: fmtPct(summary.revenueChangePct), positive: summary.revenueChangePct >= 0 }
+            }
+          />
+          <StatCard
+            title="Active Clients"
+            value={summary.isLoading ? "—" : summary.activeClients.toString()}
+            icon={<Users className="size-4" />}
+          />
+          <StatCard
+            title="Outstanding Invoices"
+            value={summary.isLoading ? "—" : summary.outstandingCount.toString()}
+            icon={<FileText className="size-4" />}
+            subtitle={summary.isLoading ? undefined : `${fmtUGX(summary.outstandingTotal)} total`}
+          />
+          <StatCard
+            title="Net Profit"
+            value={summary.isLoading ? "—" : fmtUGX(summary.netProfitThisMonth)}
+            icon={<TrendingUp className="size-4" />}
+            trend={
+              summary.isLoading
+                ? undefined
+                : { value: fmtPct(summary.netProfitChangePct), positive: summary.netProfitChangePct >= 0 }
+            }
+          />
         </div>
-        <div className="col-span-3">
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <RevenueChart />
           <RecentActivity />
         </div>
       </div>
-    </div>
+    </>
   );
 }

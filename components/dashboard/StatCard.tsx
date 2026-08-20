@@ -1,6 +1,4 @@
-
 import { ReactNode } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -17,35 +15,32 @@ interface StatCardProps {
 
 export function StatCard({ title, value, icon, trend, subtitle, className }: StatCardProps) {
   return (
-    <Card className={cn("overflow-hidden", className)}>
-      <h2 className="sr-only">{title}</h2>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-semibold font-mono tracking-tight mt-1">{value}</p>
-            {trend && (
-              <div className="flex items-center mt-1">
-                <span 
-                  className={cn(
-                    "text-xs font-medium",
-                    trend.positive ? "text-axis-green" : "text-axis-red"
-                  )}
-                >
-                  {trend.positive ? "+" : ""}{trend.value}
-                </span>
-                <span className="text-xs text-muted-foreground ml-1">vs last period</span>
-              </div>
-            )}
-            {subtitle && !trend && (
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-            )}
-          </div>
-          <div className="bg-primary/10 p-3 rounded-full">
-            {icon}
-          </div>
+    <div className={cn("panel p-5", className)}>
+      <div className="flex items-start justify-between">
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="numeric text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+          {trend && (
+            <div className="flex items-center gap-1">
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  trend.positive ? "text-success" : "text-destructive"
+                )}
+              >
+                {trend.positive ? "+" : ""}{trend.value}
+              </span>
+              <span className="text-xs text-muted-foreground">vs last period</span>
+            </div>
+          )}
+          {subtitle && !trend && (
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+        <div className="rounded-xl bg-primary-soft p-2.5 text-primary">
+          {icon}
+        </div>
+      </div>
+    </div>
   );
 }

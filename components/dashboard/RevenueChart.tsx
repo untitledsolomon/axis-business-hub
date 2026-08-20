@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOrg } from "@/hooks/use-org";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import {
@@ -48,72 +47,73 @@ export function RevenueChart() {
 
   if (isLoading) {
     return (
-      <Card className="col-span-2">
-        <CardHeader className="pb-0">
-          <CardTitle as="h2">Revenue Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4 h-[300px]">
-          <div className="w-full h-full bg-axis-light animate-pulse rounded-md" />
-        </CardContent>
-      </Card>
+      <section className="panel p-5 lg:col-span-2">
+        <h2 className="text-sm font-semibold text-foreground">Revenue overview</h2>
+        <div className="mt-5 h-64 animate-pulse rounded-xl bg-muted" />
+      </section>
     );
   }
 
   return (
-    <Card className="col-span-2">
-      <CardHeader className="pb-0">
-        <CardTitle as="h2">Revenue Overview</CardTitle>
-        <p className="text-sm text-muted-foreground">Paid invoices, last 6 months</p>
-      </CardHeader>
-      <CardContent className="pt-4 h-[300px]">
+    <section className="panel p-5 lg:col-span-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Revenue overview</h2>
+          <p className="text-xs text-muted-foreground">Paid invoices, last 6 months</p>
+        </div>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="size-2 rounded-full bg-chart-1" /> Revenue
+        </span>
+      </div>
+      <div className="mt-5 h-64">
         {!hasData ? (
-          <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
             No paid invoices yet — revenue will appear here once invoices are paid.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={data}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0,
-              }}
-            >
+            <AreaChart data={data} margin={{ left: -18, right: 6, top: 4 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1E3A8A" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#1E3A8A" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tickMargin={10} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tickMargin={10}
+                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              />
               <YAxis
                 axisLine={false}
                 tickLine={false}
                 tickMargin={10}
+                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
                 tickFormatter={(value) => `${value / 1000}k`}
               />
               <Tooltip
                 formatter={(value: number) => [`UGX ${value.toLocaleString()}`, "Revenue"]}
                 contentStyle={{
-                  borderRadius: "8px",
-                  border: "none",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                  borderRadius: "0.75rem",
+                  border: "1px solid hsl(var(--border))",
+                  boxShadow: "var(--shadow-card)",
                 }}
               />
               <Area
                 type="monotone"
                 dataKey="revenue"
-                stroke="#1E3A8A"
+                stroke="hsl(var(--chart-1))"
+                strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorRevenue)"
               />
             </AreaChart>
           </ResponsiveContainer>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

@@ -2,23 +2,23 @@
 
 import { useOrg } from "@/hooks/use-org";
 import { useTeamMembers } from "@/hooks/organisation/use-team";
-import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const roleStyles: Record<string, string> = {
-  owner: "bg-axis-blue/10 text-axis-blue border-axis-blue/20",
-  admin: "bg-axis-blue/10 text-axis-blue border-axis-blue/20",
-  accountant: "bg-axis-amber/10 text-axis-amber border-axis-amber/20",
-  hr_manager: "bg-axis-amber/10 text-axis-amber border-axis-amber/20",
-  inventory_manager: "bg-axis-green/10 text-axis-green border-axis-green/20",
-  sales: "bg-axis-green/10 text-axis-green border-axis-green/20",
-  staff: "bg-axis-gray/10 text-axis-gray border-axis-gray/20",
-  read_only: "bg-axis-gray/10 text-axis-gray border-axis-gray/20",
+const roleTone: Record<string, string> = {
+  owner: "bg-primary-soft text-primary",
+  admin: "bg-primary-soft text-primary",
+  accountant: "bg-warning-soft text-warning-foreground",
+  hr_manager: "bg-warning-soft text-warning-foreground",
+  inventory_manager: "bg-success-soft text-success",
+  sales: "bg-success-soft text-success",
+  staff: "bg-muted text-muted-foreground",
+  read_only: "bg-muted text-muted-foreground",
 };
-const defaultRoleStyle = "bg-axis-gray/10 text-axis-gray border-axis-gray/20";
+const defaultRoleTone = "bg-muted text-muted-foreground";
 
 function initials(name: string | null, email: string) {
   if (name && name.trim()) {
@@ -45,65 +45,58 @@ export function TeamSettingsView() {
   const { data: members, isLoading } = useTeamMembers(currentOrg?.id ?? "");
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Team Members</h2>
-          <p className="text-sm text-muted-foreground">
-            People with access to {currentOrg?.name ?? "this organisation"}.
-          </p>
-        </div>
-        <Button className="bg-axis-blue hover:bg-axis-blue-light" disabled>
-          <UserPlus className="mr-2 h-4 w-4" /> Invite Member
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        title="Team"
+        description={`People with access to ${currentOrg?.name ?? "this organisation"}.`}
+        actions={
+          <Button disabled>
+            <UserPlus className="size-4" /> Invite Member
+          </Button>
+        }
+      />
 
-      <Card>
-        <CardContent className="p-0">
+      <div className="p-4 md:p-6">
+        <div className="panel overflow-hidden">
           {isLoading ? (
-            <div className="p-6 space-y-3">
+            <div className="space-y-3 p-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 bg-axis-light animate-pulse rounded-md" />
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
           ) : !members || members.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">
-              No team members found.
-            </p>
+            <p className="p-6 text-center text-sm text-muted-foreground">No team members found.</p>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-border">
               {members.map((member) => (
                 <div key={member.id} className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-axis-blue text-white text-xs">
-                        {initials(
-                          member.profile?.full_name ?? null,
-                          member.profile?.email ?? "?"
-                        )}
+                    <Avatar className="size-9">
+                      <AvatarFallback className="bg-primary-soft text-xs text-primary">
+                        {initials(member.profile?.full_name ?? null, member.profile?.email ?? "?")}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium text-sm">
+                      <p className="text-sm font-medium text-foreground">
                         {member.profile?.full_name || member.profile?.email || "Unknown"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {member.profile?.email}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{member.profile?.email}</p>
                     </div>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={roleStyles[member.role] ?? defaultRoleStyle}
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                      roleTone[member.role] ?? defaultRoleTone
+                    )}
                   >
                     {roleLabel(member.role)}
-                  </Badge>
+                  </span>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }

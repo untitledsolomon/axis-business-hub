@@ -1,7 +1,24 @@
-import { Badge } from "@/components/ui/badge";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-type StatusTone = "success" | "warning" | "danger" | "neutral" | "info";
+const statusPill = cva(
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+  {
+    variants: {
+      tone: {
+        neutral: "bg-muted text-muted-foreground",
+        info: "bg-primary-soft text-primary",
+        success: "bg-success-soft text-success",
+        warning: "bg-warning-soft text-warning-foreground",
+        danger: "bg-destructive-soft text-destructive",
+        teal: "bg-teal-soft text-teal-foreground",
+      },
+    },
+    defaultVariants: { tone: "neutral" },
+  },
+);
+
+type StatusTone = NonNullable<VariantProps<typeof statusPill>["tone"]>;
 
 const STATUS_MAP: Record<string, { label: string; tone: StatusTone }> = {
   // Invoices
@@ -19,14 +36,11 @@ const STATUS_MAP: Record<string, { label: string; tone: StatusTone }> = {
   active: { label: "Active", tone: "success" },
   on_leave: { label: "On Leave", tone: "warning" },
   terminated: { label: "Terminated", tone: "danger" },
-};
-
-const TONE_CLASSES: Record<StatusTone, string> = {
-  success: "bg-axis-green/10 text-axis-green border-axis-green/20",
-  warning: "bg-axis-amber/10 text-axis-amber border-axis-amber/20",
-  danger: "bg-axis-red/10 text-axis-red border-axis-red/20",
-  info: "bg-axis-blue/10 text-axis-blue border-axis-blue/20",
-  neutral: "bg-axis-gray/10 text-axis-gray border-axis-gray/20",
+  // Clients / connections
+  inactive: { label: "Inactive", tone: "neutral" },
+  blocked: { label: "Blocked", tone: "danger" },
+  connected: { label: "Connected", tone: "success" },
+  disconnected: { label: "Disconnected", tone: "neutral" },
 };
 
 interface StatusBadgeProps {
@@ -35,19 +49,21 @@ interface StatusBadgeProps {
 }
 
 /**
- * Renders a consistently-styled badge for any known status value across
- * the app (invoices, journal entries, employees). Falls back to a plain
- * neutral badge with the raw status text for anything not in the map,
- * rather than silently rendering nothing for an unrecognized status.
+ * Renders a consistently-styled status pill for any known status value
+ * across the app (invoices, journal entries, employees, clients,
+ * connections). Falls back to a plain neutral pill with the raw status
+ * text for anything not in the map, rather than silently rendering
+ * nothing for an unrecognized status.
  */
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const entry = STATUS_MAP[status];
-  const label = entry?.label ?? status.charAt(0).toUpperCase() + status.slice(1);
+  const label = entry?.label ?? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ");
   const tone = entry?.tone ?? "neutral";
 
   return (
-    <Badge variant="outline" className={cn(TONE_CLASSES[tone], className)}>
+    <span className={cn(statusPill({ tone }), className)}>
+      <span className="size-1.5 rounded-full bg-current opacity-70" />
       {label}
-    </Badge>
+    </span>
   );
 }

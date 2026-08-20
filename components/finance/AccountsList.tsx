@@ -8,10 +8,10 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, MoreHorizontal, Download, FileText } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Download, FileText, Wallet, TrendingUp, TrendingDown, Landmark } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { AccountForm } from "@/components/finance/AccountForm";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { TableErrorState } from "@/components/shared/TableErrorState";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { useState, useEffect, useMemo } from "react";
 import { computeAccountBalance } from "@/lib/finance/balance";
 
@@ -57,22 +57,39 @@ export function AccountsList() {
 
   const balancesLoading = isLoading || entriesLoading;
 
+  const totals = useMemo(() => {
+    if (!accounts) return { assets: 0, liabilities: 0, revenue: 0, expenses: 0 };
+    const sum = (category: string) =>
+      accounts
+        .filter((a) => a.category === category)
+        .reduce((s, a) => s + (balances.get(a.id) || 0), 0);
+    return {
+      assets: sum("asset"),
+      liabilities: sum("liability"),
+      revenue: sum("revenue"),
+      expenses: sum("expense"),
+    };
+  }, [accounts, balances]);
+
+  const fmt = (cents: number) =>
+    (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
+
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         title="Chart of Accounts"
-        description="View and manage your organization's financial accounts."
+        description="The account structure every journal entry posts against."
         actions={
           <>
             <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" /> Export
+              <Download className="size-4" /> Export
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="Add Account">
-                  <Plus className="mr-2 h-4 w-4" /> Add Account
+                <Button aria-label="Add Account">
+                  <Plus className="size-4" /> Add Account
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
@@ -82,7 +99,7 @@ export function AccountsList() {
                 {currentOrg ? (
                   <AccountForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
                 ) : (
-                  <p className="text-sm text-muted-foreground py-6 text-center">
+                  <p className="py-6 text-center text-sm text-muted-foreground">
                     You need an active organisation before adding an account.
                   </p>
                 )}
@@ -92,112 +109,116 @@ export function AccountsList() {
         }
       />
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search accounts..."
-            className="pl-8 bg-white border-muted focus-visible:ring-axis-blue"
-          />
+      <div className="space-y-4 p-4 md:p-6">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard title="Total assets" value={balancesLoading ? "—" : fmt(totals.assets)} icon={<Wallet className="size-4" />} />
+          <StatCard title="Total liabilities" value={balancesLoading ? "—" : fmt(totals.liabilities)} icon={<Landmark className="size-4" />} />
+          <StatCard title="Revenue" value={balancesLoading ? "—" : fmt(totals.revenue)} icon={<TrendingUp className="size-4" />} />
+          <StatCard title="Expenses" value={balancesLoading ? "—" : fmt(totals.expenses)} icon={<TrendingDown className="size-4" />} />
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" /> Filters
-        </Button>
-      </div>
 
-      <div className="rounded-md border bg-white shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-axis-light/50">
-              <TableHead className="font-semibold w-[100px]">Code</TableHead>
-              <TableHead className="font-semibold">Account Name</TableHead>
-              <TableHead className="font-semibold">Type</TableHead>
-              <TableHead className="font-semibold">Sub-type</TableHead>
-              <TableHead className="text-right font-semibold">Balance</TableHead>
-              <TableHead className="text-right font-semibold">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isError ? (
-              <TableErrorState colSpan={6} onRetry={() => refetch()} />
-            ) : isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+        <div className="panel">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+            <p className="font-display text-sm font-semibold text-foreground">All accounts</p>
+            <div className="relative ml-auto w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search accounts…" className="pl-9" />
+            </div>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[100px]">Code</TableHead>
+                <TableHead>Account Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Sub-type</TableHead>
+                <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isError ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-64 text-center">
+                    <Button variant="outline" size="sm" onClick={() => refetch()}>
+                      Retry
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              ))
-            ) : accounts && accounts.length > 0 ? (
-              accounts.map((account) => (
-                <TableRow key={account.id} className="hover:bg-axis-light/30">
-                  <TableCell className="font-mono text-sm">{account.code}</TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center">
-                      {account.parent_id && <span className="ml-4 mr-2 text-muted-foreground">↳</span>}
-                      {account.name}
+              ) : isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="ml-auto h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="ml-auto h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))
+              ) : accounts && accounts.length > 0 ? (
+                accounts.map((account) => (
+                  <TableRow key={account.id}>
+                    <TableCell className="numeric text-muted-foreground">{account.code}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        {account.parent_id && <span className="mr-2 text-muted-foreground">↳</span>}
+                        {account.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize">
+                        {account.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{account.sub_type}</TableCell>
+                    <TableCell className="numeric text-right">
+                      {balancesLoading ? (
+                        <Skeleton className="ml-auto h-4 w-20" />
+                      ) : (
+                        fmt(balances.get(account.id) || 0)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label="Open menu">
+                            <MoreHorizontal className="size-4" />
+                            <span className="sr-only">Open menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem>View transactions</DropdownMenuItem>
+                          <DropdownMenuItem>Edit account</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive">Archive account</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <FileText className="h-12 w-12 text-muted-foreground opacity-20" />
+                      <h3 className="text-sm font-semibold text-foreground">No accounts found</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Get started by adding your first financial account.
+                      </p>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => setIsFormOpen(true)}>
+                        <Plus className="size-4" /> Add Account
+                      </Button>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {account.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{account.sub_type}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {balancesLoading ? (
-                      <Skeleton className="h-4 w-20 ml-auto" />
-                    ) : (
-                      ((balances.get(account.id) || 0) / 100).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Open menu">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>View transactions</DropdownMenuItem>
-                        <DropdownMenuItem>Edit account</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-axis-red">Archive account</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-64 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <FileText className="h-12 w-12 text-muted-foreground opacity-20" />
-                    <h3 className="text-lg font-semibold">No accounts found</h3>
-                    <p className="text-muted-foreground">
-                      Get started by adding your first financial account.
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="mt-4 border-axis-blue text-axis-blue"
-                      onClick={() => setIsFormOpen(true)}
-                    >
-                      <Plus className="mr-2 h-4 w-4" /> Add Account
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

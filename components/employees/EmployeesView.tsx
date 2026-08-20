@@ -11,9 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Search, MoreHorizontal, Mail, Calendar } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Mail, Users, UserCheck, UserMinus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,26 +21,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { useOrg } from "@/hooks/use-org";
 import { useEmployees } from "@/hooks/employees/use-employees";
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case "active":
-      return "bg-axis-green/10 text-axis-green border-axis-green/20";
-    case "on_leave":
-      return "bg-axis-amber/10 text-axis-amber border-axis-amber/20";
-    case "terminated":
-      return "bg-axis-red/10 text-axis-red border-axis-red/20";
-    default:
-      return "bg-axis-gray/10 text-axis-gray border-axis-gray/20";
-  }
-}
-
-function statusLabel(status: string) {
-  const spaced = status.replace("_", " ");
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
 
 function initials(name: string) {
   return name
@@ -71,130 +55,138 @@ export function EmployeesView() {
     );
   }, [employees, search]);
 
+  const active = (employees ?? []).filter((e) => e.status === "active").length;
+  const onLeave = (employees ?? []).filter((e) => e.status === "on_leave").length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Employees</h1>
-          <p className="text-muted-foreground">
-            Manage your organization&apos;s workforce and team structure.
-          </p>
-        </div>
-        <Button className="bg-axis-blue hover:bg-axis-blue-light" disabled title="Coming soon">
-          <Plus className="mr-2 h-4 w-4" /> Add Employee
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        title="Employees"
+        description="Manage your organisation's workforce and team structure."
+        actions={
+          <Button disabled title="Coming soon">
+            <Plus className="size-4" />
+            Add Employee
+          </Button>
+        }
+      />
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search employees..."
-            className="pl-8 bg-white border-muted focus-visible:ring-axis-blue"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="space-y-4 p-4 md:p-6">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard title="Headcount" value={isLoading ? "—" : String(employees?.length ?? 0)} icon={<Users className="size-4" />} />
+          <StatCard title="Active" value={isLoading ? "—" : String(active)} icon={<UserCheck className="size-4" />} />
+          <StatCard title="On leave" value={isLoading ? "—" : String(onLeave)} icon={<UserMinus className="size-4" />} />
         </div>
-        <Button variant="outline" disabled title="Coming soon">
-          Filters
-        </Button>
-      </div>
 
-      <div className="rounded-md border bg-white shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-axis-light/50">
-              <TableHead className="font-semibold">Employee</TableHead>
-              <TableHead className="font-semibold">Role & Department</TableHead>
-              <TableHead className="font-semibold">Hire Date</TableHead>
-              <TableHead className="font-semibold">Status</TableHead>
-              <TableHead className="text-right font-semibold">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
+        <div className="panel">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+            <p className="font-display text-sm font-semibold text-foreground">Directory</p>
+            <div className="relative ml-auto w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search employees…"
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" disabled title="Coming soon">
+              Filters
+            </Button>
+          </div>
+
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                  Loading employees...
-                </TableCell>
+                <TableHead>Employee</TableHead>
+                <TableHead>Role & Department</TableHead>
+                <TableHead>Hire Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                  {search
-                    ? "No employees match your search."
-                    : "No employees added yet."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((employee) => (
-                <TableRow key={employee.id} className="hover:bg-axis-light/30">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-axis-blue/10 text-axis-blue text-xs">
-                          {initials(employee.full_name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{employee.full_name}</span>
-                        {employee.email && (
-                          <span className="text-xs text-muted-foreground flex items-center">
-                            <Mail className="mr-1 h-3 w-3" /> {employee.email}
-                          </span>
-                        )}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                    Loading employees...
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                    {search ? "No employees match your search." : "No employees added yet."}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((employee) => (
+                  <TableRow key={employee.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-8">
+                          <AvatarFallback className="bg-primary-soft text-xs text-primary">
+                            {initials(employee.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">{employee.full_name}</p>
+                          {employee.email && (
+                            <p className="flex items-center truncate text-xs text-muted-foreground">
+                              <Mail className="mr-1 h-3 w-3" /> {employee.email}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium capitalize">{employee.role}</span>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm font-medium capitalize text-foreground">{employee.role}</p>
                       {employee.department && (
-                        <span className="text-xs text-muted-foreground">{employee.department}</span>
+                        <p className="text-xs text-muted-foreground">{employee.department}</p>
                       )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    <span className="flex items-center">
-                      <Calendar className="mr-2 h-3 w-3 text-muted-foreground" />
+                    </TableCell>
+                    <TableCell className="numeric text-muted-foreground">
                       {new Date(employee.hire_date).toLocaleDateString(undefined, {
                         month: "short",
                         day: "2-digit",
                         year: "numeric",
                       })}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getStatusColor(employee.status)}>
-                      {statusLabel(employee.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label={`Open menu for ${employee.full_name}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu for {employee.full_name}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem disabled>View Profile</DropdownMenuItem>
-                        <DropdownMenuItem disabled>Edit Details</DropdownMenuItem>
-                        <DropdownMenuItem disabled>Manage Permissions</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-axis-red" disabled>
-                          Terminate Employment
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={employee.status} />
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label={`Open menu for ${employee.full_name}`}>
+                            <MoreHorizontal className="size-4" />
+                            <span className="sr-only">Open menu for {employee.full_name}</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem disabled>View Profile</DropdownMenuItem>
+                          <DropdownMenuItem disabled>Edit Details</DropdownMenuItem>
+                          <DropdownMenuItem disabled>Manage Permissions</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" disabled>
+                            Terminate Employment
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm text-muted-foreground">
+              <span>{filtered.length} employee{filtered.length === 1 ? "" : "s"}</span>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

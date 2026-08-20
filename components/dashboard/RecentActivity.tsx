@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { FileText, UserPlus, ReceiptText } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { FileText, UserPlus } from "lucide-react";
 import { useOrg } from "@/hooks/use-org";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useClients } from "@/hooks/clients/use-clients";
@@ -68,60 +67,55 @@ export function RecentActivity() {
     return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6);
   }, [invoices, clients]);
 
-  const getIcon = (type: ActivityItem["type"]) => {
-    switch (type) {
-      case "invoice":
-        return <FileText size={16} className="text-axis-blue" />;
-      case "client":
-        return <UserPlus size={16} className="text-axis-green" />;
-      default:
-        return <ReceiptText size={16} />;
-    }
-  };
-
   const isLoading = invoicesLoading || clientsLoading;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle as="h2">Recent Activity</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-10 bg-axis-light animate-pulse rounded-md" />
-            ))}
-          </div>
-        ) : activities.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">
-            No activity yet. Create a client or invoice to get started.
-          </p>
-        ) : (
-          <div className="space-y-5">
-            {activities.map((activity) => (
-              <div key={activity.id} className="flex items-start gap-3">
-                <div
-                  className={cn(
-                    "mt-0.5 flex h-7 w-7 items-center justify-center rounded-full shrink-0",
-                    activity.type === "invoice" && "bg-axis-blue/10",
-                    activity.type === "client" && "bg-axis-green/10"
-                  )}
+    <section className="panel p-5">
+      <h2 className="text-sm font-semibold text-foreground">Recent activity</h2>
+      <p className="text-xs text-muted-foreground">Across your workspace</p>
+
+      {isLoading ? (
+        <div className="mt-4 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />
+          ))}
+        </div>
+      ) : activities.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No activity yet. Create a client or invoice to get started.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-4">
+          {activities.map((activity) => (
+            <li key={activity.id} className="flex gap-3">
+              <Avatar className="size-8">
+                <AvatarFallback
+                  className={
+                    activity.type === "invoice"
+                      ? "bg-primary-soft text-primary"
+                      : "bg-success-soft text-success"
+                  }
                 >
-                  {getIcon(activity.type)}
+                  {activity.type === "invoice" ? (
+                    <FileText className="size-3.5" />
+                  ) : (
+                    <UserPlus className="size-3.5" />
+                  )}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm text-foreground">
+                    <span className="font-medium">{activity.title}</span>
+                  </p>
+                  <span className="shrink-0 text-xs text-muted-foreground">{activity.time}</span>
                 </div>
-                <div className="flex-1 space-y-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium truncate">{activity.title}</p>
-                    <span className="text-xs text-muted-foreground shrink-0">{activity.time}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground truncate">{activity.description}</p>
-                </div>
+                <p className="truncate text-xs text-muted-foreground">{activity.description}</p>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

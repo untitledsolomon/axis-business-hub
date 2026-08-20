@@ -18,14 +18,16 @@ export function TableErrorState({ colSpan, message, onRetry }: TableErrorStatePr
   return (
     <TableRow>
       <TableCell colSpan={colSpan} className="h-64 text-center">
-        <div className="flex flex-col items-center justify-center space-y-2">
-          <AlertTriangle className="h-10 w-10 text-axis-red opacity-70" />
-          <h3 className="text-lg font-semibold">Couldn&apos;t load this data</h3>
-          <p className="text-muted-foreground max-w-sm mx-auto">
+        <div className="flex flex-col items-center justify-center gap-2">
+          <div className="rounded-full bg-destructive-soft p-3">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load this data</h3>
+          <p className="max-w-sm text-sm text-muted-foreground">
             {message || "Something went wrong while fetching this from the server. Please try again."}
           </p>
           {onRetry && (
-            <Button variant="outline" className="mt-2 border-axis-red text-axis-red" onClick={onRetry}>
+            <Button variant="outline" size="sm" className="mt-2" onClick={onRetry}>
               Retry
             </Button>
           )}

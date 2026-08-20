@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { toast } from "sonner";
 
 const formSchema = z.object({
@@ -71,62 +71,40 @@ export function OrganisationSettingsView() {
 
   if (isLoading) {
     return (
-      <Card className="max-w-2xl">
-        <CardContent className="p-6">
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-10 bg-axis-light animate-pulse rounded-md" />
-            ))}
+      <>
+        <PageHeader title="Organisation Settings" description="Manage your organisation profile." />
+        <div className="p-4 md:p-6">
+          <div className="panel max-w-2xl p-6">
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />
+              ))}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </>
     );
   }
 
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle as="h2">Organisation Profile</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          This information appears on invoices, reports, and payslips.
-        </p>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Organisation Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Street, city, country" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
+    <>
+      <PageHeader title="Organisation Settings" description="Manage your organisation profile." />
+      <div className="p-4 md:p-6">
+        <div className="panel max-w-2xl p-6">
+          <div className="mb-6">
+            <h2 className="font-display text-sm font-semibold text-foreground">Organisation Profile</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This information appears on invoices, reports, and payslips.
+            </p>
+          </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="registration_number"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Registration Number</FormLabel>
+                    <FormLabel>Organisation Name</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -136,56 +114,80 @@ export function OrganisationSettingsView() {
               />
               <FormField
                 control={form.control}
-                name="tax_id"
+                name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tax ID</FormLabel>
+                    <FormLabel>Address</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} placeholder="Street, city, country" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="base_currency"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Base Currency</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="UGX" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <Button
-              type="submit"
-              className="bg-axis-blue hover:bg-axis-blue-light"
-              disabled={updateOrg.isPending}
-            >
-              {updateOrg.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="registration_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Registration Number</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tax_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tax ID</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="base_currency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Base Currency</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="UGX" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <Button type="submit" disabled={updateOrg.isPending}>
+                {updateOrg.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </form>
+          </Form>
+        </div>
+      </div>
+    </>
   );
 }

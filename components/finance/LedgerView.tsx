@@ -8,10 +8,10 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, MoreHorizontal, FileSpreadsheet, History } from "lucide-react";
+import { Plus, Search, MoreHorizontal, FileSpreadsheet, History, ArrowUpRight, ArrowDownLeft, Scale } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -31,9 +31,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
-import { TableErrorState } from "@/components/shared/TableErrorState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { useState, useEffect, useMemo } from "react";
 
 function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
@@ -64,22 +64,38 @@ export function LedgerView() {
     );
   }, [entries, search]);
 
+  const totals = useMemo(() => {
+    const list = entries ?? [];
+    const debits = list.reduce(
+      (s, e) => s + (e.lines?.reduce((ls, l) => ls + (l.debit || 0), 0) ?? 0),
+      0
+    );
+    const credits = list.reduce(
+      (s, e) => s + (e.lines?.reduce((ls, l) => ls + (l.credit || 0), 0) ?? 0),
+      0
+    );
+    return { debits, credits };
+  }, [entries]);
+
+  const fmt = (cents: number) =>
+    (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
+
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         title="General Ledger"
         description="The source of truth for all financial transactions and journal entries."
         actions={
           <>
             <Button variant="outline">
-              <History className="mr-2 h-4 w-4" /> Audit Log
+              <History className="size-4" /> Audit Log
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-axis-blue hover:bg-axis-blue-light" aria-label="New Journal Entry">
-                  <Plus className="mr-2 h-4 w-4" /> New Journal Entry
+                <Button aria-label="New Journal Entry">
+                  <Plus className="size-4" /> New Journal Entry
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px]">
@@ -89,7 +105,7 @@ export function LedgerView() {
                 {currentOrg ? (
                   <JournalEntryForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
                 ) : (
-                  <p className="text-sm text-muted-foreground py-6 text-center">
+                  <p className="py-6 text-center text-sm text-muted-foreground">
                     There&apos;s nothing to record against yet — set up your organisation&apos;s Chart of Accounts first.
                   </p>
                 )}
@@ -99,135 +115,143 @@ export function LedgerView() {
         }
       />
 
-      <Tabs defaultValue="entries" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="entries">Journal Entries</TabsTrigger>
-          <TabsTrigger value="ledger">Account Ledger</TabsTrigger>
-        </TabsList>
+      <div className="space-y-4 p-4 md:p-6">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard title="Total debits" value={isLoading ? "—" : fmt(totals.debits)} icon={<ArrowUpRight className="size-4" />} />
+          <StatCard title="Total credits" value={isLoading ? "—" : fmt(totals.credits)} icon={<ArrowDownLeft className="size-4" />} />
+          <StatCard
+            title="Out of balance"
+            value={isLoading ? "—" : fmt(Math.abs(totals.debits - totals.credits))}
+            icon={<Scale className="size-4" />}
+          />
+        </div>
 
-        <TabsContent value="entries" className="space-y-4 pt-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search entries..."
-                className="pl-8 bg-white border-muted focus-visible:ring-axis-blue"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" /> Filters
-            </Button>
-          </div>
+        <Tabs defaultValue="entries" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="entries">Journal Entries</TabsTrigger>
+            <TabsTrigger value="ledger">Account Ledger</TabsTrigger>
+          </TabsList>
 
-          <div className="rounded-md border bg-white shadow-sm overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-axis-light/50">
-                  <TableHead className="font-semibold w-[120px]">Date</TableHead>
-                  <TableHead className="font-semibold w-[120px]">Reference</TableHead>
-                  <TableHead className="font-semibold">Description</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="text-right font-semibold">Total Amount</TableHead>
-                  <TableHead className="text-right font-semibold">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isError ? (
-                  <TableErrorState colSpan={6} onRetry={() => refetch()} />
-                ) : isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : filteredEntries.length > 0 ? (
-                  filteredEntries.map((entry) => (
-                    <TableRow key={entry.id} className="hover:bg-axis-light/30">
-                      <TableCell className="text-sm">{entry.entry_date}</TableCell>
-                      <TableCell className="font-mono text-sm">{entry.reference || "—"}</TableCell>
-                      <TableCell className="font-medium">{entry.description || "—"}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={entry.status} />
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {(entryTotal(entry) / 100).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Open menu for ${entry.reference || entry.id}`}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">
-                                Open menu for {entry.reference || entry.id}
-                              </span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit Entry</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {entry.status === "posted" ? (
-                              <DropdownMenuItem className="text-axis-red">Void Entry</DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem className="text-axis-green">Post Entry</DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
+          <TabsContent value="entries" className="pt-4">
+            <div className="panel">
+              <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+                <p className="font-display text-sm font-semibold text-foreground">Journal entries</p>
+                <div className="relative ml-auto w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search entries…"
+                    className="pl-9"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="h-64 text-center">
-                      <div className="flex flex-col items-center justify-center space-y-2">
-                        <FileSpreadsheet className="h-12 w-12 text-muted-foreground opacity-20" />
-                        <h3 className="text-lg font-semibold">No journal entries found</h3>
-                        <p className="text-muted-foreground">
-                          Get started by recording your first journal entry.
-                        </p>
-                        <Button
-                          variant="outline"
-                          className="mt-4 border-axis-blue text-axis-blue"
-                          onClick={() => setIsFormOpen(true)}
-                        >
-                          <Plus className="mr-2 h-4 w-4" /> New Journal Entry
-                        </Button>
-                      </div>
-                    </TableCell>
+                    <TableHead className="w-[120px]">Date</TableHead>
+                    <TableHead className="w-[120px]">Reference</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total Amount</TableHead>
+                    <TableHead className="w-10" />
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
+                </TableHeader>
+                <TableBody>
+                  {isError ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-64 text-center">
+                        <Button variant="outline" size="sm" onClick={() => refetch()}>
+                          Retry
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ) : isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="ml-auto h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="ml-auto h-8 w-8" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredEntries.length > 0 ? (
+                    filteredEntries.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell className="numeric text-muted-foreground">{entry.entry_date}</TableCell>
+                        <TableCell className="numeric">{entry.reference || "—"}</TableCell>
+                        <TableCell className="font-medium">{entry.description || "—"}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={entry.status} />
+                        </TableCell>
+                        <TableCell className="numeric text-right">{fmt(entryTotal(entry))}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Open menu for ${entry.reference || entry.id}`}
+                              >
+                                <MoreHorizontal className="size-4" />
+                                <span className="sr-only">
+                                  Open menu for {entry.reference || entry.id}
+                                </span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>Edit Entry</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {entry.status === "posted" ? (
+                                <DropdownMenuItem className="text-destructive">Void Entry</DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem className="text-success">Post Entry</DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-64 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <FileSpreadsheet className="h-12 w-12 text-muted-foreground opacity-20" />
+                          <h3 className="text-sm font-semibold text-foreground">No journal entries found</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Get started by recording your first journal entry.
+                          </p>
+                          <Button variant="outline" size="sm" className="mt-2" onClick={() => setIsFormOpen(true)}>
+                            <Plus className="size-4" /> New Journal Entry
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
 
-        <TabsContent value="ledger" className="space-y-4 pt-4">
-          <div className="flex flex-col items-center justify-center py-12 text-center bg-white border rounded-md border-dashed">
-            <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-            <h3 className="text-lg font-semibold">Detailed Ledger View</h3>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              Select an account to view its full transaction history and running balance.
-            </p>
-            <Button variant="outline" className="mt-4 border-axis-blue text-axis-blue">
-              Select Account
-            </Button>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+          <TabsContent value="ledger" className="pt-4">
+            <div className="panel flex flex-col items-center justify-center border-dashed py-12 text-center">
+              <FileSpreadsheet className="mb-4 h-12 w-12 text-muted-foreground opacity-20" />
+              <h3 className="text-sm font-semibold text-foreground">Detailed Ledger View</h3>
+              <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+                Select an account to view its full transaction history and running balance.
+              </p>
+              <Button variant="outline" size="sm" className="mt-4">
+                Select Account
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   );
 }

@@ -35,7 +35,8 @@ export default {
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
-					foreground: 'hsl(var(--destructive-foreground))'
+					foreground: 'hsl(var(--destructive-foreground))',
+					soft: 'hsl(var(--destructive-soft))'
 				},
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
@@ -52,6 +53,26 @@ export default {
 				card: {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
+				},
+				surface: {
+					DEFAULT: 'hsl(var(--surface))',
+					foreground: 'hsl(var(--surface-foreground))'
+				},
+				'primary-soft': 'hsl(var(--primary-soft))',
+				teal: {
+					DEFAULT: 'hsl(var(--teal))',
+					foreground: 'hsl(var(--teal-foreground))',
+					soft: 'hsl(var(--teal-soft))'
+				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))',
+					soft: 'hsl(var(--success-soft))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))',
+					soft: 'hsl(var(--warning-soft))'
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
@@ -71,16 +92,26 @@ export default {
 					blue: 'hsl(var(--primary))',
 					'blue-light': 'hsl(var(--primary) / 0.85)',
 					gray: 'hsl(var(--muted-foreground))',
-					green: 'hsl(var(--accent))',
+					green: 'hsl(var(--success))',
 					red: 'hsl(var(--destructive))',
-					amber: '#9C6B1F',
+					amber: 'hsl(var(--warning))',
+					teal: 'hsl(var(--teal))',
 					light: 'hsl(var(--muted))'
 				},
 			},
 			borderRadius: {
+				sm: 'calc(var(--radius) - 3px)',
+				md: 'calc(var(--radius) - 1px)',
 				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				xl: 'calc(var(--radius) + 4px)',
+				'2xl': 'calc(var(--radius) + 8px)',
+				'3xl': 'calc(var(--radius) + 12px)',
+				'4xl': 'calc(var(--radius) + 16px)'
+			},
+			boxShadow: {
+				card: 'var(--shadow-card)',
+				raised: 'var(--shadow-raised)',
+				pop: 'var(--shadow-pop)'
 			},
 			fontFamily: {
 				sans: ['var(--font-body)', 'system-ui', 'sans-serif'],

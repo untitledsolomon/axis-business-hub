@@ -16,15 +16,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col gap-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-axis-blue">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your organisation, tax configuration, and integrations.
-        </p>
-      </div>
-
-      <div className="flex gap-6 border-b overflow-x-auto">
+    <div>
+      <div className="flex gap-1 overflow-x-auto border-b border-border px-4 md:px-6">
         {tabs.map((tab) => {
           const active = pathname === tab.href;
           return (
@@ -32,8 +25,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               key={tab.href}
               href={tab.href}
               className={cn(
-                "flex items-center gap-2 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground whitespace-nowrap transition-colors",
-                active && "border-axis-blue text-axis-blue"
+                "flex items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+                active && "border-primary text-primary"
               )}
             >
               <tab.icon size={16} />
@@ -43,7 +36,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         })}
       </div>
 
-      <div>{children}</div>
+      {children}
     </div>
   );
 }
