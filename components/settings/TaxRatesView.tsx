@@ -59,7 +59,7 @@ export function TaxRatesView() {
         }
       />
 
-      <div className="p-4 md:p-6">
+      <div className="">
         <div className="panel max-w-2xl overflow-hidden">
           <Table>
             <TableHeader>

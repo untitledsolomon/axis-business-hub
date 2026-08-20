@@ -56,7 +56,7 @@ export function TeamSettingsView() {
         }
       />
 
-      <div className="p-4 md:p-6">
+      <div className="">
         <div className="panel overflow-hidden">
           {isLoading ? (
             <div className="space-y-3 p-6">

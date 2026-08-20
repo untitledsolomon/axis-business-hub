@@ -93,7 +93,7 @@ export function InvoicesList() {
         }
       />
 
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 ">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard title="Total invoiced" value={isLoading ? "—" : fmt(totals.all)} icon={<Receipt className="size-4" />} />
           <StatCard title="Paid" value={isLoading ? "—" : fmt(totals.paid)} icon={<CheckCircle className="size-4" />} />

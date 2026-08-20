@@ -103,7 +103,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 A
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-display text-sm font-semibold text-foreground">
+                <span className="block truncate font-display text-sm font-semibold text-primary-foreground">
                   {currentOrg ? currentOrg.name : "Select organisation"}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">Axis Business Hub</span>
@@ -194,8 +194,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const initials = initialsOf(displayName);
 
   return (
-    <div className="min-h-screen bg-background p-0 lg:p-3">
-      <div className="flex min-h-screen overflow-hidden rounded-none border-border bg-surface lg:min-h-[calc(100vh-1.5rem)] lg:rounded-2xl lg:border lg:shadow-card">
+    <div className="min-h-screen bg-background p-0">
+      <div className="flex min-h-screen overflow-hidden bg-surface">
         <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:block">
           <SidebarContent />
         </aside>
@@ -300,7 +300,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <main className="flex-1 overflow-x-hidden">{children}</main>
+          <main className="flex-1 overflow-x-hidden p-4 md:p-6">{children}</main>
         </div>
       </div>
 

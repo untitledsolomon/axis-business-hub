@@ -73,7 +73,7 @@ export function OrganisationSettingsView() {
     return (
       <>
         <PageHeader title="Organisation Settings" description="Manage your organisation profile." />
-        <div className="p-4 md:p-6">
+        <div className="">
           <div className="panel max-w-2xl p-6">
             <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
@@ -89,7 +89,7 @@ export function OrganisationSettingsView() {
   return (
     <>
       <PageHeader title="Organisation Settings" description="Manage your organisation profile." />
-      <div className="p-4 md:p-6">
+      <div className="">
         <div className="panel max-w-2xl p-6">
           <div className="mb-6">
             <h2 className="font-display text-sm font-semibold text-foreground">Organisation Profile</h2>

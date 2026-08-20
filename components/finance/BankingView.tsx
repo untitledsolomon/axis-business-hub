@@ -98,7 +98,7 @@ export function BankingView() {
         }
       />
 
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 ">
         <div className="grid gap-4 sm:grid-cols-2">
           <StatCard
             title="Cash on hand"

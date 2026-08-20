@@ -71,7 +71,7 @@ export function EmployeesView() {
         }
       />
 
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 ">
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard title="Headcount" value={isLoading ? "—" : String(employees?.length ?? 0)} icon={<Users className="size-4" />} />
           <StatCard title="Active" value={isLoading ? "—" : String(active)} icon={<UserCheck className="size-4" />} />

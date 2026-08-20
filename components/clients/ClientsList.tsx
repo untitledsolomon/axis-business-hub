@@ -69,7 +69,7 @@ export function ClientsList() {
         }
       />
 
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 ">
         <section className="panel overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 px-5 py-4">
             <div className="relative flex-1 md:max-w-xs">

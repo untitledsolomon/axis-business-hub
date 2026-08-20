@@ -109,7 +109,7 @@ export function AccountsList() {
         }
       />
 
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 ">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard title="Total assets" value={balancesLoading ? "—" : fmt(totals.assets)} icon={<Wallet className="size-4" />} />
           <StatCard title="Total liabilities" value={balancesLoading ? "—" : fmt(totals.liabilities)} icon={<Landmark className="size-4" />} />

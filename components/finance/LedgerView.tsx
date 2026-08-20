@@ -115,7 +115,7 @@ export function LedgerView() {
         }
       />
 
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 ">
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard title="Total debits" value={isLoading ? "—" : fmt(totals.debits)} icon={<ArrowUpRight className="size-4" />} />
           <StatCard title="Total credits" value={isLoading ? "—" : fmt(totals.credits)} icon={<ArrowDownLeft className="size-4" />} />
