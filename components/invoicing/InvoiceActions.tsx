@@ -35,6 +35,7 @@ import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { Invoice } from "@/lib/types";
 import { MoreHorizontal, FileDown, Send, CheckCircle, Eye, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 
 interface InvoiceActionsProps {
   orgId: string;
@@ -72,6 +73,7 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      posthog.capture("invoice_pdf_downloaded", { invoice_status: invoice.status });
       toast.success("Invoice PDF downloaded");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to generate PDF";
@@ -87,6 +89,7 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
       return;
     }
     await sendEmail.mutateAsync({ invoiceId: invoice.id });
+    posthog.capture("invoice_email_sent", { invoice_status: invoice.status });
   }
 
   async function handleVoid(event?: Event, reason?: string) {
@@ -101,6 +104,7 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
     // it, once the mutation actually finishes.
     event?.preventDefault();
     await voidInvoice.mutateAsync({ invoice_id: invoice.id, reason });
+    posthog.capture("invoice_voided", { invoice_status: invoice.status });
     setIsVoidConfirmOpen(false);
   }
 

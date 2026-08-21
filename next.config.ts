@@ -10,6 +10,10 @@ const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : "";
 const supabaseRealtimeOrigin = supabaseOrigin
   ? supabaseOrigin.replace(/^https:\/\//, "wss://")
   : "";
+const posthogOrigin = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const posthogAssetsOrigin = posthogOrigin
+  ? posthogOrigin.replace("://us.i.", "://us-assets.i.")
+  : "";
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -21,8 +25,9 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin};
-                    script-src 'self' 'unsafe-eval' 'unsafe-inline';
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin};
+                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin};
+                    worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline';
                     img-src 'self' data:;
                     font-src 'self';

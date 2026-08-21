@@ -1,8 +1,9 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
+import posthog from "posthog-js";
 
 interface AuthContextType {
   user: User | null;
@@ -15,26 +16,54 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const identifiedUserId = useRef<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
+
+  const identifyUser = (authenticatedUser: User) => {
+    if (identifiedUserId.current === authenticatedUser.id) {
+      return;
+    }
+
+    if (identifiedUserId.current) {
+      posthog.reset();
+    }
+
+    posthog.identify(authenticatedUser.id, {
+      email: authenticatedUser.email,
+      name: typeof authenticatedUser.user_metadata.full_name === "string"
+        ? authenticatedUser.user_metadata.full_name
+        : undefined,
+    });
+    identifiedUserId.current = authenticatedUser.id;
+  };
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      if (user) {
+        identifyUser(user);
+      }
       setIsLoading(false);
     };
 
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
+      (event, session) => {
+        const authenticatedUser = session?.user ?? null;
+        setUser(authenticatedUser);
+        if (authenticatedUser) {
+          identifyUser(authenticatedUser);
+        }
         setIsLoading(false);
-        if (_event === "SIGNED_IN") {
+        if (event === "SIGNED_IN") {
+          posthog.capture("user_signed_in");
           router.refresh();
         }
-        if (_event === "SIGNED_OUT") {
+        if (event === "SIGNED_OUT") {
+          identifiedUserId.current = null;
           router.push("/login");
           router.refresh();
         }
@@ -47,6 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router, supabase]);
 
   const signOut = async () => {
+    posthog.reset();
+    identifiedUserId.current = null;
     await supabase.auth.signOut();
   };
 

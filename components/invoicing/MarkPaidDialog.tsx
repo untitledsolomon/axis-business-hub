@@ -23,6 +23,7 @@ import {
 import { useBankAccounts } from "@/hooks/finance/use-finance";
 import { useMarkInvoicePaid } from "@/hooks/invoicing/use-invoices";
 import { Invoice } from "@/lib/types";
+import posthog from "posthog-js";
 
 const formSchema = z.object({
   deposit_account_id: z.string().min(1, "Select which account received the payment"),
@@ -55,6 +56,10 @@ export function MarkPaidDialog({ orgId, invoice, onSuccess }: MarkPaidDialogProp
       deposit_account_id: values.deposit_account_id,
       payment_date: values.payment_date,
       reference: values.reference,
+    });
+    posthog.capture("invoice_marked_paid", {
+      currency: invoice.currency,
+      grand_total: invoice.grand_total,
     });
     onSuccess?.();
   }

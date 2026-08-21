@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
 import { Client } from "@/lib/types";
+import posthog from "posthog-js";
 
 const formSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -75,6 +76,7 @@ export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
     try {
       if (isEditing) {
         await updateClient.mutateAsync({ id: client.id, updates: values });
+        posthog.capture("client_updated", { client_type: values.type });
       } else {
         await createClient.mutateAsync({
           ...values,
@@ -82,6 +84,7 @@ export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
           status: "active",
           currency: "UGX",
         });
+        posthog.capture("client_created", { client_type: values.type });
         form.reset();
       }
       onSuccess?.();

@@ -13,6 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import posthog from "posthog-js";
 
 const onboardingSchema = z.object({
   name: z.string().min(2, "Organisation name must be at least 2 characters"),
@@ -50,6 +51,7 @@ export function OnboardingForm() {
     if (error) {
       toast.error(error.message);
     } else {
+      posthog.capture("organisation_created");
       toast.success("Organisation created successfully!");
       await refreshOrgs();
       router.push("/");

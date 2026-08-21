@@ -36,6 +36,7 @@ import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { Client } from "@/lib/types";
 import { MoreHorizontal, Eye, Pencil, FileText, Archive, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 
 interface ClientActionsProps {
   orgId: string;
@@ -64,6 +65,7 @@ export function ClientActions({ orgId, client, showViewDetails = true }: ClientA
     event.preventDefault();
     try {
       await deleteClient.mutateAsync({ id: client.id });
+      posthog.capture("client_deleted", { client_type: client.type });
       setIsDeleteConfirmOpen(false);
       if (showViewDetails === false) {
         // We're on the client's own detail page — it no longer exists.

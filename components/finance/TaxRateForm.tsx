@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useCreateTaxRate } from "@/hooks/finance/use-finance";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tax name is required"),
@@ -44,6 +45,7 @@ export function TaxRateForm({ orgId, onSuccess }: TaxRateFormProps) {
         org_id: orgId,
         is_active: true,
       });
+      posthog.capture("tax_rate_created", { tax_rate: values.rate });
       toast.success("Tax rate created successfully");
       form.reset();
       onSuccess?.();

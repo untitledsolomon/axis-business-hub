@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { Account } from "@/lib/types";
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 
 const lineSchema = z.object({
   account_id: z.string().min(1, "Account is required"),
@@ -103,6 +104,10 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
         lines: linesInCents,
       });
 
+      posthog.capture("journal_entry_posted", {
+        line_count: linesInCents.length,
+        total_debit: Math.round(totalDebit * 100),
+      });
       toast.success("Journal entry created successfully");
       form.reset();
       onSuccess?.();

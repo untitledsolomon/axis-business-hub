@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 
 const itemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -155,6 +156,11 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
         items: invoiceItems,
       });
 
+      posthog.capture("invoice_created", {
+        item_count: invoiceItems.length,
+        currency: "UGX",
+        grand_total: Math.round(totals.grand_total * 100),
+      });
       toast.success("Invoice created successfully");
       form.reset();
       onSuccess?.();

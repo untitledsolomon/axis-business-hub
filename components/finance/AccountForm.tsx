@@ -23,6 +23,7 @@ import {
 import { useCreateAccount } from "@/hooks/finance/use-finance";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 
 const formSchema = z.object({
   code: z.string().min(1, "Account code is required"),
@@ -68,6 +69,7 @@ export function AccountForm({ orgId, onSuccess }: AccountFormProps) {
         currency: "UGX",
         is_active: true,
       });
+      posthog.capture("account_created", { account_category: values.category });
       toast.success("Account created successfully");
       form.reset();
       onSuccess?.();
