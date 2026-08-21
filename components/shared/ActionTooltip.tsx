@@ -10,11 +10,21 @@ interface ActionTooltipProps {
 }
 
 /**
- * Wraps any trigger (usually an icon button) with a short hover description,
- * e.g. <ActionTooltip label="Send invoice to client"><Button>...</Button></ActionTooltip>.
- * Uses the existing Radix Tooltip primitives — TooltipProvider is already
- * mounted once in app/layout.tsx, so this is safe to use anywhere without
- * extra setup.
+ * Wraps any trigger (usually an icon button, or another Radix trigger like
+ * DialogTrigger/DropdownMenuTrigger) with a short hover description, e.g.
+ * <ActionTooltip label="Send invoice to client"><Button>...</Button></ActionTooltip>.
+ *
+ * When wrapping a plain element (Button, icon, etc.) this is a normal
+ * asChild merge — fine. When wrapping ANOTHER Radix trigger
+ * (DialogTrigger/DropdownMenuTrigger), put ActionTooltip on the outside and
+ * do NOT also put asChild on the inner trigger's Button child — let the
+ * inner trigger render its own default element. Stacking `asChild` on two
+ * nested Radix triggers pointed at the same DOM node causes only one
+ * layer's Slot merge to actually attach — the other layer's event handlers
+ * (often the outer one, e.g. onClick to open a dialog) get silently
+ * dropped. That produces a button that looks correct in the DOM but never
+ * responds to clicks, with no console error. See InvoicesList.tsx and
+ * InvoiceActions.tsx for the corrected usage pattern.
  */
 export function ActionTooltip({ label, children, side = "top" }: ActionTooltipProps) {
   return (

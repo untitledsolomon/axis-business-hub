@@ -93,14 +93,14 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <ActionTooltip label="More actions">
+        <ActionTooltip label="More actions">
+          <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label={`Open menu for ${invoice.invoice_number}`}>
               <MoreHorizontal className="size-4" />
               <span className="sr-only">Open menu for {invoice.invoice_number}</span>
             </Button>
-          </ActionTooltip>
-        </DropdownMenuTrigger>
+          </DropdownMenuTrigger>
+        </ActionTooltip>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           {showViewDetails && (

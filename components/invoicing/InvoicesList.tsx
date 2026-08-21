@@ -66,14 +66,14 @@ export function InvoicesList() {
         description="Manage your customer billing and track payments."
         actions={
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <ActionTooltip label="Create a new invoice for a client">
+            <ActionTooltip label="Create a new invoice for a client">
+              <DialogTrigger asChild>
                 <Button aria-label="Create Invoice">
                   <Plus className="size-4" />
                   Create Invoice
                 </Button>
-              </ActionTooltip>
-            </DialogTrigger>
+              </DialogTrigger>
+            </ActionTooltip>
             <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Invoice</DialogTitle>
