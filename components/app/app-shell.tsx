@@ -174,7 +174,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </AvatarFallback>
           </Avatar>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium text-foreground">{displayName}</span>
+            <span className="block truncate text-sm font-medium text-primary-foreground">{displayName}</span>
             <span className="block truncate text-xs text-muted-foreground">{user?.email}</span>
           </span>
           <LogOut className="size-4 text-muted-foreground" />

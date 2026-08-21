@@ -16,6 +16,19 @@ export async function getInvoices(orgId: string) {
   return data as Invoice[];
 }
 
+export async function getInvoicesByClient(orgId: string, clientId: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("client_id", clientId)
+    .order("invoice_number", { ascending: false });
+
+  if (error) throw error;
+  return data as Invoice[];
+}
+
 export async function getInvoice(orgId: string, invoiceId: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase

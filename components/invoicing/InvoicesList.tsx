@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -77,6 +78,7 @@ export function InvoicesList() {
             <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Invoice</DialogTitle>
+                <DialogDescription>Add line items and client details to generate a new invoice.</DialogDescription>
               </DialogHeader>
               {currentOrg ? (
                 <InvoiceForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />

@@ -20,10 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCreateClient } from "@/hooks/clients/use-clients";
+import { useCreateClient, useUpdateClient } from "@/hooks/clients/use-clients";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
+import { Client } from "@/lib/types";
 
 const formSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -39,11 +40,14 @@ const formSchema = z.object({
 
 interface ClientFormProps {
   orgId: string;
+  client?: Client; // when present, form edits instead of creates
   onSuccess?: () => void;
 }
 
-export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
+export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
   const createClient = useCreateClient();
+  const updateClient = useUpdateClient(orgId);
+  const isEditing = !!client;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -53,15 +57,15 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      company_name: "",
-      email: "",
-      phone: "",
-      address: "",
-      tax_id: "",
-      type: "company",
-      payment_terms: "Net 30",
-      notes: "",
+      name: client?.name ?? "",
+      company_name: client?.company_name ?? "",
+      email: client?.email ?? "",
+      phone: client?.phone ?? "",
+      address: client?.address ?? "",
+      tax_id: client?.tax_id ?? "",
+      type: client?.type ?? "company",
+      payment_terms: client?.payment_terms ?? "Net 30",
+      notes: client?.notes ?? "",
     },
   });
 
@@ -69,17 +73,20 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await createClient.mutateAsync({
-        ...values,
-        org_id: orgId,
-        status: "active",
-        currency: "UGX",
-      });
-      toast.success("Client added successfully");
-      form.reset();
+      if (isEditing) {
+        await updateClient.mutateAsync({ id: client.id, updates: values });
+      } else {
+        await createClient.mutateAsync({
+          ...values,
+          org_id: orgId,
+          status: "active",
+          currency: "UGX",
+        });
+        form.reset();
+      }
       onSuccess?.();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to add client";
+      const message = error instanceof Error ? error.message : `Failed to ${isEditing ? "update" : "add"} client`;
       toast.error(message);
     }
   }
@@ -216,8 +223,16 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
             )}
           />
         </div>
-        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createClient.isPending}>
-          {createClient.isPending ? "Adding..." : "Add Client"}
+        <Button
+          type="submit"
+          className="w-full bg-axis-blue hover:bg-axis-blue-light"
+          disabled={createClient.isPending || updateClient.isPending}
+        >
+          {createClient.isPending || updateClient.isPending
+            ? "Saving..."
+            : isEditing
+              ? "Save Changes"
+              : "Add Client"}
         </Button>
       </form>
     </Form>

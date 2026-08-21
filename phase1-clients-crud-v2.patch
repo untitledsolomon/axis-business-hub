@@ -1,0 +1,887 @@
+diff --git a/app/(dashboard)/clients/[id]/page.tsx b/app/(dashboard)/clients/[id]/page.tsx
+new file mode 100644
+index 0000000..7d72b93
+--- /dev/null
++++ b/app/(dashboard)/clients/[id]/page.tsx
+@@ -0,0 +1,16 @@
++import { Metadata } from "next";
++import { ClientDetail } from "@/components/clients/ClientDetail";
++
++export const metadata: Metadata = {
++  title: "Client Details",
++  description: "Contact info, terms, and invoice history for this client.",
++};
++
++interface ClientDetailPageProps {
++  params: Promise<{ id: string }>;
++}
++
++export default async function ClientDetailPage({ params }: ClientDetailPageProps) {
++  const { id } = await params;
++  return <ClientDetail clientId={id} />;
++}
+diff --git a/components/clients/ClientActions.tsx b/components/clients/ClientActions.tsx
+new file mode 100644
+index 0000000..3312710
+--- /dev/null
++++ b/components/clients/ClientActions.tsx
+@@ -0,0 +1,154 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import Link from "next/link";
++import { Button } from "@/components/ui/button";
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuLabel,
++  DropdownMenuSeparator,
++  DropdownMenuTrigger,
++} from "@/components/ui/dropdown-menu";
++import {
++  Dialog,
++  DialogContent,
++  DialogHeader,
++  DialogTitle,
++} from "@/components/ui/dialog";
++import {
++  AlertDialog,
++  AlertDialogAction,
++  AlertDialogCancel,
++  AlertDialogContent,
++  AlertDialogDescription,
++  AlertDialogFooter,
++  AlertDialogHeader,
++  AlertDialogTitle,
++} from "@/components/ui/alert-dialog";
++import { ActionTooltip } from "@/components/shared/ActionTooltip";
++import { ClientForm } from "@/components/clients/ClientForm";
++import { useDeleteClient, useArchiveClient } from "@/hooks/clients/use-clients";
++import { Client } from "@/lib/types";
++import { MoreHorizontal, Eye, Pencil, FileText, Archive, Trash2 } from "lucide-react";
++import { toast } from "sonner";
++
++interface ClientActionsProps {
++  orgId: string;
++  client: Client;
++  /** Show a "View details" entry — omit on the detail page itself. */
++  showViewDetails?: boolean;
++}
++
++export function ClientActions({ orgId, client, showViewDetails = true }: ClientActionsProps) {
++  const router = useRouter();
++  const [isEditOpen, setIsEditOpen] = useState(false);
++  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
++
++  const deleteClient = useDeleteClient(orgId);
++  const archiveClient = useArchiveClient(orgId);
++
++  async function handleDelete(event: Event) {
++    // See InvoiceActions.tsx handleVoid for why preventDefault is required
++    // here — without it, Radix's default auto-close on AlertDialogAction
++    // races this async handler's own state update, and a slow/failed
++    // mutation leaves the dialog's open-state desynced from what Radix
++    // actually unmounted, freezing the whole app's click handling until a
++    // hard refresh.
++    event.preventDefault();
++    try {
++      await deleteClient.mutateAsync({ id: client.id });
++      setIsDeleteConfirmOpen(false);
++      if (showViewDetails === false) {
++        // We're on the client's own detail page — it no longer exists.
++        router.push("/clients");
++      }
++    } catch (error: unknown) {
++      // deleteClient already surfaces a clear message for the common case
++      // (client has invoices, FK restrict) via lib/clients/queries.ts —
++      // offer archiving as the actual next step instead of a dead end.
++      const message = error instanceof Error ? error.message : "Failed to delete client";
++      toast.error(message, {
++        action: {
++          label: "Archive instead",
++          onClick: () => archiveClient.mutate({ id: client.id }),
++        },
++      });
++      setIsDeleteConfirmOpen(false);
++    }
++  }
++
++  return (
++    <>
++      <DropdownMenu>
++        <ActionTooltip label="More actions">
++          <DropdownMenuTrigger asChild>
++            <Button variant="ghost" size="icon" aria-label={`Open menu for ${client.name}`}>
++              <MoreHorizontal className="size-4" />
++              <span className="sr-only">Open menu for {client.name}</span>
++            </Button>
++          </DropdownMenuTrigger>
++        </ActionTooltip>
++        <DropdownMenuContent align="end">
++          <DropdownMenuLabel>Actions</DropdownMenuLabel>
++          {showViewDetails && (
++            <DropdownMenuItem onSelect={() => router.push(`/clients/${client.id}`)}>
++              <Eye className="size-4" /> View details
++            </DropdownMenuItem>
++          )}
++          <DropdownMenuItem onSelect={() => setIsEditOpen(true)}>
++            <Pencil className="size-4" /> Edit client
++          </DropdownMenuItem>
++          <DropdownMenuItem asChild>
++            <Link href={`/invoices?client=${client.id}`}>
++              <FileText className="size-4" /> Create invoice
++            </Link>
++          </DropdownMenuItem>
++          {client.status !== "inactive" && (
++            <DropdownMenuItem onSelect={() => archiveClient.mutate({ id: client.id })}>
++              <Archive className="size-4" /> Archive client
++            </DropdownMenuItem>
++          )}
++          <DropdownMenuSeparator />
++          <DropdownMenuItem className="text-destructive" onSelect={() => setIsDeleteConfirmOpen(true)}>
++            <Trash2 className="size-4" /> Delete client
++          </DropdownMenuItem>
++        </DropdownMenuContent>
++      </DropdownMenu>
++
++      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
++        <DialogContent className="sm:max-w-[600px]">
++          <DialogHeader>
++            <DialogTitle>Edit Client</DialogTitle>
++          </DialogHeader>
++          <ClientForm orgId={orgId} client={client} onSuccess={() => setIsEditOpen(false)} />
++        </DialogContent>
++      </Dialog>
++
++      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
++        <AlertDialogContent>
++          <AlertDialogHeader>
++            <AlertDialogTitle>Delete {client.name}?</AlertDialogTitle>
++            <AlertDialogDescription>
++              This permanently removes the client record. If they have any invoices on file, this
++              will be blocked and you&apos;ll be offered the option to archive instead — archiving
++              hides them from active lists without breaking invoice history.
++            </AlertDialogDescription>
++          </AlertDialogHeader>
++          <AlertDialogFooter>
++            <AlertDialogCancel>Cancel</AlertDialogCancel>
++            <AlertDialogAction
++              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
++              onClick={(e) => handleDelete(e.nativeEvent)}
++              disabled={deleteClient.isPending}
++            >
++              {deleteClient.isPending ? "Deleting…" : "Delete Client"}
++            </AlertDialogAction>
++          </AlertDialogFooter>
++        </AlertDialogContent>
++      </AlertDialog>
++    </>
++  );
++}
+diff --git a/components/clients/ClientDetail.tsx b/components/clients/ClientDetail.tsx
+new file mode 100644
+index 0000000..614b184
+--- /dev/null
++++ b/components/clients/ClientDetail.tsx
+@@ -0,0 +1,272 @@
++"use client";
++
++import Link from "next/link";
++import { useState, useEffect } from "react";
++import { useClient } from "@/hooks/clients/use-clients";
++import { useInvoicesByClient } from "@/hooks/invoicing/use-invoices";
++import { useOrg } from "@/hooks/use-org";
++import { Button } from "@/components/ui/button";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from "@/components/ui/table";
++import { Skeleton } from "@/components/ui/skeleton";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { StatusBadge } from "@/components/shared/StatusBadge";
++import { ClientActions } from "@/components/clients/ClientActions";
++import {
++  ArrowLeft,
++  Users,
++  AlertTriangle,
++  Mail,
++  Phone,
++  MapPin,
++  FileText,
++  Plus,
++} from "lucide-react";
++import { format } from "date-fns";
++
++interface ClientDetailProps {
++  clientId: string;
++}
++
++export function ClientDetail({ clientId }: ClientDetailProps) {
++  const [mounted, setMounted] = useState(false);
++  const { currentOrg } = useOrg();
++  const orgId = currentOrg?.id || "";
++
++  const { data: client, isLoading, isError, refetch } = useClient(orgId, clientId);
++  const { data: invoices, isLoading: invoicesLoading } = useInvoicesByClient(orgId, clientId);
++
++  useEffect(() => {
++    setMounted(true);
++  }, []);
++
++  if (!mounted) return null;
++
++  if (isError) {
++    return (
++      <div className="panel flex flex-col items-center justify-center gap-2 border-dashed py-16 text-center">
++        <div className="rounded-full bg-destructive-soft p-3">
++          <AlertTriangle className="h-5 w-5 text-destructive" />
++        </div>
++        <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load this client</h3>
++        <p className="max-w-sm text-sm text-muted-foreground">
++          Something went wrong while fetching this from the server. Please try again.
++        </p>
++        <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
++          Retry
++        </Button>
++      </div>
++    );
++  }
++
++  if (isLoading) {
++    return (
++      <div className="space-y-4">
++        <Skeleton className="h-8 w-64" />
++        <Skeleton className="h-40 w-full" />
++        <Skeleton className="h-64 w-full" />
++      </div>
++    );
++  }
++
++  if (!client) {
++    return (
++      <div className="panel flex flex-col items-center justify-center gap-2 border-dashed py-16 text-center">
++        <Users className="h-12 w-12 text-muted-foreground opacity-20" />
++        <h3 className="text-sm font-semibold text-foreground">Client not found</h3>
++        <p className="max-w-sm text-sm text-muted-foreground">
++          This client may have been deleted, or you may not have access to them.
++        </p>
++        <Button variant="outline" size="sm" className="mt-2" asChild>
++          <Link href="/clients">Back to Clients</Link>
++        </Button>
++      </div>
++    );
++  }
++
++  const totals = (invoices ?? []).reduce(
++    (acc, inv) => {
++      acc.total += inv.grand_total;
++      if (inv.status === "paid") acc.paid += inv.grand_total;
++      if (inv.status !== "paid" && inv.status !== "voided") acc.outstanding += inv.grand_total;
++      return acc;
++    },
++    { total: 0, paid: 0, outstanding: 0 }
++  );
++
++  return (
++    <>
++      <div className="mb-2">
++        <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
++          <Link href="/clients">
++            <ArrowLeft className="size-4" />
++            Back to Clients
++          </Link>
++        </Button>
++      </div>
++
++      <PageHeader
++        title={client.name}
++        description={client.company_name || "No company on file"}
++        actions={<ClientActions orgId={orgId} client={client} showViewDetails={false} />}
++      />
++
++      <div className="space-y-4">
++        <div>
++          <StatusBadge status={client.status} />
++        </div>
++
++        <div className="grid gap-4 lg:grid-cols-3">
++          <section className="panel p-5 lg:col-span-2">
++            <div className="mb-4 flex items-center justify-between">
++              <h2 className="text-sm font-semibold text-foreground">Invoice history</h2>
++              <Button size="sm" variant="outline" asChild>
++                <Link href={`/invoices?client=${client.id}`}>
++                  <Plus className="size-4" />
++                  New invoice
++                </Link>
++              </Button>
++            </div>
++
++            <div className="mb-4 grid grid-cols-3 gap-3 rounded-lg border border-border p-3 text-sm">
++              <div>
++                <p className="text-xs text-muted-foreground">Total invoiced</p>
++                <p className="numeric font-semibold text-foreground">
++                  {client.currency} {(totals.total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
++                </p>
++              </div>
++              <div>
++                <p className="text-xs text-muted-foreground">Paid</p>
++                <p className="numeric font-semibold text-success">
++                  {client.currency} {(totals.paid / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
++                </p>
++              </div>
++              <div>
++                <p className="text-xs text-muted-foreground">Outstanding</p>
++                <p className="numeric font-semibold text-warning-foreground">
++                  {client.currency} {(totals.outstanding / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
++                </p>
++              </div>
++            </div>
++
++            <div className="overflow-x-auto">
++              <Table aria-label="Client invoice history">
++                <TableHeader>
++                  <TableRow>
++                    <TableHead>Invoice #</TableHead>
++                    <TableHead>Issue Date</TableHead>
++                    <TableHead>Status</TableHead>
++                    <TableHead className="text-right">Amount</TableHead>
++                  </TableRow>
++                </TableHeader>
++                <TableBody>
++                  {invoicesLoading ? (
++                    Array.from({ length: 3 }).map((_, i) => (
++                      <TableRow key={i}>
++                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
++                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
++                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
++                        <TableCell><Skeleton className="ml-auto h-4 w-20" /></TableCell>
++                      </TableRow>
++                    ))
++                  ) : invoices && invoices.length > 0 ? (
++                    invoices.map((invoice) => (
++                      <TableRow key={invoice.id}>
++                        <TableCell className="numeric font-medium">
++                          <Link href={`/invoices/${invoice.id}`} className="hover:text-primary hover:underline">
++                            {invoice.invoice_number}
++                          </Link>
++                        </TableCell>
++                        <TableCell className="numeric text-muted-foreground">
++                          {format(new Date(invoice.issue_date), "MMM dd, yyyy")}
++                        </TableCell>
++                        <TableCell>
++                          <StatusBadge status={invoice.status} />
++                        </TableCell>
++                        <TableCell className="numeric text-right font-medium">
++                          {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
++                        </TableCell>
++                      </TableRow>
++                    ))
++                  ) : (
++                    <TableRow>
++                      <TableCell colSpan={4} className="h-32 text-center">
++                        <div className="flex flex-col items-center justify-center gap-2">
++                          <FileText className="h-8 w-8 text-muted-foreground opacity-20" />
++                          <p className="text-sm text-muted-foreground">No invoices yet for this client.</p>
++                        </div>
++                      </TableCell>
++                    </TableRow>
++                  )}
++                </TableBody>
++              </Table>
++            </div>
++          </section>
++
++          <section className="panel p-5">
++            <h2 className="text-sm font-semibold text-foreground">Contact</h2>
++            <div className="mt-3 space-y-2">
++              {client.contact_person && (
++                <p className="text-sm text-foreground">{client.contact_person}</p>
++              )}
++              {client.email && (
++                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
++                  <Mail className="size-3.5 shrink-0" /> {client.email}
++                </div>
++              )}
++              {client.phone && (
++                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
++                  <Phone className="size-3.5 shrink-0" /> {client.phone}
++                </div>
++              )}
++              {client.address && (
++                <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
++                  <MapPin className="mt-0.5 size-3.5 shrink-0" /> <span>{client.address}</span>
++                </div>
++              )}
++              {!client.contact_person && !client.email && !client.phone && !client.address && (
++                <p className="text-sm text-muted-foreground">No contact details on file.</p>
++              )}
++            </div>
++
++            <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
++              <div className="flex justify-between">
++                <span className="text-muted-foreground">Type</span>
++                <span className="capitalize text-foreground">{client.type}</span>
++              </div>
++              {client.tax_id && (
++                <div className="flex justify-between">
++                  <span className="text-muted-foreground">Tax ID</span>
++                  <span className="text-foreground">{client.tax_id}</span>
++                </div>
++              )}
++              {client.payment_terms && (
++                <div className="flex justify-between">
++                  <span className="text-muted-foreground">Payment terms</span>
++                  <span className="text-foreground">{client.payment_terms}</span>
++                </div>
++              )}
++              <div className="flex justify-between">
++                <span className="text-muted-foreground">Currency</span>
++                <span className="text-foreground">{client.currency}</span>
++              </div>
++            </div>
++
++            {client.notes && (
++              <div className="mt-4 border-t border-border pt-4">
++                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Notes</p>
++                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{client.notes}</p>
++              </div>
++            )}
++          </section>
++        </div>
++      </div>
++    </>
++  );
++}
+diff --git a/components/clients/ClientForm.tsx b/components/clients/ClientForm.tsx
+index ebd5833..a74d038 100644
+--- a/components/clients/ClientForm.tsx
++++ b/components/clients/ClientForm.tsx
+@@ -20,10 +20,11 @@ import {
+   SelectTrigger,
+   SelectValue,
+ } from "@/components/ui/select";
+-import { useCreateClient } from "@/hooks/clients/use-clients";
++import { useCreateClient, useUpdateClient } from "@/hooks/clients/use-clients";
+ import { toast } from "sonner";
+ import { Textarea } from "@/components/ui/textarea";
+ import { useEffect, useState } from "react";
++import { Client } from "@/lib/types";
+ 
+ const formSchema = z.object({
+   name: z.string().min(1, "Client name is required"),
+@@ -39,11 +40,14 @@ const formSchema = z.object({
+ 
+ interface ClientFormProps {
+   orgId: string;
++  client?: Client; // when present, form edits instead of creates
+   onSuccess?: () => void;
+ }
+ 
+-export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
++export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
+   const createClient = useCreateClient();
++  const updateClient = useUpdateClient(orgId);
++  const isEditing = !!client;
+   const [mounted, setMounted] = useState(false);
+ 
+   useEffect(() => {
+@@ -53,15 +57,15 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
+   const form = useForm<z.infer<typeof formSchema>>({
+     resolver: zodResolver(formSchema),
+     defaultValues: {
+-      name: "",
+-      company_name: "",
+-      email: "",
+-      phone: "",
+-      address: "",
+-      tax_id: "",
+-      type: "company",
+-      payment_terms: "Net 30",
+-      notes: "",
++      name: client?.name ?? "",
++      company_name: client?.company_name ?? "",
++      email: client?.email ?? "",
++      phone: client?.phone ?? "",
++      address: client?.address ?? "",
++      tax_id: client?.tax_id ?? "",
++      type: client?.type ?? "company",
++      payment_terms: client?.payment_terms ?? "Net 30",
++      notes: client?.notes ?? "",
+     },
+   });
+ 
+@@ -69,17 +73,20 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
+ 
+   async function onSubmit(values: z.infer<typeof formSchema>) {
+     try {
+-      await createClient.mutateAsync({
+-        ...values,
+-        org_id: orgId,
+-        status: "active",
+-        currency: "UGX",
+-      });
+-      toast.success("Client added successfully");
+-      form.reset();
++      if (isEditing) {
++        await updateClient.mutateAsync({ id: client.id, updates: values });
++      } else {
++        await createClient.mutateAsync({
++          ...values,
++          org_id: orgId,
++          status: "active",
++          currency: "UGX",
++        });
++        form.reset();
++      }
+       onSuccess?.();
+     } catch (error: unknown) {
+-      const message = error instanceof Error ? error.message : "Failed to add client";
++      const message = error instanceof Error ? error.message : `Failed to ${isEditing ? "update" : "add"} client`;
+       toast.error(message);
+     }
+   }
+@@ -216,8 +223,16 @@ export function ClientForm({ orgId, onSuccess }: ClientFormProps) {
+             )}
+           />
+         </div>
+-        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createClient.isPending}>
+-          {createClient.isPending ? "Adding..." : "Add Client"}
++        <Button
++          type="submit"
++          className="w-full bg-axis-blue hover:bg-axis-blue-light"
++          disabled={createClient.isPending || updateClient.isPending}
++        >
++          {createClient.isPending || updateClient.isPending
++            ? "Saving..."
++            : isEditing
++              ? "Save Changes"
++              : "Add Client"}
+         </Button>
+       </form>
+     </Form>
+diff --git a/components/clients/ClientsList.tsx b/components/clients/ClientsList.tsx
+index ad240c7..70b30d5 100644
+--- a/components/clients/ClientsList.tsx
++++ b/components/clients/ClientsList.tsx
+@@ -1,19 +1,12 @@
+ "use client";
+ 
++import Link from "next/link";
+ import { useClients } from "@/hooks/clients/use-clients";
+ import { useOrg } from "@/hooks/use-org";
+ import { Button } from "@/components/ui/button";
+-import { Plus, Search, Filter, MoreHorizontal, Mail, Phone, Users } from "lucide-react";
++import { Plus, Search, Filter, Mail, Phone, Users, AlertTriangle } from "lucide-react";
+ import { Input } from "@/components/ui/input";
+ import { Skeleton } from "@/components/ui/skeleton";
+-import {
+-  DropdownMenu,
+-  DropdownMenuContent,
+-  DropdownMenuItem,
+-  DropdownMenuLabel,
+-  DropdownMenuSeparator,
+-  DropdownMenuTrigger,
+-} from "@/components/ui/dropdown-menu";
+ import {
+   Dialog,
+   DialogContent,
+@@ -22,11 +15,12 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { ClientForm } from "@/components/clients/ClientForm";
++import { ClientActions } from "@/components/clients/ClientActions";
++import { ActionTooltip } from "@/components/shared/ActionTooltip";
+ import { PageHeader } from "@/components/shared/PageHeader";
+ import { StatusBadge } from "@/components/shared/StatusBadge";
+ import { useState, useEffect } from "react";
+ import { Client } from "@/lib/types";
+-import { AlertTriangle } from "lucide-react";
+ 
+ export function ClientsList() {
+   const [mounted, setMounted] = useState(false);
+@@ -47,12 +41,14 @@ export function ClientsList() {
+         description="Manage your client directory and their financial relationships."
+         actions={
+           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+-            <DialogTrigger asChild>
+-              <Button aria-label="Add Client">
+-                <Plus className="size-4" />
+-                Add Client
+-              </Button>
+-            </DialogTrigger>
++            <ActionTooltip label="Add a new client to your directory">
++              <DialogTrigger asChild>
++                <Button aria-label="Add Client">
++                  <Plus className="size-4" />
++                  Add Client
++                </Button>
++              </DialogTrigger>
++            </ActionTooltip>
+             <DialogContent className="sm:max-w-[600px]">
+               <DialogHeader>
+                 <DialogTitle>Add New Client</DialogTitle>
+@@ -128,7 +124,11 @@ export function ClientsList() {
+                 ) : clients && clients.length > 0 ? (
+                   clients.map((client: Client) => (
+                     <tr key={client.id} className="transition-colors hover:bg-muted/40">
+-                      <td className="px-5 py-3 font-medium text-foreground">{client.name}</td>
++                      <td className="px-5 py-3 font-medium text-foreground">
++                        <Link href={`/clients/${client.id}`} className="hover:text-primary hover:underline">
++                          {client.name}
++                        </Link>
++                      </td>
+                       <td className="px-5 py-3 text-muted-foreground">{client.company_name || "—"}</td>
+                       <td className="px-5 py-3">
+                         <div className="flex flex-col gap-1">
+@@ -148,22 +148,7 @@ export function ClientsList() {
+                         <StatusBadge status={client.status} />
+                       </td>
+                       <td className="px-5 py-3 text-right">
+-                        <DropdownMenu>
+-                          <DropdownMenuTrigger asChild>
+-                            <Button variant="ghost" size="icon" aria-label="Open menu">
+-                              <MoreHorizontal className="size-4" />
+-                              <span className="sr-only">Open menu</span>
+-                            </Button>
+-                          </DropdownMenuTrigger>
+-                          <DropdownMenuContent align="end">
+-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+-                            <DropdownMenuItem>View details</DropdownMenuItem>
+-                            <DropdownMenuItem>Edit client</DropdownMenuItem>
+-                            <DropdownMenuSeparator />
+-                            <DropdownMenuItem>Create invoice</DropdownMenuItem>
+-                            <DropdownMenuItem className="text-destructive">Delete client</DropdownMenuItem>
+-                          </DropdownMenuContent>
+-                        </DropdownMenu>
++                        {currentOrg && <ClientActions orgId={currentOrg.id} client={client} />}
+                       </td>
+                     </tr>
+                   ))
+diff --git a/components/invoicing/InvoiceActions.tsx b/components/invoicing/InvoiceActions.tsx
+index d2eed1f..8c82287 100644
+--- a/components/invoicing/InvoiceActions.tsx
++++ b/components/invoicing/InvoiceActions.tsx
+@@ -85,7 +85,17 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
+     await sendEmail.mutateAsync({ invoiceId: invoice.id });
+   }
+ 
+-  async function handleVoid(reason?: string) {
++  async function handleVoid(event?: Event, reason?: string) {
++    // AlertDialogAction auto-closes the dialog on click by default (Radix
++    // behavior). That auto-close and this async handler's own state update
++    // were racing — if the mutation was still pending when Radix closed
++    // and unmounted the dialog, our isVoidConfirmOpen state stayed stale
++    // at `true`, which left Radix's focus-trap/overlay bookkeeping
++    // desynced and made the whole app unresponsive to clicks until a hard
++    // refresh. preventDefault() stops the auto-close so our own
++    // setIsVoidConfirmOpen(false) below is the only thing that ever closes
++    // it, once the mutation actually finishes.
++    event?.preventDefault();
+     await voidInvoice.mutateAsync({ invoice_id: invoice.id, reason });
+     setIsVoidConfirmOpen(false);
+   }
+@@ -150,7 +160,7 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
+             <AlertDialogCancel>Cancel</AlertDialogCancel>
+             <AlertDialogAction
+               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+-              onClick={() => handleVoid()}
++              onClick={(e) => handleVoid(e.nativeEvent)}
+               disabled={voidInvoice.isPending}
+             >
+               {voidInvoice.isPending ? "Voiding…" : "Void Invoice"}
+diff --git a/hooks/clients/use-clients.ts b/hooks/clients/use-clients.ts
+index caefc04..df5c716 100644
+--- a/hooks/clients/use-clients.ts
++++ b/hooks/clients/use-clients.ts
+@@ -1,5 +1,7 @@
+-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+-import { getClients, createClient } from "@/lib/clients/queries";
++import { useQuery, useQueryClient } from "@tanstack/react-query";
++import { getClients, getClient, createClient, updateClient, deleteClient, archiveClient } from "@/lib/clients/queries";
++import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
++import { Client } from "@/lib/types";
+ 
+ export function useClients(orgId: string) {
+   return useQuery({
+@@ -9,12 +11,54 @@ export function useClients(orgId: string) {
+   });
+ }
+ 
++export function useClient(orgId: string, clientId: string) {
++  return useQuery({
++    queryKey: ["clients", orgId, clientId],
++    queryFn: () => getClient(orgId, clientId),
++    enabled: typeof window !== 'undefined' && !!orgId && !!clientId,
++  });
++}
++
+ export function useCreateClient() {
+-  const queryClient = useQueryClient();
+-  return useMutation({
++  return useCrudMutation<Parameters<typeof createClient>[0], Client>({
+     mutationFn: createClient,
+-    onSuccess: (_, variables) => {
+-      queryClient.invalidateQueries({ queryKey: ["clients", variables.org_id] });
++    invalidateKeys: (variables) => [["clients", variables.org_id]],
++    successMessage: "Client added successfully",
++    fallbackErrorMessage: "Failed to add client",
++  });
++}
++
++export function useUpdateClient(orgId: string) {
++  const queryClient = useQueryClient();
++  return useCrudMutation<{ id: string; updates: Partial<Client> }, Client>({
++    mutationFn: ({ id, updates }) => updateClient(id, updates),
++    invalidateKeys: (variables) => {
++      queryClient.invalidateQueries({ queryKey: ["clients", orgId, variables.id] });
++      return [["clients", orgId]];
++    },
++    successMessage: "Client updated",
++    fallbackErrorMessage: "Failed to update client",
++  });
++}
++
++export function useDeleteClient(orgId: string) {
++  return useCrudMutation<{ id: string }, void>({
++    mutationFn: ({ id }) => deleteClient(id),
++    invalidateKeys: () => [["clients", orgId]],
++    successMessage: "Client deleted",
++    fallbackErrorMessage: "Failed to delete client",
++  });
++}
++
++export function useArchiveClient(orgId: string) {
++  const queryClient = useQueryClient();
++  return useCrudMutation<{ id: string }, Client>({
++    mutationFn: ({ id }) => archiveClient(id),
++    invalidateKeys: (variables) => {
++      queryClient.invalidateQueries({ queryKey: ["clients", orgId, variables.id] });
++      return [["clients", orgId]];
+     },
++    successMessage: "Client archived",
++    fallbackErrorMessage: "Failed to archive client",
+   });
+ }
+diff --git a/hooks/invoicing/use-invoices.ts b/hooks/invoicing/use-invoices.ts
+index 83774a9..839632a 100644
+--- a/hooks/invoicing/use-invoices.ts
++++ b/hooks/invoicing/use-invoices.ts
+@@ -1,6 +1,7 @@
+ import { useQuery, useQueryClient } from "@tanstack/react-query";
+ import {
+   getInvoices,
++  getInvoicesByClient,
+   getInvoice,
+   createInvoice,
+   updateInvoice,
+@@ -30,6 +31,14 @@ export function useInvoice(orgId: string, invoiceId: string) {
+   });
+ }
+ 
++export function useInvoicesByClient(orgId: string, clientId: string) {
++  return useQuery({
++    queryKey: ["invoices", orgId, "by-client", clientId],
++    queryFn: () => getInvoicesByClient(orgId, clientId),
++    enabled: typeof window !== 'undefined' && !!orgId && !!clientId,
++  });
++}
++
+ export function useNextInvoiceNumber(orgId: string) {
+   return useQuery({
+     queryKey: ["next-invoice-number", orgId],
+diff --git a/lib/clients/queries.ts b/lib/clients/queries.ts
+index 24e1067..ca83fd8 100644
+--- a/lib/clients/queries.ts
++++ b/lib/clients/queries.ts
+@@ -13,6 +13,19 @@ export async function getClients(orgId: string) {
+   return data as Client[];
+ }
+ 
++export async function getClient(orgId: string, clientId: string) {
++  const supabase = getSupabaseClient();
++  const { data, error } = await supabase
++    .from("clients")
++    .select("*")
++    .eq("org_id", orgId)
++    .eq("id", clientId)
++    .single();
++
++  if (error) throw error;
++  return data as Client;
++}
++
+ export async function createClient(client: Omit<Client, "id" | "created_at" | "updated_at">) {
+   const supabase = getSupabaseClient();
+   const { data, error } = await supabase
+@@ -24,3 +37,41 @@ export async function createClient(client: Omit<Client, "id" | "created_at" | "u
+   if (error) throw error;
+   return data as Client;
+ }
++
++export async function updateClient(clientId: string, updates: Partial<Omit<Client, "id" | "org_id" | "created_at" | "updated_at">>) {
++  const supabase = getSupabaseClient();
++  const { data, error } = await supabase
++    .from("clients")
++    .update(updates)
++    .eq("id", clientId)
++    .select()
++    .single();
++
++  if (error) throw error;
++  return data as Client;
++}
++
++export async function deleteClient(clientId: string) {
++  const supabase = getSupabaseClient();
++  const { error } = await supabase.from("clients").delete().eq("id", clientId);
++
++  if (error) {
++    // 23503 = Postgres foreign_key_violation. clients.id is referenced by
++    // invoices with ON DELETE RESTRICT, so this is the expected/common
++    // failure mode, not an edge case — give a real answer instead of
++    // surfacing the raw Postgres error text.
++    if (error.code === "23503") {
++      throw new Error(
++        "This client has invoices on record and can't be deleted. Archive the client instead, or remove their invoices first."
++      );
++    }
++    throw error;
++  }
++}
++
++/** Clients with any invoices can't be hard-deleted (see deleteClient) — this
++ * is the recommended alternative: keep the record but mark it inactive so
++ * it drops out of active lists without breaking invoice history. */
++export async function archiveClient(clientId: string) {
++  return updateClient(clientId, { status: "inactive" });
++}
+diff --git a/lib/invoicing/queries.ts b/lib/invoicing/queries.ts
+index 3f3b52a..7d2024f 100644
+--- a/lib/invoicing/queries.ts
++++ b/lib/invoicing/queries.ts
+@@ -16,6 +16,19 @@ export async function getInvoices(orgId: string) {
+   return data as Invoice[];
+ }
+ 
++export async function getInvoicesByClient(orgId: string, clientId: string) {
++  const supabase = getSupabaseClient();
++  const { data, error } = await supabase
++    .from("invoices")
++    .select("*")
++    .eq("org_id", orgId)
++    .eq("client_id", clientId)
++    .order("invoice_number", { ascending: false });
++
++  if (error) throw error;
++  return data as Invoice[];
++}
++
+ export async function getInvoice(orgId: string, invoiceId: string) {
+   const supabase = getSupabaseClient();
+   const { data, error } = await supabase

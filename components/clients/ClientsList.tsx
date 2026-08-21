@@ -1,32 +1,27 @@
 "use client";
 
+import Link from "next/link";
 import { useClients } from "@/hooks/clients/use-clients";
 import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, MoreHorizontal, Mail, Phone, Users } from "lucide-react";
+import { Plus, Search, Filter, Mail, Phone, Users, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ClientForm } from "@/components/clients/ClientForm";
+import { ClientActions } from "@/components/clients/ClientActions";
+import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useState, useEffect } from "react";
 import { Client } from "@/lib/types";
-import { AlertTriangle } from "lucide-react";
 
 export function ClientsList() {
   const [mounted, setMounted] = useState(false);
@@ -47,15 +42,18 @@ export function ClientsList() {
         description="Manage your client directory and their financial relationships."
         actions={
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button aria-label="Add Client">
-                <Plus className="size-4" />
-                Add Client
-              </Button>
-            </DialogTrigger>
+            <ActionTooltip label="Add a new client to your directory">
+              <DialogTrigger asChild>
+                <Button aria-label="Add Client">
+                  <Plus className="size-4" />
+                  Add Client
+                </Button>
+              </DialogTrigger>
+            </ActionTooltip>
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>Enter contact details and billing terms for this client.</DialogDescription>
               </DialogHeader>
               {currentOrg ? (
                 <ClientForm orgId={currentOrg.id} onSuccess={() => setIsFormOpen(false)} />
@@ -128,7 +126,11 @@ export function ClientsList() {
                 ) : clients && clients.length > 0 ? (
                   clients.map((client: Client) => (
                     <tr key={client.id} className="transition-colors hover:bg-muted/40">
-                      <td className="px-5 py-3 font-medium text-foreground">{client.name}</td>
+                      <td className="px-5 py-3 font-medium text-foreground">
+                        <Link href={`/clients/${client.id}`} className="hover:text-primary hover:underline">
+                          {client.name}
+                        </Link>
+                      </td>
                       <td className="px-5 py-3 text-muted-foreground">{client.company_name || "—"}</td>
                       <td className="px-5 py-3">
                         <div className="flex flex-col gap-1">
@@ -148,22 +150,7 @@ export function ClientsList() {
                         <StatusBadge status={client.status} />
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" aria-label="Open menu">
-                              <MoreHorizontal className="size-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit client</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>Create invoice</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">Delete client</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {currentOrg && <ClientActions orgId={currentOrg.id} client={client} />}
                       </td>
                     </tr>
                   ))

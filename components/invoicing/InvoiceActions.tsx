@@ -14,6 +14,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,6 +31,7 @@ import {
 import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { MarkPaidDialog } from "@/components/invoicing/MarkPaidDialog";
 import { useVoidInvoice, useSendInvoiceEmail, generateInvoicePdf } from "@/hooks/invoicing/use-invoices";
+import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { Invoice } from "@/lib/types";
 import { MoreHorizontal, FileDown, Send, CheckCircle, Eye, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -49,6 +51,8 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
 
   const voidInvoice = useVoidInvoice(orgId);
   const sendEmail = useSendInvoiceEmail(orgId);
+  const openMarkPaid = useDeferredModalOpen(setIsMarkPaidOpen);
+  const openVoidConfirm = useDeferredModalOpen(setIsVoidConfirmOpen);
 
   const isPaid = invoice.status === "paid";
   const isVoided = invoice.status === "voided";
@@ -85,7 +89,17 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
     await sendEmail.mutateAsync({ invoiceId: invoice.id });
   }
 
-  async function handleVoid(reason?: string) {
+  async function handleVoid(event?: Event, reason?: string) {
+    // AlertDialogAction auto-closes the dialog on click by default (Radix
+    // behavior). That auto-close and this async handler's own state update
+    // were racing — if the mutation was still pending when Radix closed
+    // and unmounted the dialog, our isVoidConfirmOpen state stayed stale
+    // at `true`, which left Radix's focus-trap/overlay bookkeeping
+    // desynced and made the whole app unresponsive to clicks until a hard
+    // refresh. preventDefault() stops the auto-close so our own
+    // setIsVoidConfirmOpen(false) below is the only thing that ever closes
+    // it, once the mutation actually finishes.
+    event?.preventDefault();
     await voidInvoice.mutateAsync({ invoice_id: invoice.id, reason });
     setIsVoidConfirmOpen(false);
   }
@@ -115,12 +129,31 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
             <Send className="size-4" /> {sendEmail.isPending ? "Sending…" : "Send to Client"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setIsMarkPaidOpen(true)} disabled={!canMarkPaid}>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              // Radix's default onSelect behavior returns focus to the
+              // dropdown trigger as the menu closes. That focus-return and
+              // this dialog opening on the same tick race each other —
+              // Radix can end up with the dropdown's content still holding
+              // focus/aria-hidden bookkeeping while a new focus-trap
+              // (the dialog) also claims it, which blocks all pointer
+              // interaction on the page until a hard refresh. preventDefault
+              // stops the immediate focus-return, and openMarkPaid defers
+              // the dialog's actual open to the next tick so the dropdown's
+              // own unmount finishes first — see use-deferred-modal-open.ts.
+              e.preventDefault();
+              openMarkPaid();
+            }}
+            disabled={!canMarkPaid}
+          >
             <CheckCircle className="size-4" /> Mark as Paid
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-destructive"
-            onSelect={() => setIsVoidConfirmOpen(true)}
+            onSelect={(e) => {
+              e.preventDefault(); // see Mark as Paid above for why
+              openVoidConfirm();
+            }}
             disabled={!canVoid}
           >
             <XCircle className="size-4" /> Void Invoice
@@ -132,6 +165,9 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>Mark Invoice as Paid — {invoice.invoice_number}</DialogTitle>
+            <DialogDescription>
+              Record which account received the payment. This posts a real journal entry.
+            </DialogDescription>
           </DialogHeader>
           <MarkPaidDialog orgId={orgId} invoice={invoice} onSuccess={() => setIsMarkPaidOpen(false)} />
         </DialogContent>
@@ -150,7 +186,7 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => handleVoid()}
+              onClick={(e) => handleVoid(e.nativeEvent)}
               disabled={voidInvoice.isPending}
             >
               {voidInvoice.isPending ? "Voiding…" : "Void Invoice"}

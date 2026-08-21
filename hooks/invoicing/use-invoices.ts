@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getInvoices,
+  getInvoicesByClient,
   getInvoice,
   createInvoice,
   updateInvoice,
@@ -27,6 +28,14 @@ export function useInvoice(orgId: string, invoiceId: string) {
     queryKey: ["invoices", orgId, invoiceId],
     queryFn: () => getInvoice(orgId, invoiceId),
     enabled: typeof window !== 'undefined' && !!orgId && !!invoiceId,
+  });
+}
+
+export function useInvoicesByClient(orgId: string, clientId: string) {
+  return useQuery({
+    queryKey: ["invoices", orgId, "by-client", clientId],
+    queryFn: () => getInvoicesByClient(orgId, clientId),
+    enabled: typeof window !== 'undefined' && !!orgId && !!clientId,
   });
 }
 

@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { AuthShowcasePanel } from "@/components/auth/auth-showcase-panel";
 
 const signupSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -38,7 +38,7 @@ export function SignUpForm() {
   const onSubmit = async (values: SignUpValues) => {
     setIsLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: values.email,
       password: values.password,
       options: {
@@ -50,33 +50,57 @@ export function SignUpForm() {
 
     if (error) {
       toast.error(error.message);
-    } else {
-      toast.success("Account created! Please check your email for verification.");
-      router.push("/login");
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    toast.success("Account created!");
+
+    // If email confirmation is required, Supabase returns a user but no
+    // active session yet — send them to check email instead of onboarding.
+    if (!data.session) {
+      toast.message("Check your email to verify your account, then sign in.");
+      router.push("/login");
+      setIsLoading(false);
+      return;
+    }
+
+    window.location.href = "/onboarding";
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-axis-light">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-axis-blue text-center">AXIS</CardTitle>
-          <CardDescription className="text-center">
-            Create an account to get started
-          </CardDescription>
-        </CardHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardContent className="space-y-4">
+    <div className="flex min-h-screen bg-background">
+      {/* Form panel */}
+      <div className="flex w-full flex-col justify-center px-8 py-12 sm:px-16 lg:w-1/2 lg:px-24">
+        <div className="mx-auto w-full max-w-sm">
+          <div className="mb-10">
+            <span className="font-display text-2xl font-semibold tracking-tight text-primary">
+              AXIS
+            </span>
+          </div>
+
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
+            Create an account
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Sign up and start managing your business.
+          </p>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-5">
               <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Full name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input
+                        autoComplete="name"
+                        placeholder="Amelia Laurent"
+                        className="h-11 rounded-xl border-border bg-surface focus-visible:ring-teal"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -89,7 +113,13 @@ export function SignUpForm() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="name@example.com" {...field} />
+                      <Input
+                        type="email"
+                        autoComplete="email"
+                        placeholder="name@example.com"
+                        className="h-11 rounded-xl border-border bg-surface focus-visible:ring-teal"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -102,27 +132,40 @@ export function SignUpForm() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" autoComplete="new-password" {...field} />
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        className="h-11 rounded-xl border-border bg-surface focus-visible:ring-teal"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-4">
-              <Button className="w-full bg-axis-blue hover:bg-axis-blue-light" type="submit" disabled={isLoading}>
+
+              <Button
+                className="h-11 w-full rounded-xl bg-primary font-medium text-primary-foreground shadow-raised hover:bg-primary/90"
+                type="submit"
+                disabled={isLoading}
+                aria-busy={isLoading}
+              >
                 {isLoading ? "Creating account..." : "Sign up"}
               </Button>
-              <div className="text-sm text-center text-muted-foreground">
+
+              <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/login" className="text-axis-blue hover:underline">
+                <Link href="/login" className="font-medium text-primary hover:underline">
                   Sign in
                 </Link>
-              </div>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
+              </p>
+            </form>
+          </Form>
+        </div>
+      </div>
+
+      {/* Showcase panel */}
+      <AuthShowcasePanel />
     </div>
   );
 }
