@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { OrgProvider } from "@/hooks/use-org";
 import { QueryProvider } from "@/providers/query-provider";
+import { RadixPointerEventsFailsafe } from "@/components/shared/RadixPointerEventsFailsafe";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
 const sourceSerif = Source_Serif_4({
@@ -72,6 +73,7 @@ export default function RootLayout({
                 {children}
                 <Toaster />
                 <Sonner />
+                <RadixPointerEventsFailsafe />
               </TooltipProvider>
             </OrgProvider>
           </AuthProvider>
