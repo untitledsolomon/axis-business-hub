@@ -28,7 +28,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Hello, ${firstName} 👋`}
+        title={`Hello, ${firstName}!`}
         description="Here's what's happening across your business today."
       />
 
