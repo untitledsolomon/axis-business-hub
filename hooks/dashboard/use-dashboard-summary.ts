@@ -27,7 +27,7 @@ export function useDashboardSummary() {
     const activeClients = (clients.data ?? []).filter((c) => c.status === "active").length;
 
     const outstanding = (invoices.data ?? []).filter((i) =>
-      ["sent", "viewed", "partial", "overdue"].includes(i.status)
+      ["sent", "viewed", "partial", "overdue", "draft"].includes(i.status)
     );
     const outstandingCount = outstanding.length;
     const outstandingTotal = outstanding.reduce((sum, i) => sum + i.grand_total, 0) / 100;
@@ -38,6 +38,15 @@ export function useDashboardSummary() {
     let expenseThisMonth = 0;
     let expenseLastMonth = 0;
 
+    (invoices.data ?? []).forEach((inv) => {
+      if (inv.status !== "paid" && inv.status !== "partial") return;
+      const key = monthKey(new Date(inv.issue_date));
+      if (key !== thisMonth && key !== lastMonth) return;
+
+      if (key === thisMonth) incomeThisMonth += inv.grand_total;
+      else incomeLastMonth += inv.grand_total;
+    });
+
     (journal.data ?? []).forEach((entry) => {
       if (entry.status !== "posted" && entry.status !== "draft") return;
       const key = monthKey(new Date(entry.entry_date));
@@ -45,13 +54,8 @@ export function useDashboardSummary() {
 
       (entry.lines ?? []).forEach((line) => {
         const category = line.account?.category;
-        const credit = line.credit ?? 0;
         const debit = line.debit ?? 0;
 
-        if (category === "revenue") {
-          if (key === thisMonth) incomeThisMonth += credit;
-          else incomeLastMonth += credit;
-        }
         if (category === "expense") {
           if (key === thisMonth) expenseThisMonth += debit;
           else expenseLastMonth += debit;

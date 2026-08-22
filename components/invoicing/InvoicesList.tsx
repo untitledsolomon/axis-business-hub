@@ -49,7 +49,7 @@ export function InvoicesList() {
       all: list.reduce((s, i) => s + i.grand_total, 0),
       paid: list.filter((i) => i.status === "paid").reduce((s, i) => s + i.grand_total, 0),
       outstanding: list
-        .filter((i) => i.status === "sent" || i.status === "viewed" || i.status === "partial")
+        .filter((i) => ["sent", "viewed", "partial", "overdue", "draft"].includes(i.status))
         .reduce((s, i) => s + i.grand_total, 0),
       overdue: list.filter((i) => i.status === "overdue").length,
     };
