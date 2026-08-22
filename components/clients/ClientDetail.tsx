@@ -28,7 +28,7 @@ import {
   FileText,
   Plus,
 } from "lucide-react";
-import { format } from "date-fns";
+import { formatShortDate } from "@/lib/format-date";
 
 interface ClientDetailProps {
   clientId: string;
@@ -184,7 +184,7 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
                           </Link>
                         </TableCell>
                         <TableCell className="numeric text-muted-foreground">
-                          {format(new Date(invoice.issue_date), "MMM dd, yyyy")}
+                          {formatShortDate(invoice.issue_date)}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={invoice.status} />

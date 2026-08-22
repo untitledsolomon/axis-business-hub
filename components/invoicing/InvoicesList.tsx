@@ -31,7 +31,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { formatShortDate } from "@/lib/format-date";
 
 export function InvoicesList() {
   const [mounted, setMounted] = useState(false);
@@ -163,10 +163,10 @@ export function InvoicesList() {
                     </TableCell>
                     <TableCell>{invoice.client?.name || "—"}</TableCell>
                     <TableCell className="numeric text-muted-foreground">
-                      {invoice.issue_date ? format(new Date(invoice.issue_date), "MMM dd, yyyy") : "—"}
+                      {invoice.issue_date ? formatShortDate(invoice.issue_date) : "—"}
                     </TableCell>
                     <TableCell className="numeric text-muted-foreground">
-                      {invoice.due_date ? format(new Date(invoice.due_date), "MMM dd, yyyy") : "—"}
+                      {invoice.due_date ? formatShortDate(invoice.due_date) : "—"}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={invoice.status} />

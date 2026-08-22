@@ -1,0 +1,614 @@
+From 5f02217861bd83caa3dedcb5160861ae8ab31318 Mon Sep 17 00:00:00 2001
+From: Axis Build Agent <agent@regentplatform.com>
+Date: Sat, 22 Aug 2026 10:20:38 +0000
+Subject: [PATCH] Wire transaction detail page + CRUD, fix popup deadlock bug
+ on Transactions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Add transactions/[id] detail page (JournalEntryDetail), following the
+  InvoiceDetail pattern: journal lines table, status badge, back nav.
+- Add JournalEntryActions dropdown (View/Void), replacing dead
+  DropdownMenuItems in TransactionsView that had no onSelect handlers.
+- Fix the popup deadlock: TransactionsView's dropdown was opening
+  AlertDialog synchronously from onSelect, racing Radix's own dropdown
+  unmount and leaving the page unresponsive until a hard refresh. Applied
+  the existing useDeferredModalOpen fix (already used in InvoiceActions)
+  to JournalEntryActions.
+- Add void_journal_entry_v1 RPC (soft-void, mirrors void_invoice_v1),
+  getJournalEntry/voidJournalEntry queries, useJournalEntry/
+  useVoidJournalEntry hooks.
+- Drop 'View Attachment' menu item — no attachment schema exists anywhere
+  in the codebase, so it was dead UI; not faking it.
+- Widen JournalEntryLine.account type to include optional code, matching
+  what the detail query actually selects.
+
+Verified: npx tsc --noEmit passes clean. next build blocked in this
+sandbox only by network egress (Google Fonts), unrelated to these changes.
+---
+ app/(dashboard)/transactions/[id]/page.tsx    |  16 ++
+ components/finance/JournalEntryActions.tsx    | 129 +++++++++++++
+ components/finance/JournalEntryDetail.tsx     | 172 ++++++++++++++++++
+ components/finance/TransactionsView.tsx       |  33 +---
+ hooks/finance/use-finance.ts                  |  26 ++-
+ lib/finance/queries.ts                        |  32 ++++
+ lib/types.ts                                  |   1 +
+ ...260822000001_void_journal_entry_v1_rpc.sql |  56 ++++++
+ 8 files changed, 436 insertions(+), 29 deletions(-)
+ create mode 100644 app/(dashboard)/transactions/[id]/page.tsx
+ create mode 100644 components/finance/JournalEntryActions.tsx
+ create mode 100644 components/finance/JournalEntryDetail.tsx
+ create mode 100644 supabase/migrations/20260822000001_void_journal_entry_v1_rpc.sql
+
+diff --git a/app/(dashboard)/transactions/[id]/page.tsx b/app/(dashboard)/transactions/[id]/page.tsx
+new file mode 100644
+index 0000000..86eb695
+--- /dev/null
++++ b/app/(dashboard)/transactions/[id]/page.tsx
+@@ -0,0 +1,16 @@
++import { Metadata } from "next";
++import { JournalEntryDetail } from "@/components/finance/JournalEntryDetail";
++
++export const metadata: Metadata = {
++  title: "Transaction Details",
++  description: "Journal lines, status, and actions for this transaction.",
++};
++
++interface TransactionDetailPageProps {
++  params: Promise<{ id: string }>;
++}
++
++export default async function TransactionDetailPage({ params }: TransactionDetailPageProps) {
++  const { id } = await params;
++  return <JournalEntryDetail entryId={id} />;
++}
+diff --git a/components/finance/JournalEntryActions.tsx b/components/finance/JournalEntryActions.tsx
+new file mode 100644
+index 0000000..c39e8f3
+--- /dev/null
++++ b/components/finance/JournalEntryActions.tsx
+@@ -0,0 +1,129 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Button } from "@/components/ui/button";
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuLabel,
++  DropdownMenuSeparator,
++  DropdownMenuTrigger,
++} from "@/components/ui/dropdown-menu";
++import {
++  AlertDialog,
++  AlertDialogAction,
++  AlertDialogCancel,
++  AlertDialogContent,
++  AlertDialogDescription,
++  AlertDialogFooter,
++  AlertDialogHeader,
++  AlertDialogTitle,
++} from "@/components/ui/alert-dialog";
++import { ActionTooltip } from "@/components/shared/ActionTooltip";
++import { useVoidJournalEntry } from "@/hooks/finance/use-finance";
++import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
++import { JournalEntry } from "@/lib/types";
++import { MoreHorizontal, Eye, XCircle } from "lucide-react";
++import posthog from "posthog-js";
++
++interface JournalEntryActionsProps {
++  orgId: string;
++  entry: JournalEntry;
++  /** Show a "View journal entry" entry — omit on the detail page itself. */
++  showViewDetails?: boolean;
++}
++
++export function JournalEntryActions({ orgId, entry, showViewDetails = true }: JournalEntryActionsProps) {
++  const router = useRouter();
++  const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
++
++  const voidEntry = useVoidJournalEntry(orgId);
++  // See use-deferred-modal-open.ts — opening a Dialog/AlertDialog
++  // synchronously from a DropdownMenuItem's onSelect races Radix's own
++  // dropdown unmount (two focus-traps mounting at once), which leaves the
++  // page unresponsive to all pointer input until a hard refresh. Deferring
++  // the open by a tick is what actually fixes it; preventDefault() alone
++  // (stopping onSelect's default focus-return) is not sufficient on its own.
++  const openVoidConfirm = useDeferredModalOpen(setIsVoidConfirmOpen);
++
++  const isVoided = entry.status === "void";
++  const canVoid = !isVoided;
++
++  async function handleVoid(event?: Event) {
++    // AlertDialogAction auto-closes on click by default. If that auto-close
++    // races this async mutation (dialog unmounts while the request is still
++    // pending), the same stale-focus-trap issue as above can resurface.
++    // preventDefault() stops the auto-close so setIsVoidConfirmOpen(false)
++    // below — which only runs once the mutation actually finishes — is the
++    // only thing that closes it.
++    event?.preventDefault();
++    await voidEntry.mutateAsync({ entry_id: entry.id });
++    posthog.capture("journal_entry_voided", { entry_status: entry.status });
++    setIsVoidConfirmOpen(false);
++  }
++
++  return (
++    <>
++      <DropdownMenu>
++        <ActionTooltip label="More actions">
++          <DropdownMenuTrigger asChild>
++            <Button
++              variant="ghost"
++              size="icon"
++              aria-label={`Open menu for ${entry.description || entry.reference || "journal entry"}`}
++            >
++              <MoreHorizontal className="size-4" />
++              <span className="sr-only">
++                Open menu for {entry.description || entry.reference || "journal entry"}
++              </span>
++            </Button>
++          </DropdownMenuTrigger>
++        </ActionTooltip>
++        <DropdownMenuContent align="end">
++          <DropdownMenuLabel>Actions</DropdownMenuLabel>
++          {showViewDetails && (
++            <DropdownMenuItem onSelect={() => router.push(`/transactions/${entry.id}`)}>
++              <Eye className="size-4" /> View Journal Entry
++            </DropdownMenuItem>
++          )}
++          <DropdownMenuSeparator />
++          <DropdownMenuItem
++            className="text-destructive"
++            onSelect={(e) => {
++              e.preventDefault(); // see openVoidConfirm above for why
++              openVoidConfirm();
++            }}
++            disabled={!canVoid}
++          >
++            <XCircle className="size-4" /> Void Transaction
++          </DropdownMenuItem>
++        </DropdownMenuContent>
++      </DropdownMenu>
++
++      <AlertDialog open={isVoidConfirmOpen} onOpenChange={setIsVoidConfirmOpen}>
++        <AlertDialogContent>
++          <AlertDialogHeader>
++            <AlertDialogTitle>Void this transaction?</AlertDialogTitle>
++            <AlertDialogDescription>
++              This marks the journal entry as void. It stays on record for your audit trail, but
++              no longer counts toward Transactions, Ledger, Banking totals, or account balances.
++              This can&apos;t be undone from here.
++            </AlertDialogDescription>
++          </AlertDialogHeader>
++          <AlertDialogFooter>
++            <AlertDialogCancel>Cancel</AlertDialogCancel>
++            <AlertDialogAction
++              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
++              onClick={(e) => handleVoid(e.nativeEvent)}
++              disabled={voidEntry.isPending}
++            >
++              {voidEntry.isPending ? "Voiding…" : "Void Transaction"}
++            </AlertDialogAction>
++          </AlertDialogFooter>
++        </AlertDialogContent>
++      </AlertDialog>
++    </>
++  );
++}
+diff --git a/components/finance/JournalEntryDetail.tsx b/components/finance/JournalEntryDetail.tsx
+new file mode 100644
+index 0000000..d4ef504
+--- /dev/null
++++ b/components/finance/JournalEntryDetail.tsx
+@@ -0,0 +1,172 @@
++"use client";
++
++import Link from "next/link";
++import { useState, useEffect } from "react";
++import { useJournalEntry } from "@/hooks/finance/use-finance";
++import { useOrg } from "@/hooks/use-org";
++import { Button } from "@/components/ui/button";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableFooter,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from "@/components/ui/table";
++import { Skeleton } from "@/components/ui/skeleton";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { StatusBadge } from "@/components/shared/StatusBadge";
++import { JournalEntryActions } from "@/components/finance/JournalEntryActions";
++import { ArrowLeft, Receipt, AlertTriangle } from "lucide-react";
++import { format } from "date-fns";
++
++function fmtMoney(cents: number) {
++  return (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
++}
++
++interface JournalEntryDetailProps {
++  entryId: string;
++}
++
++export function JournalEntryDetail({ entryId }: JournalEntryDetailProps) {
++  const [mounted, setMounted] = useState(false);
++  const { currentOrg } = useOrg();
++  const orgId = currentOrg?.id || "";
++
++  const { data: entry, isLoading, isError, refetch } = useJournalEntry(orgId, entryId);
++
++  useEffect(() => {
++    setMounted(true);
++  }, []);
++
++  if (!mounted) return null;
++
++  if (isError) {
++    return (
++      <div className="panel flex flex-col items-center justify-center gap-2 border-dashed py-16 text-center">
++        <div className="rounded-full bg-destructive-soft p-3">
++          <AlertTriangle className="h-5 w-5 text-destructive" />
++        </div>
++        <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load this transaction</h3>
++        <p className="max-w-sm text-sm text-muted-foreground">
++          Something went wrong while fetching this from the server. Please try again.
++        </p>
++        <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
++          Retry
++        </Button>
++      </div>
++    );
++  }
++
++  if (isLoading) {
++    return (
++      <div className="space-y-4">
++        <Skeleton className="h-8 w-64" />
++        <Skeleton className="h-40 w-full" />
++        <Skeleton className="h-64 w-full" />
++      </div>
++    );
++  }
++
++  if (!entry) {
++    return (
++      <div className="panel flex flex-col items-center justify-center gap-2 border-dashed py-16 text-center">
++        <Receipt className="h-12 w-12 text-muted-foreground opacity-20" />
++        <h3 className="text-sm font-semibold text-foreground">Transaction not found</h3>
++        <p className="max-w-sm text-sm text-muted-foreground">
++          This journal entry may have been deleted, or you may not have access to it.
++        </p>
++        <Button variant="outline" size="sm" className="mt-2" asChild>
++          <Link href="/transactions">Back to Transactions</Link>
++        </Button>
++      </div>
++    );
++  }
++
++  const lines = entry.lines || [];
++  const totalDebit = lines.reduce((sum, l) => sum + (l.debit || 0), 0);
++  const totalCredit = lines.reduce((sum, l) => sum + (l.credit || 0), 0);
++
++  return (
++    <>
++      <div className="mb-2">
++        <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
++          <Link href="/transactions">
++            <ArrowLeft className="size-4" />
++            Back to Transactions
++          </Link>
++        </Button>
++      </div>
++
++      <PageHeader
++        title={entry.description || entry.reference || "Untitled entry"}
++        description={`${format(new Date(entry.entry_date), "MMM dd, yyyy")}${
++          entry.reference ? ` · Ref ${entry.reference}` : ""
++        }`}
++        actions={<JournalEntryActions orgId={orgId} entry={entry} showViewDetails={false} />}
++      />
++
++      <div className="space-y-4">
++        <div>
++          <StatusBadge status={entry.status} />
++        </div>
++
++        <section className="panel p-5">
++          <h2 className="text-sm font-semibold text-foreground">Journal lines</h2>
++          <div className="mt-4 overflow-x-auto">
++            <Table aria-label="Journal entry lines">
++              <TableHeader>
++                <TableRow>
++                  <TableHead>Account</TableHead>
++                  <TableHead>Description</TableHead>
++                  <TableHead className="text-right">Debit</TableHead>
++                  <TableHead className="text-right">Credit</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                {lines.length > 0 ? (
++                  lines.map((line) => (
++                    <TableRow key={line.id}>
++                      <TableCell className="font-medium text-foreground">
++                        {line.account ? `${line.account.code ? `${line.account.code} — ` : ""}${line.account.name}` : "—"}
++                      </TableCell>
++                      <TableCell className="text-muted-foreground">
++                        {line.description || "—"}
++                      </TableCell>
++                      <TableCell className="numeric text-right">
++                        {line.debit ? fmtMoney(line.debit) : ""}
++                      </TableCell>
++                      <TableCell className="numeric text-right">
++                        {line.credit ? fmtMoney(line.credit) : ""}
++                      </TableCell>
++                    </TableRow>
++                  ))
++                ) : (
++                  <TableRow>
++                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
++                      No lines on this entry.
++                    </TableCell>
++                  </TableRow>
++                )}
++              </TableBody>
++              <TableFooter>
++                <TableRow>
++                  <TableCell colSpan={2} className="text-sm font-semibold text-foreground">
++                    Total
++                  </TableCell>
++                  <TableCell className="numeric text-right font-semibold text-foreground">
++                    {fmtMoney(totalDebit)}
++                  </TableCell>
++                  <TableCell className="numeric text-right font-semibold text-foreground">
++                    {fmtMoney(totalCredit)}
++                  </TableCell>
++                </TableRow>
++              </TableFooter>
++            </Table>
++          </div>
++        </section>
++      </div>
++    </>
++  );
++}
+diff --git a/components/finance/TransactionsView.tsx b/components/finance/TransactionsView.tsx
+index f7fe312..61a54dc 100644
+--- a/components/finance/TransactionsView.tsx
++++ b/components/finance/TransactionsView.tsx
+@@ -16,15 +16,7 @@ import { Badge } from "@/components/ui/badge";
+ import { StatusBadge } from "@/components/shared/StatusBadge";
+ import { StatCard } from "@/components/dashboard/StatCard";
+ import { Skeleton } from "@/components/ui/skeleton";
+-import { Plus, Search, MoreHorizontal, ArrowUpRight, ArrowDownLeft, Filter, Receipt, Scale, AlertTriangle } from "lucide-react";
+-import {
+-  DropdownMenu,
+-  DropdownMenuContent,
+-  DropdownMenuItem,
+-  DropdownMenuLabel,
+-  DropdownMenuSeparator,
+-  DropdownMenuTrigger,
+-} from "@/components/ui/dropdown-menu";
++import { Plus, Search, ArrowUpRight, ArrowDownLeft, Filter, Receipt, Scale, AlertTriangle } from "lucide-react";
+ import {
+   Dialog,
+   DialogContent,
+@@ -33,6 +25,7 @@ import {
+   DialogTrigger,
+ } from "@/components/ui/dialog";
+ import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
++import { JournalEntryActions } from "@/components/finance/JournalEntryActions";
+ import { PageHeader } from "@/components/shared/PageHeader";
+ import { useState, useEffect, useMemo } from "react";
+ import { cn } from "@/lib/utils";
+@@ -48,6 +41,7 @@ interface DerivedTransaction {
+   type: TxType;
+   amount: number; // in cents
+   status: string;
++  entry: JournalEntry;
+ }
+ 
+ /**
+@@ -88,6 +82,7 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
+     type,
+     amount,
+     status: entry.status,
++    entry,
+   };
+ }
+ 
+@@ -262,25 +257,7 @@ export function TransactionsView() {
+                       <StatusBadge status={transaction.status} />
+                     </TableCell>
+                     <TableCell>
+-                      <DropdownMenu>
+-                        <DropdownMenuTrigger asChild>
+-                          <Button
+-                            variant="ghost"
+-                            size="icon"
+-                            aria-label={`Open menu for ${transaction.description}`}
+-                          >
+-                            <MoreHorizontal className="size-4" />
+-                            <span className="sr-only">Open menu for {transaction.description}</span>
+-                          </Button>
+-                        </DropdownMenuTrigger>
+-                        <DropdownMenuContent align="end">
+-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+-                          <DropdownMenuItem>View Journal Entry</DropdownMenuItem>
+-                          <DropdownMenuItem>View Attachment</DropdownMenuItem>
+-                          <DropdownMenuSeparator />
+-                          <DropdownMenuItem className="text-destructive">Void Transaction</DropdownMenuItem>
+-                        </DropdownMenuContent>
+-                      </DropdownMenu>
++                      <JournalEntryActions orgId={currentOrg?.id || ""} entry={transaction.entry} />
+                     </TableCell>
+                   </TableRow>
+                 ))
+diff --git a/hooks/finance/use-finance.ts b/hooks/finance/use-finance.ts
+index 9e063cb..467f75e 100644
+--- a/hooks/finance/use-finance.ts
++++ b/hooks/finance/use-finance.ts
+@@ -7,8 +7,11 @@ import {
+   getBankAccounts,
+   createBankAccount,
+   getJournalEntries,
+-  createJournalEntry
++  getJournalEntry,
++  createJournalEntry,
++  voidJournalEntry,
+ } from "@/lib/finance/queries";
++import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
+ 
+ // Accounts
+ export function useAccounts(orgId: string) {
+@@ -76,6 +79,27 @@ export function useJournalEntries(orgId: string) {
+   });
+ }
+ 
++export function useJournalEntry(orgId: string, entryId: string) {
++  return useQuery({
++    queryKey: ["journal-entries", orgId, entryId],
++    queryFn: () => getJournalEntry(orgId, entryId),
++    enabled: typeof window !== 'undefined' && !!orgId && !!entryId,
++  });
++}
++
++export function useVoidJournalEntry(orgId: string) {
++  return useCrudMutation({
++    mutationFn: (vars: { entry_id: string; reason?: string }) =>
++      voidJournalEntry({ org_id: orgId, entry_id: vars.entry_id, reason: vars.reason }),
++    invalidateKeys: (vars) => [
++      ["journal-entries", orgId],
++      ["journal-entries", orgId, vars.entry_id],
++    ],
++    successMessage: "Journal entry voided",
++    fallbackErrorMessage: "Failed to void journal entry",
++  });
++}
++
+ interface CreateJournalEntryParams {
+   entry: {
+     org_id: string;
+diff --git a/lib/finance/queries.ts b/lib/finance/queries.ts
+index 26ec93d..3435a56 100644
+--- a/lib/finance/queries.ts
++++ b/lib/finance/queries.ts
+@@ -94,6 +94,38 @@ export async function getJournalEntries(orgId: string) {
+   return data as JournalEntry[];
+ }
+ 
++export async function getJournalEntry(orgId: string, entryId: string) {
++  const supabase = createClient();
++  const { data, error } = await supabase
++    .from("journal_entries")
++    .select(`
++      *,
++      lines:journal_entry_lines(*, account:accounts(id, name, category, code))
++    `)
++    .eq("org_id", orgId)
++    .eq("id", entryId)
++    .single();
++
++  if (error) throw error;
++  return data as JournalEntry;
++}
++
++export async function voidJournalEntry(params: {
++  org_id: string;
++  entry_id: string;
++  reason?: string;
++}) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("void_journal_entry_v1", {
++    p_org_id: params.org_id,
++    p_entry_id: params.entry_id,
++    p_reason: params.reason ?? null,
++  });
++
++  if (error) throw error;
++  return data as JournalEntry;
++}
++
+ export async function createJournalEntry(
+   entry: {
+     org_id: string;
+diff --git a/lib/types.ts b/lib/types.ts
+index 361e295..69ca162 100644
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -168,5 +168,6 @@ export interface JournalEntryLine {
+     id: string;
+     name: string;
+     category: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
++    code?: string;
+   };
+ }
+diff --git a/supabase/migrations/20260822000001_void_journal_entry_v1_rpc.sql b/supabase/migrations/20260822000001_void_journal_entry_v1_rpc.sql
+new file mode 100644
+index 0000000..e95d2a3
+--- /dev/null
++++ b/supabase/migrations/20260822000001_void_journal_entry_v1_rpc.sql
+@@ -0,0 +1,56 @@
++-- The Transactions page's "Void Transaction" menu item had no backing
++-- function — it was a dead DropdownMenuItem with no onSelect at all. This
++-- adds void_journal_entry_v1, mirroring the void_invoice_v1 pattern already
++-- established in 20260820000002_invoice_status_transitions.sql: soft-void
++-- (never hard-delete a posted financial record), authorization re-checked
++-- explicitly since SECURITY DEFINER bypasses journal_entries' own RLS.
++
++CREATE OR REPLACE FUNCTION void_journal_entry_v1(
++    p_org_id UUID,
++    p_entry_id UUID,
++    p_reason TEXT DEFAULT NULL
++) RETURNS journal_entries
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++DECLARE
++    v_entry journal_entries;
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++        AND role IN ('owner', 'admin', 'accountant')
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to void journal entries for this organisation';
++    END IF;
++
++    SELECT * INTO v_entry FROM journal_entries
++    WHERE id = p_entry_id AND org_id = p_org_id
++    FOR UPDATE;
++
++    IF v_entry IS NULL THEN
++        RAISE EXCEPTION 'Journal entry not found in this organisation';
++    END IF;
++
++    IF v_entry.status = 'void' THEN
++        RAISE EXCEPTION 'This entry is already void';
++    END IF;
++
++    -- Voiding leaves the entry and its lines on record (financial audit
++    -- trail must never disappear) but flips status so it stops counting
++    -- toward Transactions/Ledger/Banking totals, dashboard aggregates, and
++    -- account running balances, all of which filter or classify by status.
++    UPDATE journal_entries
++    SET status = 'void',
++        description = CASE
++          WHEN p_reason IS NOT NULL THEN COALESCE(description || E'\n', '') || 'Voided: ' || p_reason
++          ELSE description
++        END,
++        updated_at = NOW()
++    WHERE id = p_entry_id
++    RETURNING * INTO v_entry;
++
++    RETURN v_entry;
++END;
++$$;
+-- 
+2.43.0
+

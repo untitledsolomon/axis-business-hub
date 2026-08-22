@@ -18,7 +18,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { InvoiceActions } from "@/components/invoicing/InvoiceActions";
 import { ArrowLeft, Receipt, AlertTriangle, Mail, Phone } from "lucide-react";
-import { format } from "date-fns";
+import { formatShortDate } from "@/lib/format-date";
 
 function fmtMoney(cents: number, currency: string) {
   return `${currency} ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -96,7 +96,7 @@ export function InvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
       <PageHeader
         title={invoice.invoice_number}
-        description={`Issued ${format(new Date(invoice.issue_date), "MMM dd, yyyy")} · Due ${format(new Date(invoice.due_date), "MMM dd, yyyy")}`}
+        description={`Issued ${formatShortDate(invoice.issue_date)} · Due ${formatShortDate(invoice.due_date)}`}
         actions={<InvoiceActions orgId={orgId} invoice={invoice} showViewDetails={false} />}
       />
 

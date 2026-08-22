@@ -168,5 +168,6 @@ export interface JournalEntryLine {
     id: string;
     name: string;
     category: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+    code?: string;
   };
 }

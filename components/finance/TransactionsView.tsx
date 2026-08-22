@@ -16,15 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, MoreHorizontal, ArrowUpRight, ArrowDownLeft, Filter, Receipt, Scale, AlertTriangle } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, Filter, Receipt, Scale, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
+import { JournalEntryActions } from "@/components/finance/JournalEntryActions";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -48,6 +41,7 @@ interface DerivedTransaction {
   type: TxType;
   amount: number; // in cents
   status: string;
+  entry: JournalEntry;
 }
 
 /**
@@ -88,6 +82,7 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
     type,
     amount,
     status: entry.status,
+    entry,
   };
 }
 
@@ -262,25 +257,7 @@ export function TransactionsView() {
                       <StatusBadge status={transaction.status} />
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Open menu for ${transaction.description}`}
-                          >
-                            <MoreHorizontal className="size-4" />
-                            <span className="sr-only">Open menu for {transaction.description}</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>View Journal Entry</DropdownMenuItem>
-                          <DropdownMenuItem>View Attachment</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">Void Transaction</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <JournalEntryActions orgId={currentOrg?.id || ""} entry={transaction.entry} />
                     </TableCell>
                   </TableRow>
                 ))

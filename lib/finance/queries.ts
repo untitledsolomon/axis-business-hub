@@ -94,6 +94,38 @@ export async function getJournalEntries(orgId: string) {
   return data as JournalEntry[];
 }
 
+export async function getJournalEntry(orgId: string, entryId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("journal_entries")
+    .select(`
+      *,
+      lines:journal_entry_lines(*, account:accounts(id, name, category, code))
+    `)
+    .eq("org_id", orgId)
+    .eq("id", entryId)
+    .single();
+
+  if (error) throw error;
+  return data as JournalEntry;
+}
+
+export async function voidJournalEntry(params: {
+  org_id: string;
+  entry_id: string;
+  reason?: string;
+}) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("void_journal_entry_v1", {
+    p_org_id: params.org_id,
+    p_entry_id: params.entry_id,
+    p_reason: params.reason ?? null,
+  });
+
+  if (error) throw error;
+  return data as JournalEntry;
+}
+
 export async function createJournalEntry(
   entry: {
     org_id: string;

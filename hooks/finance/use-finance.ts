@@ -7,8 +7,11 @@ import {
   getBankAccounts,
   createBankAccount,
   getJournalEntries,
-  createJournalEntry
+  getJournalEntry,
+  createJournalEntry,
+  voidJournalEntry,
 } from "@/lib/finance/queries";
+import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
 
 // Accounts
 export function useAccounts(orgId: string) {
@@ -73,6 +76,27 @@ export function useJournalEntries(orgId: string) {
     queryKey: ["journal-entries", orgId],
     queryFn: () => getJournalEntries(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
+  });
+}
+
+export function useJournalEntry(orgId: string, entryId: string) {
+  return useQuery({
+    queryKey: ["journal-entries", orgId, entryId],
+    queryFn: () => getJournalEntry(orgId, entryId),
+    enabled: typeof window !== 'undefined' && !!orgId && !!entryId,
+  });
+}
+
+export function useVoidJournalEntry(orgId: string) {
+  return useCrudMutation({
+    mutationFn: (vars: { entry_id: string; reason?: string }) =>
+      voidJournalEntry({ org_id: orgId, entry_id: vars.entry_id, reason: vars.reason }),
+    invalidateKeys: (vars) => [
+      ["journal-entries", orgId],
+      ["journal-entries", orgId, vars.entry_id],
+    ],
+    successMessage: "Journal entry voided",
+    fallbackErrorMessage: "Failed to void journal entry",
   });
 }
 
