@@ -55,6 +55,17 @@ const SCENE_COUNT = 2;
 const WINDOW_IDS = [0, 1, 2] as const;
 type WindowId = (typeof WINDOW_IDS)[number];
 
+const SCENE_COPY = [
+  {
+    heading: "Run billing, inventory, and reporting from one place.",
+    body: "Axis keeps your books, stock, and customers in sync — no spreadsheets required.",
+  },
+  {
+    heading: "Know your stock and margins before they surprise you.",
+    body: "Axis tracks inventory, customers, and profit in real time — right alongside the books.",
+  },
+];
+
 /** Builds a smooth SVG path from a list of 0-100 values. */
 function sparklinePath(points: number[], width: number, height: number) {
   const step = width / (points.length - 1);
@@ -122,19 +133,25 @@ export function AuthShowcasePanel() {
       {/* Vignette */}
       <div className="absolute inset-0 bg-gradient-to-t from-sidebar/90 via-sidebar/10 to-transparent" />
 
-      {/* Headline copy */}
-      <div
-        className={`relative z-10 max-w-md transition-all duration-700 ${
-          mounted ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-        }`}
-      >
-        <p className="font-display text-2xl font-semibold leading-tight tracking-tight text-sidebar-foreground sm:text-3xl lg:text-4xl">
-          Run billing, inventory, and reporting from one place.
-        </p>
-        <p className="mt-3 max-w-sm text-sm leading-relaxed text-sidebar-foreground/70 sm:text-base">
-          Axis keeps your books, stock, and customers in sync — no
-          spreadsheets required.
-        </p>
+      {/* Headline copy — crossfades per scene */}
+      <div className="relative z-10 max-w-md">
+        {SCENE_COPY.map((copy, i) => (
+          <div
+            key={i}
+            className={`transition-all duration-700 ease-out ${
+              i === scene
+                ? "relative opacity-100 translate-y-0"
+                : "absolute inset-0 opacity-0 translate-y-2 pointer-events-none"
+            } ${mounted ? "" : "opacity-0 translate-y-2"}`}
+          >
+            <p className="font-display text-2xl font-semibold leading-tight tracking-tight text-sidebar-foreground sm:text-3xl lg:text-4xl">
+              {copy.heading}
+            </p>
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-sidebar-foreground/70 sm:text-base">
+              {copy.body}
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* ---------------- WINDOW STACK STAGE ---------------- */}
@@ -466,11 +483,10 @@ const ACCENTS = {
 } as const;
 
 /**
- * A single "browser window" panel. `depth` controls the cascade offset:
- *   depth 2 = furthest back, top-left, most covered
- *   depth 1 = middle
- *   depth 0 = frontmost, fully visible, bottom-right-most
- * Clicking any window (via onFocus) brings it to depth 0.
+ * A single "browser window" panel. `depth` controls the cascade offset
+ * via a translate transform (NOT swapped inset classes) so moving between
+ * depths — including on click-to-front — animates smoothly instead of
+ * snapping. depth 2 = furthest back, depth 0 = frontmost.
  */
 function AppWindow({
   depth,
@@ -487,16 +503,17 @@ function AppWindow({
   onFocus?: () => void;
   children: React.ReactNode;
 }) {
-  // Fixed-percentage offsets anchored to opposite corners so the back
-  // window's top-left corner always peeks out by a consistent strip,
-  // regardless of panel size.
-  const offsets = {
-    2: "left-0 top-0 right-[22%] bottom-[22%]",
-    1: "left-[11%] top-[11%] right-[11%] bottom-[11%]",
-    0: "left-[22%] top-[22%] right-0 bottom-0",
+  // Every window occupies the same base box (78% x 78% of the stage,
+  // i.e. depth-2's box) and is shifted into place with a translate —
+  // translate animates smoothly, unlike swapping inset/position classes.
+  const STEP = 22; // percent, matches the old fixed-margin cascade
+  const translate = {
+    2: "translate(0%, 0%)",
+    1: `translate(${STEP}%, ${STEP}%)`,
+    0: `translate(${STEP * 2}%, ${STEP * 2}%)`,
   } as const;
 
-  const z = { 2: "z-10", 1: "z-20", 0: "z-30" } as const;
+  const z = { 2: 10, 1: 20, 0: 30 } as const;
   const accentClasses = ACCENTS[accent];
 
   return (
@@ -507,8 +524,16 @@ function AppWindow({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onFocus?.();
       }}
-      style={{ transitionDelay: `${depth === 2 ? 0 : depth === 1 ? 120 : 240}ms` }}
-      className={`absolute ${offsets[depth]} ${z[depth]} block overflow-hidden rounded-xl border border-white/15 bg-surface/95 text-left shadow-pop ring-1 ring-black/5 backdrop-blur-md transition-all duration-700 ${
+      style={{
+        width: "78%",
+        height: "78%",
+        transform: translate[depth],
+        zIndex: z[depth],
+        transitionProperty: "transform, filter",
+        transitionDuration: "600ms",
+        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+      className={`absolute left-0 top-0 block overflow-hidden rounded-xl border border-white/15 bg-surface/95 text-left shadow-pop ring-1 ring-black/5 backdrop-blur-md ${
         depth !== 0 ? "cursor-pointer hover:brightness-110" : "cursor-default"
       }`}
     >
