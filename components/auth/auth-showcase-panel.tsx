@@ -130,7 +130,7 @@ export function AuthShowcasePanel() {
         }}
       />
       {/* Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#f5f1ea]/50 via-[#f5f1ea]/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#f5f1ea]/30 via-[#f5f1ea]/20 to-transparent" />
 
       {/* Headline copy — crossfades per scene */}
       <div className="relative z-10 max-w-md">
@@ -159,6 +159,7 @@ export function AuthShowcasePanel() {
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
+        <div className="absolute inset-x-[7%] inset-y-[8%] rounded-[30px] border border-[#d9d2c3]/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] shadow-[0_22px_60px_rgba(15,23,42,0.08)] backdrop-blur-[6px]" />
         <div className="absolute inset-0">
           <WindowStack active={scene === 0 && mounted}>
             {order[0].map((id, i) => {
@@ -545,7 +546,7 @@ function AppWindow({
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute block overflow-visible rounded-[22px] border border-[#d9d2c3]/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.52),rgba(248,245,239,0.58))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
+      className={`absolute block overflow-hidden rounded-[22px] border border-[#d9d2c3]/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.48),rgba(248,245,239,0.56))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
         depth !== 0 ? "cursor-pointer hover:brightness-105" : "cursor-default"
       }`}
     >
