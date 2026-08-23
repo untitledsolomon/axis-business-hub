@@ -1,0 +1,39 @@
+From cea5d472ed56f612b53860d0053bc590afababd9 Mon Sep 17 00:00:00 2001
+From: Regent Dev <dev@regentplatform.com>
+Date: Sun, 23 Aug 2026 15:29:44 +0000
+Subject: [PATCH] fix: correct PostHog assets CSP origin for us.posthog.com
+ host format
+
+---
+ next.config.ts | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/next.config.ts b/next.config.ts
+index 99e0115..ad4edef 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -12,7 +12,11 @@ const supabaseRealtimeOrigin = supabaseOrigin
+   : "";
+ const posthogOrigin = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+ const posthogAssetsOrigin = posthogOrigin
+-  ? posthogOrigin.replace("://us.i.", "://us-assets.i.")
++  ? posthogOrigin
++      .replace("://us.i.", "://us-assets.i.")
++      .replace("://eu.i.", "://eu-assets.i.")
++      .replace("://us.posthog.com", "://us-assets.i.posthog.com")
++      .replace("://eu.posthog.com", "://eu-assets.i.posthog.com")
+   : "";
+ 
+ const nextConfig: NextConfig = {
+@@ -25,7 +29,7 @@ const nextConfig: NextConfig = {
+             key: "Content-Security-Policy",
+             value: `
+                     default-src 'self';
+-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin};
++                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin};
+                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin};
+                     worker-src 'self' blob:;
+                     style-src 'self' 'unsafe-inline';
+-- 
+2.43.0
+

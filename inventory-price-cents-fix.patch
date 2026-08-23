@@ -1,0 +1,147 @@
+diff --git a/components/inventory/ItemForm.tsx b/components/inventory/ItemForm.tsx
+index d9d2399..290a958 100644
+--- a/components/inventory/ItemForm.tsx
++++ b/components/inventory/ItemForm.tsx
+@@ -35,8 +35,8 @@ const formSchema = z.object({
+   status: z.enum(["active", "inactive", "archived"]),
+   current_quantity: z.coerce.number().int().nonnegative(),
+   reorder_level: z.coerce.number().int().nonnegative(),
+-  cost_price: z.coerce.number().int().nonnegative(),
+-  selling_price: z.coerce.number().int().nonnegative(),
++  cost_price: z.number().min(0),
++  selling_price: z.number().min(0),
+   location: z.string().optional(),
+ });
+ 
+@@ -67,8 +67,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+       status: item?.status ?? "active",
+       current_quantity: item?.current_quantity ?? 0,
+       reorder_level: item?.reorder_level ?? 0,
+-      cost_price: item?.cost_price ?? 0,
+-      selling_price: item?.selling_price ?? 0,
++      cost_price: item ? item.cost_price / 100 : 0,
++      selling_price: item ? item.selling_price / 100 : 0,
+       location: item?.location ?? "",
+     },
+   });
+@@ -83,8 +83,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+       status: item?.status ?? "active",
+       current_quantity: item?.current_quantity ?? 0,
+       reorder_level: item?.reorder_level ?? 0,
+-      cost_price: item?.cost_price ?? 0,
+-      selling_price: item?.selling_price ?? 0,
++      cost_price: item ? item.cost_price / 100 : 0,
++      selling_price: item ? item.selling_price / 100 : 0,
+       location: item?.location ?? "",
+     });
+   }, [item, form]);
+@@ -93,6 +93,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+ 
+   async function onSubmit(values: z.infer<typeof formSchema>) {
+     try {
++      const cost_price_cents = Math.round(values.cost_price * 100);
++      const selling_price_cents = Math.round(values.selling_price * 100);
+       if (isEditing && item) {
+         await updateItem.mutateAsync({
+           id: item.id,
+@@ -105,8 +107,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+             status: values.status,
+             current_quantity: values.current_quantity,
+             reorder_level: values.reorder_level,
+-            cost_price: values.cost_price,
+-            selling_price: values.selling_price,
++            cost_price: cost_price_cents,
++            selling_price: selling_price_cents,
+             location: values.location || undefined,
+           },
+         });
+@@ -121,8 +123,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+           status: values.status,
+           current_quantity: values.current_quantity,
+           reorder_level: values.reorder_level,
+-          cost_price: values.cost_price,
+-          selling_price: values.selling_price,
++          cost_price: cost_price_cents,
++          selling_price: selling_price_cents,
+           location: values.location || undefined,
+           metadata: {},
+         });
+@@ -242,9 +244,16 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+             name="cost_price"
+             render={({ field }) => (
+               <FormItem>
+-                <FormLabel>Cost Price (cents)</FormLabel>
++                <FormLabel>Cost Price</FormLabel>
+                 <FormControl>
+-                  <Input type="number" min={0} {...field} />
++                  <Input
++                    type="number"
++                    min={0}
++                    step="0.01"
++                    placeholder="0.00"
++                    {...field}
++                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
++                  />
+                 </FormControl>
+                 <FormMessage />
+               </FormItem>
+@@ -255,9 +264,16 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+             name="selling_price"
+             render={({ field }) => (
+               <FormItem>
+-                <FormLabel>Selling Price (cents)</FormLabel>
++                <FormLabel>Selling Price</FormLabel>
+                 <FormControl>
+-                  <Input type="number" min={0} {...field} />
++                  <Input
++                    type="number"
++                    min={0}
++                    step="0.01"
++                    placeholder="0.00"
++                    {...field}
++                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
++                  />
+                 </FormControl>
+                 <FormMessage />
+               </FormItem>
+diff --git a/components/inventory/StockAdjustmentDialog.tsx b/components/inventory/StockAdjustmentDialog.tsx
+index 2cecee3..831595a 100644
+--- a/components/inventory/StockAdjustmentDialog.tsx
++++ b/components/inventory/StockAdjustmentDialog.tsx
+@@ -31,7 +31,7 @@ const formSchema = z.object({
+   quantity_change: z.coerce.number().int(),
+   reference: z.string().optional(),
+   notes: z.string().optional(),
+-  unit_cost: z.coerce.number().int().nonnegative().optional(),
++  unit_cost: z.number().min(0).optional(),
+ });
+ 
+ interface StockAdjustmentDialogProps {
+@@ -62,7 +62,7 @@ export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentD
+       movement_type: values.movement_type,
+       reference: values.reference || undefined,
+       notes: values.notes || undefined,
+-      unit_cost: values.unit_cost,
++      unit_cost: values.unit_cost != null ? Math.round(values.unit_cost * 100) : undefined,
+     });
+     form.reset();
+     setOpen(false);
+@@ -137,9 +137,16 @@ export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentD
+               name="unit_cost"
+               render={({ field }) => (
+                 <FormItem>
+-                  <FormLabel>Unit cost (cents)</FormLabel>
++                  <FormLabel>Unit cost</FormLabel>
+                   <FormControl>
+-                    <Input type="number" min={0} {...field} />
++                    <Input
++                      type="number"
++                      min={0}
++                      step="0.01"
++                      placeholder="0.00"
++                      {...field}
++                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
++                    />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>

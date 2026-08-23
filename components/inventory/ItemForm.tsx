@@ -35,8 +35,8 @@ const formSchema = z.object({
   status: z.enum(["active", "inactive", "archived"]),
   current_quantity: z.coerce.number().int().nonnegative(),
   reorder_level: z.coerce.number().int().nonnegative(),
-  cost_price: z.coerce.number().int().nonnegative(),
-  selling_price: z.coerce.number().int().nonnegative(),
+  cost_price: z.number().min(0),
+  selling_price: z.number().min(0),
   location: z.string().optional(),
 });
 
@@ -67,8 +67,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
       status: item?.status ?? "active",
       current_quantity: item?.current_quantity ?? 0,
       reorder_level: item?.reorder_level ?? 0,
-      cost_price: item?.cost_price ?? 0,
-      selling_price: item?.selling_price ?? 0,
+      cost_price: item ? item.cost_price / 100 : 0,
+      selling_price: item ? item.selling_price / 100 : 0,
       location: item?.location ?? "",
     },
   });
@@ -83,8 +83,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
       status: item?.status ?? "active",
       current_quantity: item?.current_quantity ?? 0,
       reorder_level: item?.reorder_level ?? 0,
-      cost_price: item?.cost_price ?? 0,
-      selling_price: item?.selling_price ?? 0,
+      cost_price: item ? item.cost_price / 100 : 0,
+      selling_price: item ? item.selling_price / 100 : 0,
       location: item?.location ?? "",
     });
   }, [item, form]);
@@ -93,6 +93,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      const cost_price_cents = Math.round(values.cost_price * 100);
+      const selling_price_cents = Math.round(values.selling_price * 100);
       if (isEditing && item) {
         await updateItem.mutateAsync({
           id: item.id,
@@ -105,8 +107,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
             status: values.status,
             current_quantity: values.current_quantity,
             reorder_level: values.reorder_level,
-            cost_price: values.cost_price,
-            selling_price: values.selling_price,
+            cost_price: cost_price_cents,
+            selling_price: selling_price_cents,
             location: values.location || undefined,
           },
         });
@@ -121,8 +123,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
           status: values.status,
           current_quantity: values.current_quantity,
           reorder_level: values.reorder_level,
-          cost_price: values.cost_price,
-          selling_price: values.selling_price,
+          cost_price: cost_price_cents,
+          selling_price: selling_price_cents,
           location: values.location || undefined,
           metadata: {},
         });
@@ -242,9 +244,16 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
             name="cost_price"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Cost Price (cents)</FormLabel>
+                <FormLabel>Cost Price</FormLabel>
                 <FormControl>
-                  <Input type="number" min={0} {...field} />
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -255,9 +264,16 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
             name="selling_price"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Selling Price (cents)</FormLabel>
+                <FormLabel>Selling Price</FormLabel>
                 <FormControl>
-                  <Input type="number" min={0} {...field} />
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

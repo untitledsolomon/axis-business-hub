@@ -31,7 +31,7 @@ const formSchema = z.object({
   quantity_change: z.coerce.number().int(),
   reference: z.string().optional(),
   notes: z.string().optional(),
-  unit_cost: z.coerce.number().int().nonnegative().optional(),
+  unit_cost: z.number().min(0).optional(),
 });
 
 interface StockAdjustmentDialogProps {
@@ -62,7 +62,7 @@ export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentD
       movement_type: values.movement_type,
       reference: values.reference || undefined,
       notes: values.notes || undefined,
-      unit_cost: values.unit_cost,
+      unit_cost: values.unit_cost != null ? Math.round(values.unit_cost * 100) : undefined,
     });
     form.reset();
     setOpen(false);
@@ -137,9 +137,16 @@ export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentD
               name="unit_cost"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Unit cost (cents)</FormLabel>
+                  <FormLabel>Unit cost</FormLabel>
                   <FormControl>
-                    <Input type="number" min={0} {...field} />
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

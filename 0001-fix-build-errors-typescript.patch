@@ -1,0 +1,72 @@
+From 86e3e9691e40b171a6fd656223f24c15b7f6320f Mon Sep 17 00:00:00 2001
+From: Regent Dev <dev@regentplatform.com>
+Date: Sun, 23 Aug 2026 14:51:50 +0000
+Subject: [PATCH] fix: resolve implicit any type errors in BankingView,
+ MarkPaidDialog, use-auth
+
+---
+ components/finance/BankingView.tsx      | 2 +-
+ components/invoicing/MarkPaidDialog.tsx | 4 ++--
+ hooks/use-auth.tsx                      | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/components/finance/BankingView.tsx b/components/finance/BankingView.tsx
+index 0d4fe52..f4e14d7 100644
+--- a/components/finance/BankingView.tsx
++++ b/components/finance/BankingView.tsx
+@@ -194,7 +194,7 @@ export function BankingView() {
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+-                {bankAccounts.map((account) => (
++                {bankAccounts.map((account: BankAccount) => (
+                   <TableRow key={account.id}>
+                     <TableCell className="font-medium">{account.name}</TableCell>
+                     <TableCell className="text-muted-foreground">{account.bank_name || "—"}</TableCell>
+diff --git a/components/invoicing/MarkPaidDialog.tsx b/components/invoicing/MarkPaidDialog.tsx
+index 98202d1..34abf78 100644
+--- a/components/invoicing/MarkPaidDialog.tsx
++++ b/components/invoicing/MarkPaidDialog.tsx
+@@ -22,7 +22,7 @@ import {
+ } from "@/components/ui/select";
+ import { useBankAccounts } from "@/hooks/finance/use-finance";
+ import { useMarkInvoicePaid } from "@/hooks/invoicing/use-invoices";
+-import { Invoice } from "@/lib/types";
++import { Invoice, BankAccount } from "@/lib/types";
+ import posthog from "posthog-js";
+ 
+ const formSchema = z.object({
+@@ -88,7 +88,7 @@ export function MarkPaidDialog({ orgId, invoice, onSuccess }: MarkPaidDialogProp
+                   </SelectTrigger>
+                 </FormControl>
+                 <SelectContent>
+-                  {bankAccounts?.map((acc) => (
++                  {bankAccounts?.map((acc: BankAccount) => (
+                     <SelectItem key={acc.id} value={acc.account_id}>
+                       {acc.name} {acc.bank_name ? `— ${acc.bank_name}` : ""}
+                     </SelectItem>
+diff --git a/hooks/use-auth.tsx b/hooks/use-auth.tsx
+index ea76651..3e8c241 100644
+--- a/hooks/use-auth.tsx
++++ b/hooks/use-auth.tsx
+@@ -2,7 +2,7 @@
+ import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+ import { useRouter } from "next/navigation";
+ import { createClient } from "@/lib/supabase/client";
+-import { User } from "@supabase/supabase-js";
++import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
+ import posthog from "posthog-js";
+ 
+ interface AuthContextType {
+@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+     getUser();
+ 
+     const { data: { subscription } } = supabase.auth.onAuthStateChange(
+-      (event, session) => {
++      (event: AuthChangeEvent, session: Session | null) => {
+         const authenticatedUser = session?.user ?? null;
+         setUser(authenticatedUser);
+         if (authenticatedUser) {
+-- 
+2.43.0
+
