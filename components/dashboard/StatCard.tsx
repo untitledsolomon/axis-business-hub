@@ -10,17 +10,27 @@ interface StatCardProps {
     positive: boolean;
   };
   subtitle?: string;
+  tone?: "primary" | "success" | "warning" | "destructive";
   className?: string;
 }
 
-export function StatCard({ title, value, icon, trend, subtitle, className }: StatCardProps) {
+const badgeTone: Record<NonNullable<StatCardProps["tone"]>, string> = {
+  primary: "bg-primary text-primary-foreground",
+  success: "bg-success text-success-foreground",
+  warning: "bg-warning text-warning-foreground",
+  destructive: "bg-destructive text-destructive-foreground",
+};
+
+export function StatCard({ title, value, icon, trend, subtitle, tone = "primary", className }: StatCardProps) {
   return (
     <div className={cn("panel p-4", className)}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">{title}</p>
-        <span className="text-muted-foreground [&>svg]:size-3.5">{icon}</span>
+        <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg [&>svg]:size-3.5", badgeTone[tone])}>
+          {icon}
+        </span>
       </div>
-      <p className="numeric mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="numeric mt-3 font-mono text-2xl font-semibold tracking-tight text-foreground">{value}</p>
       {trend && (
         <div className="mt-1 flex items-center gap-1">
           <span

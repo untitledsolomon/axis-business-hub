@@ -84,6 +84,7 @@ export default function DashboardPage() {
             title={revenueLabel}
             value={summary.isLoading ? "—" : fmtUGX(summary.revenueThisMonth)}
             icon={<Wallet className="size-4" />}
+            tone="success"
             trend={
               summary.isLoading || !summary.hasComparisonPeriod
                 ? undefined
@@ -94,18 +95,21 @@ export default function DashboardPage() {
             title="Active Clients"
             value={summary.isLoading ? "—" : summary.activeClients.toString()}
             icon={<Users className="size-4" />}
+            tone="primary"
             subtitle={summary.isLoading ? undefined : `${clients.length} total clients`}
           />
           <StatCard
             title="Outstanding Invoices"
             value={summary.isLoading ? "—" : summary.outstandingCount.toString()}
             icon={<FileText className="size-4" />}
+            tone="warning"
             subtitle={summary.isLoading ? undefined : `${fmtUGX(summary.outstandingTotal)} total`}
           />
           <StatCard
             title={profitLabel}
             value={summary.isLoading ? "—" : fmtUGX(summary.netProfitThisMonth)}
             icon={<TrendingUp className="size-4" />}
+            tone="destructive"
             trend={
               summary.isLoading || !summary.hasComparisonPeriod
                 ? undefined

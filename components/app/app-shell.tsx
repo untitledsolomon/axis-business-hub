@@ -112,7 +112,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 A
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-display text-sm font-semibold text-primary-foreground">
+                <span className="block truncate font-display text-sm font-semibold text-foreground">
                   {currentOrg ? currentOrg.name : "Select organisation"}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">Axis Business Hub</span>
@@ -141,7 +141,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <nav className="space-y-6 pb-6">
           {navGroups.map((group) => (
             <div key={group.title}>
-              <p className="px-3 pb-2 text-[0.68rem] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="px-3 pb-2 font-mono text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground/70">
                 {group.title}
               </p>
               <ul className="space-y-0.5">
@@ -155,11 +155,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                         className={cn(
                           "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           active
-                            ? "bg-primary text-primary-foreground shadow-raised"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                            ? "bg-sidebar-accent text-foreground"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                         )}
                       >
-                        <item.icon className="size-4 shrink-0" />
+                        <item.icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
                         <span className="flex-1 truncate">{item.label}</span>
                       </Link>
                     </li>
@@ -171,7 +171,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </nav>
       </ScrollArea>
 
-      <Separator />
+      <Separator className="bg-sidebar-border" />
       <div className="p-3">
         <button
           onClick={signOut}
@@ -183,7 +183,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </AvatarFallback>
           </Avatar>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium text-primary-foreground">{displayName}</span>
+            <span className="block truncate text-sm font-medium text-foreground">{displayName}</span>
             <span className="block truncate text-xs text-muted-foreground">{user?.email}</span>
           </span>
           <LogOut className="size-4 text-muted-foreground" />
@@ -206,7 +206,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background p-0">
       <div className="flex min-h-screen overflow-hidden bg-surface">
-        <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:block">
+        <aside className="hidden w-64 shrink-0 border-r border-sidebar-border bg-sidebar lg:block">
           <SidebarContent />
         </aside>
 

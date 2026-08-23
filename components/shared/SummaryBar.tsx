@@ -35,7 +35,7 @@ export function SummaryBar({ stats, className }: { stats: SummaryStat[]; classNa
             <span className="text-muted-foreground [&>svg]:size-3.5">{stat.icon}</span>
           )}
           <span className="text-xs text-muted-foreground">{stat.label}</span>
-          <span className={cn("numeric text-sm font-semibold", toneClasses[stat.tone ?? "default"])}>
+          <span className={cn("numeric font-mono text-sm font-semibold", toneClasses[stat.tone ?? "default"])}>
             {stat.value}
           </span>
         </div>

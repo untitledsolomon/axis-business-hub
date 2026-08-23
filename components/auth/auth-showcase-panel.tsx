@@ -143,10 +143,10 @@ export function AuthShowcasePanel() {
                 : "absolute inset-0 opacity-0 translate-y-2 pointer-events-none"
             } ${mounted ? "" : "opacity-0 translate-y-2"}`}
           >
-            <p className="font-display text-2xl font-semibold leading-tight tracking-tight text-sidebar-foreground sm:text-3xl lg:text-4xl">
+            <p className="font-display text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl lg:text-4xl">
               {copy.heading}
             </p>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-sidebar-foreground/70 sm:text-base">
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/70 sm:text-base">
               {copy.body}
             </p>
           </div>
@@ -438,7 +438,7 @@ export function AuthShowcasePanel() {
           ))}
         </div>
         <span
-          className={`text-[10px] font-medium uppercase tracking-wide text-sidebar-foreground/40 transition-opacity duration-300 ${
+          className={`text-[10px] font-medium uppercase tracking-wide text-white/40 transition-opacity duration-300 ${
             paused ? "opacity-100" : "opacity-0"
           }`}
         >
