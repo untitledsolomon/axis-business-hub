@@ -130,7 +130,7 @@ export function AuthShowcasePanel() {
         }}
       />
       {/* Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#f5f1ea]/90 via-[#f5f1ea]/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#f5f1ea]/50 via-[#f5f1ea]/20 to-transparent" />
 
       {/* Headline copy — crossfades per scene */}
       <div className="relative z-10 max-w-md">
