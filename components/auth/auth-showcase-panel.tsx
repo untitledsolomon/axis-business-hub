@@ -130,7 +130,7 @@ export function AuthShowcasePanel() {
         }}
       />
       {/* Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#f5f1ea]/15 via-[#f5f1ea]/5 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#172554]/15 via-[#172554]/5 to-transparent" />
 
       {/* Headline copy — crossfades per scene */}
       <div className="relative z-10 max-w-md">
@@ -546,11 +546,11 @@ function AppWindow({
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute block overflow-hidden rounded-[22px] border border-[#d9d2c3]/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.48),rgba(248,245,239,0.56))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
+      className={`absolute block overflow-hidden rounded-[22px] border border-[#d9d2c3]/30 bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(245,241,234,0.82))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
         depth !== 0 ? "cursor-pointer hover:brightness-105" : "cursor-default"
       }`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.6),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.12),transparent_32%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.82),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.22),transparent_32%)]" />
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accentClasses.wash}`} />
 
       <div className="relative flex h-full flex-col overflow-visible p-4 sm:p-5">
