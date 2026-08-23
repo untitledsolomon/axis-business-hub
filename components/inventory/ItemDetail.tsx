@@ -117,6 +117,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   async function handleDelete() {
+    if (!item) return;
     await deleteItem.mutateAsync({ id: item.id });
     router.push("/inventory");
   }

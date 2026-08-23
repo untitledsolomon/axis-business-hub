@@ -21,7 +21,7 @@ import { useDashboardSummary, DashboardTimeframe, TIMEFRAME_LABELS } from "@/hoo
 import { useAuth } from "@/hooks/use-auth";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useOrg } from "@/hooks/use-org";
-import { Users, FileText, TrendingUp, Wallet, AlertTriangle, PackageCheck, BriefcaseBusiness, ShieldCheck, Route, Clock3 } from "lucide-react";
+import { Users, FileText, TrendingUp, Wallet, AlertTriangle, PackageCheck, BriefcaseBusiness } from "lucide-react";
 
 function fmtUGX(value: number) {
   return `UGX ${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -49,28 +49,6 @@ export default function DashboardPage() {
   const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
   const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue");
   const lowStockItems = items.filter((item) => item.status !== "archived" && item.current_quantity <= item.reorder_level);
-  const custodyIssuedAssets = items.filter((item) => {
-    const meta = (item.metadata ?? {}) as Record<string, unknown>;
-    return item.status !== "archived" && (
-      meta.custody_status === "issued" ||
-      typeof meta.assigned_employee_id === "string"
-    );
-  });
-  const lifecycleTrackedAssets = items.filter((item) => {
-    const meta = (item.metadata ?? {}) as Record<string, unknown>;
-    return item.status !== "archived" && (
-      typeof meta.lifecycle_stage === "string" ||
-      typeof meta.asset_status === "string" ||
-      typeof meta.vin === "string"
-    );
-  });
-  const dueSoonAssets = items.filter((item) => {
-    const meta = (item.metadata ?? {}) as Record<string, unknown>;
-    const due = meta.expected_return_at;
-    if (typeof due !== "string" || !due) return false;
-    const diff = new Date(due).getTime() - Date.now();
-    return diff > 0 && diff <= 1000 * 60 * 60 * 24 * 14;
-  });
   const onLeaveCount = employees.filter((employee) => employee.status === "on_leave").length;
   const paidThisPeriodTotal = paidInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
   const overdueTotal = overdueInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;

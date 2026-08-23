@@ -12,7 +12,7 @@ import {
   useEmployeeAttendance,
   useEmployeeShifts,
 } from "@/hooks/employees/use-employees";
-import { Employee } from "@/lib/types";
+import { Employee, EmployeeAttendanceStatus, EmployeeShiftStatus } from "@/lib/types";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatShortDate } from "@/lib/format-date";
 import { CalendarDays, Clock3, CheckCircle2 } from "lucide-react";
@@ -21,7 +21,14 @@ interface ShiftAttendancePanelProps {
   employee: Employee;
 }
 
-const shiftDefaults = {
+const shiftDefaults: {
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  shift_type: "standard" | "opening" | "closing" | "support";
+  status: EmployeeShiftStatus;
+  notes: string;
+} = {
   shift_date: new Date().toISOString().slice(0, 10),
   start_time: "09:00",
   end_time: "17:00",
@@ -30,7 +37,11 @@ const shiftDefaults = {
   notes: "",
 };
 
-const attendanceDefaults = {
+const attendanceDefaults: {
+  attendance_date: string;
+  status: EmployeeAttendanceStatus;
+  notes: string;
+} = {
   attendance_date: new Date().toISOString().slice(0, 10),
   status: "scheduled",
   notes: "",
@@ -103,7 +114,15 @@ export function ShiftAttendancePanel({ employee }: ShiftAttendancePanelProps) {
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
               Type
-              <Select value={shiftForm.shift_type} onValueChange={(value) => setShiftForm((prev) => ({ ...prev, shift_type: value }))}>
+              <Select
+                value={shiftForm.shift_type}
+                onValueChange={(value) =>
+                  setShiftForm((prev) => ({
+                    ...prev,
+                    shift_type: value as "standard" | "opening" | "closing" | "support",
+                  }))
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -131,7 +150,15 @@ export function ShiftAttendancePanel({ employee }: ShiftAttendancePanelProps) {
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="space-y-1 text-xs text-muted-foreground">
               Status
-              <Select value={shiftForm.status} onValueChange={(value) => setShiftForm((prev) => ({ ...prev, status: value }))}>
+              <Select
+                value={shiftForm.status}
+                onValueChange={(value) =>
+                  setShiftForm((prev) => ({
+                    ...prev,
+                    status: value as EmployeeShiftStatus,
+                  }))
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -199,7 +226,15 @@ export function ShiftAttendancePanel({ employee }: ShiftAttendancePanelProps) {
 
           <label className="space-y-1 text-xs text-muted-foreground">
             Status
-            <Select value={attendanceForm.status} onValueChange={(value) => setAttendanceForm((prev) => ({ ...prev, status: value }))}>
+            <Select
+              value={attendanceForm.status}
+              onValueChange={(value) =>
+                setAttendanceForm((prev) => ({
+                  ...prev,
+                  status: value as EmployeeAttendanceStatus,
+                }))
+              }
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

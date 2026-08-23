@@ -175,6 +175,9 @@
 }
 
 :root {
+  --font-body: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   --shadow-card: 0 1px 2px hsl(215 25% 30% / 0.06), 0 1px 3px hsl(215 25% 30% / 0.05);
   --shadow-raised: 0 8px 24px -12px hsl(211 55% 23% / 0.25);
   --shadow-pop: 0 24px 60px -24px hsl(211 55% 20% / 0.35);

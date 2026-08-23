@@ -33,6 +33,7 @@ import { BankAccountForm } from "@/components/finance/BankAccountForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useState, useEffect, useMemo } from "react";
+import { BankAccount } from "@/lib/types";
 import { computeAccountBalance } from "@/lib/finance/balance";
 
 export function BankingView() {
@@ -58,7 +59,7 @@ export function BankingView() {
 
   const totalCash = useMemo(() => {
     if (balancesLoading) return 0;
-    return (bankAccounts ?? []).reduce((s, a) => s + (balances.get(a.id) || 0), 0);
+    return (bankAccounts ?? []).reduce((s: number, a: BankAccount) => s + (balances.get(a.id) || 0), 0);
   }, [bankAccounts, balances, balancesLoading]);
 
   const fmt = (cents: number) =>
@@ -133,7 +134,7 @@ export function BankingView() {
           </div>
         ) : bankAccounts && bankAccounts.length > 0 ? (
           <div className="grid gap-4 lg:grid-cols-3">
-            {bankAccounts.map((account) => (
+            {bankAccounts.map((account: BankAccount) => (
               <div key={account.id} className="panel p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">

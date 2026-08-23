@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const identifiedUserId = useRef<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = typeof window === 'undefined' ? null : createClient();
 
   const identifyUser = (authenticatedUser: User) => {
     if (identifiedUserId.current === authenticatedUser.id) {
@@ -39,6 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    if (!supabase) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
@@ -76,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router, supabase]);
 
   const signOut = async () => {
+    if (!supabase) return;
     posthog.reset();
     identifiedUserId.current = null;
     await supabase.auth.signOut();

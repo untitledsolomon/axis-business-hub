@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter, Source_Serif_4, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -8,18 +7,6 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { OrgProvider } from "@/hooks/use-org";
 import { QueryProvider } from "@/providers/query-provider";
 import { RadixPointerEventsFailsafe } from "@/components/shared/RadixPointerEventsFailsafe";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
-const sourceSerif = Source_Serif_4({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["500", "600", "700"],
-});
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  weight: ["400", "500", "600"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://axis.example.com"),
@@ -65,7 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} font-sans`}>
+      <body className="font-sans antialiased">
         <QueryProvider>
           <AuthProvider>
             <OrgProvider>

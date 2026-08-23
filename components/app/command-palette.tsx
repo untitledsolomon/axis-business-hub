@@ -22,6 +22,7 @@ import {
   Plug,
   Receipt,
   Settings,
+  ShoppingBag,
   Users,
   Wallet,
 } from "lucide-react";

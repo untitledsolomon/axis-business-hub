@@ -31,9 +31,15 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   const [currentOrg, setCurrentOrg] = useState<Organisation | null>(null);
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = typeof window === 'undefined' ? null : createClient();
 
   const fetchOrgs = useCallback(async () => {
+    if (!supabase) {
+      setOrganisations([]);
+      setCurrentOrg(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -71,8 +77,12 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    fetchOrgs();
-  }, [fetchOrgs]);
+    if (supabase) {
+      fetchOrgs();
+    } else {
+      setIsLoading(false);
+    }
+  }, [fetchOrgs, supabase]);
 
   const setOrg = (orgId: string) => {
     const found = organisations.find(o => o.id === orgId);
@@ -82,14 +92,16 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const value: OrgContextType = {
+    currentOrg,
+    organisations,
+    isLoading,
+    setOrg,
+    refreshOrgs: fetchOrgs,
+  };
+
   return (
-    <OrgContext.Provider value={{
-      currentOrg,
-      organisations,
-      isLoading,
-      setOrg,
-      refreshOrgs: fetchOrgs
-    }}>
+    <OrgContext.Provider value={value}>
       {children}
     </OrgContext.Provider>
   );

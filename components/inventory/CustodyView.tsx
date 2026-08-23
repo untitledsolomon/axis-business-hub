@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowLeftRight, CalendarClock, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -95,7 +96,7 @@ export function CustodyView() {
         description="Track which equipment or assets are assigned to staff and due back for review."
         actions={
           <Button asChild variant="outline" size="sm">
-            <a href="/inventory">Inventory overview</a>
+            <Link href="/inventory">Inventory overview</Link>
           </Button>
         }
       />
