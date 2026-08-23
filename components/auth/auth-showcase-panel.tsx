@@ -503,10 +503,12 @@ function AppWindow({
   onFocus?: () => void;
   children: React.ReactNode;
 }) {
-  // Every window occupies the same base box (78% x 78% of the stage,
-  // i.e. depth-2's box) and is shifted into place with a translate —
-  // translate animates smoothly, unlike swapping inset/position classes.
-  const STEP = 22; // percent, matches the old fixed-margin cascade
+  // Every window is the same size and cascades via translate (animates
+  // smoothly, unlike swapping inset/position classes). Size + total travel
+  // must stay within 100% so the FRONT window is never clipped by the
+  // stage — only the back windows should be partially covered.
+  const SIZE = 62; // percent of stage
+  const STEP = 19; // percent, per depth step
   const translate = {
     2: "translate(0%, 0%)",
     1: `translate(${STEP}%, ${STEP}%)`,
@@ -525,8 +527,8 @@ function AppWindow({
         if (e.key === "Enter" || e.key === " ") onFocus?.();
       }}
       style={{
-        width: "78%",
-        height: "78%",
+        width: `${SIZE}%`,
+        height: `${SIZE}%`,
         transform: translate[depth],
         zIndex: z[depth],
         transitionProperty: "transform, filter",
