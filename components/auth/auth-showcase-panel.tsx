@@ -50,7 +50,7 @@ const TABS: { key: MetricView; label: string }[] = [
   { key: "stock", label: "Stock" },
 ];
 
-const SCENE_DURATION_MS = 5000;
+const SCENE_DURATION_MS = 10000;
 const SCENE_COUNT = 2;
 type WindowId = 0 | 1 | 2;
 
