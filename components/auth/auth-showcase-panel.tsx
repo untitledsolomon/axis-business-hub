@@ -52,17 +52,16 @@ const TABS: { key: MetricView; label: string }[] = [
 
 const SCENE_DURATION_MS = 5000;
 const SCENE_COUNT = 2;
-const WINDOW_IDS = [0, 1, 2] as const;
-type WindowId = (typeof WINDOW_IDS)[number];
+type WindowId = 0 | 1 | 2;
 
 const SCENE_COPY = [
   {
-    heading: "Run billing, inventory, and reporting from one place.",
-    body: "Axis keeps your books, stock, and customers in sync — no spreadsheets required.",
+    heading: "Run your business with boardroom clarity.",
+    body: "Axis brings finance, stock, and customer operations into one executive view for growing companies.",
   },
   {
-    heading: "Know your stock and margins before they surprise you.",
-    body: "Axis tracks inventory, customers, and profit in real time — right alongside the books.",
+    heading: "See margin, movement, and risk before they become decisions.",
+    body: "Built for established SMEs that need sharper visibility, tighter controls, and cleaner reporting.",
   },
 ];
 
@@ -108,7 +107,7 @@ export function AuthShowcasePanel() {
   };
 
   return (
-    <div className="relative hidden overflow-hidden bg-sidebar lg:flex lg:w-1/2 lg:flex-col m-3 rounded-3xl border border-white/10 shadow-lg p-6 sm:p-8 lg:p-10 min-h-0">
+    <div className="relative hidden overflow-hidden bg-sidebar lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/10 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.14),transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.08),transparent_30%),linear-gradient(145deg,#171d24_0%,#0d1015_52%,#121821_100%)] shadow-[0_40px_120px_rgba(2,6,23,0.62)] ring-1 ring-white/5 p-6 sm:p-8 lg:p-10 min-h-0">
       {/* Gradient render backdrop */}
       <div
         className="absolute inset-0 opacity-90"
@@ -471,16 +470,16 @@ function WindowStack({ active, children }: { active: boolean; children: React.Re
 
 const ACCENTS = {
   teal: {
-    wash: "from-teal/15 via-transparent to-transparent",
-    bar: "bg-teal",
+    wash: "from-stone-200/10 via-transparent to-transparent",
+    bar: "bg-stone-200",
   },
   violet: {
-    wash: "from-violet-400/15 via-transparent to-transparent",
-    bar: "bg-violet-400",
+    wash: "from-indigo-300/12 via-transparent to-transparent",
+    bar: "bg-indigo-300",
   },
   amber: {
-    wash: "from-amber-400/15 via-transparent to-transparent",
-    bar: "bg-amber-400",
+    wash: "from-amber-200/12 via-transparent to-transparent",
+    bar: "bg-amber-200",
   },
 } as const;
 
@@ -510,16 +509,21 @@ function AppWindow({
   // around that shared center — this stays visually centered regardless
   // of the stage's actual width/height ratio, instead of anchoring to a
   // corner (which looks centered only at one specific aspect ratio).
-  const SIZE = 74; // percent of stage
-  const STEP = 10; // percent, per depth step
+  const SIZE = 78; // percent of stage
+  const STEP = 8; // percent, per depth step
   const translate = {
-    0: `translate(${STEP}%, ${STEP}%)`,
-    1: "translate(0%, 0%)",
-    2: `translate(-${STEP}%, -${STEP}%)`,
+    0: `translate(${STEP}%, ${STEP}%) rotate(1.25deg)`,
+    1: "translate(0%, 0%) rotate(-0.6deg)",
+    2: `translate(-${STEP}%, -${STEP}%) rotate(-2deg)`,
   } as const;
 
   const z = { 2: 10, 1: 20, 0: 30 } as const;
   const accentClasses = ACCENTS[accent];
+  const boxShadow = {
+    0: "0 30px 70px rgba(15, 23, 42, 0.42), 0 12px 28px rgba(45, 212, 191, 0.18)",
+    1: "0 20px 50px rgba(15, 23, 42, 0.3)",
+    2: "0 16px 44px rgba(15, 23, 42, 0.24)",
+  } as const;
 
   return (
     <div
@@ -536,15 +540,16 @@ function AppWindow({
         left: `${(100 - SIZE) / 2}%`,
         transform: translate[depth],
         zIndex: z[depth],
-        transitionProperty: "transform, filter",
+        boxShadow: boxShadow[depth],
+        transitionProperty: "transform, filter, box-shadow",
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute block overflow-hidden rounded-xl border border-white/15 bg-surface/95 text-left shadow-pop ring-1 ring-black/5 backdrop-blur-md ${
+      className={`absolute block overflow-hidden rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,26,34,0.96),rgba(11,15,20,0.92))] text-left ring-1 ring-black/10 backdrop-blur-xl ${
         depth !== 0 ? "cursor-pointer hover:brightness-110" : "cursor-default"
       }`}
     >
-      {/* Colored accent wash, unique per window */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_35%)]" />
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accentClasses.wash}`} />
 
       <div className="relative flex h-full flex-col overflow-hidden p-4 sm:p-5">
@@ -554,7 +559,7 @@ function AppWindow({
             <p className="truncate text-sm font-semibold text-foreground sm:text-base">{title}</p>
           </div>
           {badge && (
-            <span className="shrink-0 rounded-full bg-teal/10 px-2 py-0.5 text-[10px] font-semibold text-teal">
+            <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-slate-200 uppercase">
               {badge}
             </span>
           )}
