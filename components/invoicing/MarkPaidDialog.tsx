@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useBankAccounts } from "@/hooks/finance/use-finance";
 import { useMarkInvoicePaid } from "@/hooks/invoicing/use-invoices";
-import { Invoice } from "@/lib/types";
+import { Invoice, BankAccount } from "@/lib/types";
 import posthog from "posthog-js";
 
 const formSchema = z.object({
@@ -88,7 +88,7 @@ export function MarkPaidDialog({ orgId, invoice, onSuccess }: MarkPaidDialogProp
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {bankAccounts?.map((acc) => (
+                  {bankAccounts?.map((acc: BankAccount) => (
                     <SelectItem key={acc.id} value={acc.account_id}>
                       {acc.name} {acc.bank_name ? `— ${acc.bank_name}` : ""}
                     </SelectItem>

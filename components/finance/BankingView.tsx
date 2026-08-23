@@ -194,7 +194,7 @@ export function BankingView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bankAccounts.map((account) => (
+                {bankAccounts.map((account: BankAccount) => (
                   <TableRow key={account.id}>
                     <TableCell className="font-medium">{account.name}</TableCell>
                     <TableCell className="text-muted-foreground">{account.bank_name || "—"}</TableCell>
