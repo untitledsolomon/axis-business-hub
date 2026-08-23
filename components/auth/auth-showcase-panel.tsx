@@ -108,7 +108,7 @@ export function AuthShowcasePanel() {
   };
 
   return (
-    <div className="relative hidden overflow-hidden bg-sidebar lg:flex lg:w-1/2 lg:flex-col m-3 rounded-3xl border border-white/10 shadow-lg p-6 sm:p-8 lg:p-10">
+    <div className="relative hidden overflow-hidden bg-sidebar lg:flex lg:w-1/2 lg:flex-col m-3 rounded-3xl border border-white/10 shadow-lg p-6 sm:p-8 lg:p-10 min-h-0">
       {/* Gradient render backdrop */}
       <div
         className="absolute inset-0 opacity-90"
@@ -156,11 +156,11 @@ export function AuthShowcasePanel() {
 
       {/* ---------------- WINDOW STACK STAGE ---------------- */}
       <div
-        className="relative z-10 mx-auto mt-8 aspect-[4/3] w-full max-w-xl"
+        className="relative z-10 mt-8 flex min-h-0 flex-1 items-center justify-center"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
-        <div className="absolute inset-0">
+        <div className="relative aspect-[4/3] h-full max-h-full w-full max-w-xl">
           <WindowStack active={scene === 0 && mounted}>
             {order[0].map((id, i) => {
               const depth = (order[0].length - 1 - i) as 0 | 1 | 2;
