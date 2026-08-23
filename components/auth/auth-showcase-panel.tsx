@@ -194,7 +194,7 @@ export function AuthShowcasePanel() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">3 teammates active</p>
-                  <p className="text-xs text-muted-foreground">Reviewing this month's books</p>
+                  <p className="text-xs text-muted-foreground">Reviewing this month&apos;s books</p>
                 </div>
               </div>
               <div className="mt-5 space-y-2.5">
