@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { ExpenseForm } from "@/components/finance/ExpenseForm";
 import { QuickSaleForm } from "@/components/finance/QuickSaleForm";
 import { Plus, Minus, Wallet, Receipt, ShoppingBag, FileText } from "lucide-react";
@@ -151,29 +151,19 @@ export function DailySummaryView() {
           </Dialog>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            title="Quick sales + paid invoices"
-            value={isLoading ? "—" : fmt(totalRevenue)}
-            icon={<ShoppingBag className="size-4" />}
-          />
-          <StatCard
-            title="Expenses logged"
-            value={isLoading ? "—" : fmt(totalExpenses)}
-            icon={<Receipt className="size-4" />}
-          />
-          <StatCard
-            title="Net cash position"
-            value={isLoading ? "—" : fmt(netCash)}
-            icon={<Wallet className="size-4" />}
-            className={netCash < 0 && !isLoading ? "border-destructive/40" : undefined}
-          />
-          <StatCard
-            title="Invoices paid today"
-            value={isLoading ? "—" : String(invoicesPaidToday.length)}
-            icon={<FileText className="size-4" />}
-          />
-        </div>
+        <SummaryBar
+          stats={[
+            { label: "Quick sales + paid invoices", value: isLoading ? "—" : fmt(totalRevenue), icon: <ShoppingBag className="size-4" />, tone: "success" },
+            { label: "Expenses logged", value: isLoading ? "—" : fmt(totalExpenses), icon: <Receipt className="size-4" /> },
+            {
+              label: "Net cash position",
+              value: isLoading ? "—" : fmt(netCash),
+              icon: <Wallet className="size-4" />,
+              tone: netCash < 0 && !isLoading ? "destructive" : "default",
+            },
+            { label: "Invoices paid today", value: isLoading ? "—" : String(invoicesPaidToday.length), icon: <FileText className="size-4" /> },
+          ]}
+        />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="panel">

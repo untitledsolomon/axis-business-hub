@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
@@ -148,11 +148,13 @@ export function InventoryView() {
       />
 
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard title="Items" value={isLoading ? "—" : String(items?.length ?? 0)} icon={<Package className="size-4" />} />
-          <StatCard title="Units on hand" value={isLoading ? "—" : String(totalUnits)} icon={<Package className="size-4" />} />
-          <StatCard title="Low stock" value={isLoading ? "—" : String(lowStockCount)} icon={<TrendingDown className="size-4" />} />
-        </div>
+        <SummaryBar
+          stats={[
+            { label: "Items", value: isLoading ? "—" : String(items?.length ?? 0), icon: <Package className="size-4" /> },
+            { label: "Units on hand", value: isLoading ? "—" : String(totalUnits), icon: <Package className="size-4" /> },
+            { label: "Low stock", value: isLoading ? "—" : String(lowStockCount), icon: <TrendingDown className="size-4" />, tone: lowStockCount > 0 ? "warning" : "default" },
+          ]}
+        />
 
         <section className="panel p-4">
           <div className="flex items-center justify-between gap-3 pb-3">

@@ -33,7 +33,7 @@ import {
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
 
 function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
@@ -116,15 +116,18 @@ export function LedgerView() {
       />
 
       <div className="space-y-4 ">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard title="Total debits" value={isLoading ? "—" : fmt(totals.debits)} icon={<ArrowUpRight className="size-4" />} />
-          <StatCard title="Total credits" value={isLoading ? "—" : fmt(totals.credits)} icon={<ArrowDownLeft className="size-4" />} />
-          <StatCard
-            title="Out of balance"
-            value={isLoading ? "—" : fmt(Math.abs(totals.debits - totals.credits))}
-            icon={<Scale className="size-4" />}
-          />
-        </div>
+        <SummaryBar
+          stats={[
+            { label: "Total debits", value: isLoading ? "—" : fmt(totals.debits), icon: <ArrowUpRight className="size-4" /> },
+            { label: "Total credits", value: isLoading ? "—" : fmt(totals.credits), icon: <ArrowDownLeft className="size-4" /> },
+            {
+              label: "Out of balance",
+              value: isLoading ? "—" : fmt(Math.abs(totals.debits - totals.credits)),
+              icon: <Scale className="size-4" />,
+              tone: !isLoading && totals.debits !== totals.credits ? "warning" : "default",
+            },
+          ]}
+        />
 
         <Tabs defaultValue="entries" className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">

@@ -29,7 +29,7 @@ import { InvoiceActions } from "@/components/invoicing/InvoiceActions";
 import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect } from "react";
 import { formatShortDate } from "@/lib/format-date";
 
@@ -116,12 +116,14 @@ export function InvoicesList() {
       />
 
       <div className="space-y-4 ">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Total invoiced" value={isLoading ? "—" : fmt(totals.all)} icon={<Receipt className="size-4" />} />
-          <StatCard title="Paid" value={isLoading ? "—" : fmt(totals.paid)} icon={<CheckCircle className="size-4" />} />
-          <StatCard title="Outstanding" value={isLoading ? "—" : fmt(totals.outstanding)} icon={<FileDown className="size-4" />} />
-          <StatCard title="Overdue" value={isLoading ? "—" : totals.overdue.toString()} icon={<AlertTriangle className="size-4" />} />
-        </div>
+        <SummaryBar
+          stats={[
+            { label: "Total invoiced", value: isLoading ? "—" : fmt(totals.all), icon: <Receipt className="size-4" /> },
+            { label: "Paid", value: isLoading ? "—" : fmt(totals.paid), icon: <CheckCircle className="size-4" />, tone: "success" },
+            { label: "Outstanding", value: isLoading ? "—" : fmt(totals.outstanding), icon: <FileDown className="size-4" /> },
+            { label: "Overdue", value: isLoading ? "—" : totals.overdue.toString(), icon: <AlertTriangle className="size-4" />, tone: totals.overdue > 0 ? "destructive" : "default" },
+          ]}
+        />
 
         <div className="panel">
           <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">

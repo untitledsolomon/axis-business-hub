@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { EmployeeForm } from "@/components/employees/EmployeeForm";
 import { EmployeeActions } from "@/components/employees/EmployeeActions";
 import { useOrg } from "@/hooks/use-org";
@@ -109,11 +109,13 @@ export function EmployeesView() {
       />
 
       <div className="space-y-4 ">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-          <StatCard title="Headcount" value={isLoading ? "—" : String(employees?.length ?? 0)} icon={<Users className="size-4" />} />
-          <StatCard title="Active" value={isLoading ? "—" : String(active)} icon={<UserCheck className="size-4" />} />
-          <StatCard title="On leave" value={isLoading ? "—" : String(onLeave)} icon={<UserMinus className="size-4" />} />
-        </div>
+        <SummaryBar
+          stats={[
+            { label: "Headcount", value: isLoading ? "—" : String(employees?.length ?? 0), icon: <Users className="size-4" /> },
+            { label: "Active", value: isLoading ? "—" : String(active), icon: <UserCheck className="size-4" />, tone: "success" },
+            { label: "On leave", value: isLoading ? "—" : String(onLeave), icon: <UserMinus className="size-4" /> },
+          ]}
+        />
 
         <section className="panel p-4">
           <div className="flex items-center justify-between gap-3 pb-3">

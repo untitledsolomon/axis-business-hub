@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { CircleDashed, ClipboardList, PackageCheck, Route } from "lucide-react";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useClients } from "@/hooks/clients/use-clients";
@@ -67,12 +67,14 @@ export function LifecycleView() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <StatCard title="Tracked" value={isLoading ? "—" : String(lifecycleItems.length)} icon={<ClipboardList className="size-4" />} />
-        <StatCard title="In prep" value={isLoading ? "—" : String(stageCounts.in_prep ?? 0)} icon={<PackageCheck className="size-4" />} />
-        <StatCard title="Listed" value={isLoading ? "—" : String(stageCounts.listed ?? 0)} icon={<Route className="size-4" />} />
-        <StatCard title="Service" value={isLoading ? "—" : String(stageCounts.service ?? 0)} icon={<CircleDashed className="size-4" />} />
-      </div>
+      <SummaryBar
+        stats={[
+          { label: "Tracked", value: isLoading ? "—" : String(lifecycleItems.length), icon: <ClipboardList className="size-4" /> },
+          { label: "In prep", value: isLoading ? "—" : String(stageCounts.in_prep ?? 0), icon: <PackageCheck className="size-4" /> },
+          { label: "Listed", value: isLoading ? "—" : String(stageCounts.listed ?? 0), icon: <Route className="size-4" /> },
+          { label: "Service", value: isLoading ? "—" : String(stageCounts.service ?? 0), icon: <CircleDashed className="size-4" /> },
+        ]}
+      />
 
       <section className="panel overflow-hidden">
         <div className="overflow-x-auto">

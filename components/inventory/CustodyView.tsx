@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeftRight, CalendarClock, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useOrg } from "@/hooks/use-org";
 import { useEmployees } from "@/hooks/employees/use-employees";
@@ -101,11 +101,13 @@ export function CustodyView() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Assigned" value={isLoading ? "—" : String(assignedCount)} icon={<UserRound className="size-4" />} />
-        <StatCard title="Due soon" value={isLoading ? "—" : String(dueSoonCount)} icon={<CalendarClock className="size-4" />} />
-        <StatCard title="Available" value={isLoading ? "—" : String(availableCount)} icon={<ShieldCheck className="size-4" />} />
-      </div>
+      <SummaryBar
+        stats={[
+          { label: "Assigned", value: isLoading ? "—" : String(assignedCount), icon: <UserRound className="size-4" /> },
+          { label: "Due soon", value: isLoading ? "—" : String(dueSoonCount), icon: <CalendarClock className="size-4" />, tone: dueSoonCount > 0 ? "warning" : "default" },
+          { label: "Available", value: isLoading ? "—" : String(availableCount), icon: <ShieldCheck className="size-4" />, tone: "success" },
+        ]}
+      />
 
       <section className="panel overflow-hidden">
         <div className="overflow-x-auto">

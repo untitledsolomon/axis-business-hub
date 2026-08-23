@@ -7,6 +7,7 @@ import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { InventoryStatus } from "@/components/dashboard/InventoryStatus";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useClients } from "@/hooks/clients/use-clients";
 import { useEmployees } from "@/hooks/employees/use-employees";
 import { useItems } from "@/hooks/items/use-items";
@@ -113,62 +114,59 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            title="Paid invoices"
-            value={summary.isLoading ? "—" : paidInvoices.length.toString()}
-            icon={<PackageCheck className="size-4" />}
-            subtitle={summary.isLoading ? undefined : `${fmtUGX(paidThisPeriodTotal)} settled`}
-          />
-          <StatCard
-            title="Overdue"
-            value={summary.isLoading ? "—" : overdueInvoices.length.toString()}
-            icon={<AlertTriangle className="size-4" />}
-            subtitle={summary.isLoading ? undefined : `${fmtUGX(overdueTotal)} at risk`}
-          />
-          <StatCard
-            title="Low-stock alerts"
-            value={summary.isLoading ? "—" : lowStockItems.length.toString()}
-            icon={<TrendingUp className="size-4" />}
-            subtitle={summary.isLoading ? undefined : `${items.length} tracked items`}
-          />
-          <StatCard
-            title="On leave"
-            value={summary.isLoading ? "—" : onLeaveCount.toString()}
-            icon={<BriefcaseBusiness className="size-4" />}
-            subtitle={summary.isLoading ? undefined : `${employees.length} team members`}
-          />
-        </div>
-
-        <section className="panel p-4">
-          <div className="flex items-center justify-between gap-3 pb-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Quick actions</h2>
-              <p className="text-xs text-muted-foreground">Jump into the most frequent operational workflows.</p>
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <Link href="/inventory" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Inventory</p>
-              <p className="mt-2 text-sm font-semibold text-foreground">Track stock levels</p>
-            </Link>
-            <Link href="/inventory/custody" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Custody</p>
-              <p className="mt-2 text-sm font-semibold text-foreground">Issue and return assets</p>
-            </Link>
-            <Link href="/inventory/lifecycle" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Lifecycle</p>
-              <p className="mt-2 text-sm font-semibold text-foreground">Move assets through stages</p>
-            </Link>
-            <Link href="/employees" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">People</p>
-              <p className="mt-2 text-sm font-semibold text-foreground">Review staffing and leave</p>
-            </Link>
-          </div>
-        </section>
+        <SummaryBar
+          stats={[
+            {
+              label: "Paid",
+              value: summary.isLoading ? "—" : paidInvoices.length.toString(),
+              icon: <PackageCheck className="size-4" />,
+              tone: "success",
+            },
+            {
+              label: "Overdue",
+              value: summary.isLoading ? "—" : `${overdueInvoices.length} (${fmtUGX(overdueTotal)})`,
+              icon: <AlertTriangle className="size-4" />,
+              tone: overdueInvoices.length > 0 ? "destructive" : "default",
+            },
+            {
+              label: "Low-stock",
+              value: summary.isLoading ? "—" : `${lowStockItems.length} of ${items.length}`,
+              icon: <TrendingUp className="size-4" />,
+              tone: lowStockItems.length > 0 ? "warning" : "default",
+            },
+            {
+              label: "On leave",
+              value: summary.isLoading ? "—" : `${onLeaveCount} of ${employees.length}`,
+              icon: <BriefcaseBusiness className="size-4" />,
+            },
+          ]}
+        />
 
         <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
-          <RevenueChart timeframe={timeframe} />
+          <div className="space-y-4">
+            <RevenueChart timeframe={timeframe} />
+            <section className="panel p-4">
+              <h2 className="text-sm font-semibold text-foreground">Quick actions</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Link href="/inventory" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Inventory</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">Track stock levels</p>
+                </Link>
+                <Link href="/inventory/custody" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Custody</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">Issue and return assets</p>
+                </Link>
+                <Link href="/inventory/lifecycle" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Lifecycle</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">Move assets through stages</p>
+                </Link>
+                <Link href="/employees" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">People</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">Review staffing and leave</p>
+                </Link>
+              </div>
+            </section>
+          </div>
           <div className="space-y-4">
             <RecentActivity />
             <InventoryStatus />

@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { AccountForm } from "@/components/finance/AccountForm";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
 import { computeAccountBalance } from "@/lib/finance/balance";
 
@@ -110,12 +110,14 @@ export function AccountsList() {
       />
 
       <div className="space-y-4 ">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Total assets" value={balancesLoading ? "—" : fmt(totals.assets)} icon={<Wallet className="size-4" />} />
-          <StatCard title="Total liabilities" value={balancesLoading ? "—" : fmt(totals.liabilities)} icon={<Landmark className="size-4" />} />
-          <StatCard title="Revenue" value={balancesLoading ? "—" : fmt(totals.revenue)} icon={<TrendingUp className="size-4" />} />
-          <StatCard title="Expenses" value={balancesLoading ? "—" : fmt(totals.expenses)} icon={<TrendingDown className="size-4" />} />
-        </div>
+        <SummaryBar
+          stats={[
+            { label: "Total assets", value: balancesLoading ? "—" : fmt(totals.assets), icon: <Wallet className="size-4" /> },
+            { label: "Total liabilities", value: balancesLoading ? "—" : fmt(totals.liabilities), icon: <Landmark className="size-4" /> },
+            { label: "Revenue", value: balancesLoading ? "—" : fmt(totals.revenue), icon: <TrendingUp className="size-4" />, tone: "success" },
+            { label: "Expenses", value: balancesLoading ? "—" : fmt(totals.expenses), icon: <TrendingDown className="size-4" /> },
+          ]}
+        />
 
         <div className="panel">
           <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">

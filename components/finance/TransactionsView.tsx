@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Search, ArrowUpRight, ArrowDownLeft, Filter, Receipt, Scale, AlertTriangle } from "lucide-react";
 import {
@@ -148,11 +148,13 @@ export function TransactionsView() {
       />
 
       <div className="space-y-4 ">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard title="Money in" value={isLoading ? "—" : fmt(totals.inflow)} icon={<ArrowUpRight className="size-4" />} />
-          <StatCard title="Money out" value={isLoading ? "—" : fmt(totals.outflow)} icon={<ArrowDownLeft className="size-4" />} />
-          <StatCard title="Net movement" value={isLoading ? "—" : fmt(totals.net)} icon={<Scale className="size-4" />} />
-        </div>
+        <SummaryBar
+          stats={[
+            { label: "Money in", value: isLoading ? "—" : fmt(totals.inflow), icon: <ArrowUpRight className="size-4" />, tone: "success" },
+            { label: "Money out", value: isLoading ? "—" : fmt(totals.outflow), icon: <ArrowDownLeft className="size-4" /> },
+            { label: "Net movement", value: isLoading ? "—" : fmt(totals.net), icon: <Scale className="size-4" /> },
+          ]}
+        />
 
         <div className="panel">
           <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">

@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { BankAccountForm } from "@/components/finance/BankAccountForm";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
 import { BankAccount } from "@/lib/types";
 import { computeAccountBalance } from "@/lib/finance/balance";
@@ -101,15 +101,16 @@ export function BankingView() {
       />
 
       <div className="space-y-4 ">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <StatCard
-            title="Cash on hand"
-            value={balancesLoading ? "—" : fmt(totalCash)}
-            icon={<Wallet className="size-4" />}
-            subtitle={`Across ${bankAccounts?.length ?? 0} account${bankAccounts?.length === 1 ? "" : "s"}`}
-          />
-          <StatCard title="Connected accounts" value={isLoading ? "—" : String(bankAccounts?.length ?? 0)} icon={<Landmark className="size-4" />} />
-        </div>
+        <SummaryBar
+          stats={[
+            {
+              label: "Cash on hand",
+              value: balancesLoading ? "—" : `${fmt(totalCash)} · ${bankAccounts?.length ?? 0} account${bankAccounts?.length === 1 ? "" : "s"}`,
+              icon: <Wallet className="size-4" />,
+            },
+            { label: "Connected accounts", value: isLoading ? "—" : String(bankAccounts?.length ?? 0), icon: <Landmark className="size-4" /> },
+          ]}
+        />
 
         {isError ? (
           <div className="panel flex flex-col items-center justify-center border-dashed py-12 text-center">

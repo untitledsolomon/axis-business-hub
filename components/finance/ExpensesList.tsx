@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ExpenseForm } from "@/components/finance/ExpenseForm";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { formatShortDate } from "@/lib/format-date";
 import { Expense } from "@/lib/types";
@@ -179,18 +179,16 @@ export function ExpensesList() {
       />
 
       <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <StatCard
-            title="Total (filtered)"
-            value={isLoading ? "—" : `UGX ${(total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-            icon={<TrendingDown className="size-4" />}
-          />
-          <StatCard
-            title="Entries"
-            value={isLoading ? "—" : String(filtered.length)}
-            icon={<Receipt className="size-4" />}
-          />
-        </div>
+        <SummaryBar
+          stats={[
+            {
+              label: "Total (filtered)",
+              value: isLoading ? "—" : `UGX ${(total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+              icon: <TrendingDown className="size-4" />,
+            },
+            { label: "Entries", value: isLoading ? "—" : String(filtered.length), icon: <Receipt className="size-4" /> },
+          ]}
+        />
 
         <div className="panel">
           <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:flex-wrap sm:items-center">
