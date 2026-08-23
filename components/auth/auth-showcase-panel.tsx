@@ -156,11 +156,11 @@ export function AuthShowcasePanel() {
 
       {/* ---------------- WINDOW STACK STAGE ---------------- */}
       <div
-        className="relative z-10 mt-8 flex min-h-0 flex-1 items-center justify-center"
+        className="relative z-10 mt-8 min-h-0 flex-1"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
-        <div className="relative aspect-[4/3] h-full max-h-full w-full max-w-xl">
+        <div className="absolute inset-0">
           <WindowStack active={scene === 0 && mounted}>
             {order[0].map((id, i) => {
               const depth = (order[0].length - 1 - i) as 0 | 1 | 2;
@@ -505,17 +505,17 @@ function AppWindow({
   onFocus?: () => void;
   children: React.ReactNode;
 }) {
-  // Anchor every window to the stage's bottom-right corner (like beehiiv's
-  // front card, which fills out to the edge) and cascade BACKWARD from
-  // there — depth 1 and 2 shift up-and-left via a negative translate so
-  // they peek out from behind. This keeps the front window always filling
-  // its full size against the corner, instead of floating with a gap.
-  const SIZE = 84; // percent of stage — the front window's size
-  const STEP = 13; // percent, per depth step, shifted up-and-left
+  // Center every window in the stage, sized to a comfortable fraction of
+  // it, and cascade by shifting alternating windows up-left / down-right
+  // around that shared center — this stays visually centered regardless
+  // of the stage's actual width/height ratio, instead of anchoring to a
+  // corner (which looks centered only at one specific aspect ratio).
+  const SIZE = 74; // percent of stage
+  const STEP = 10; // percent, per depth step
   const translate = {
-    0: "translate(0%, 0%)",
-    1: `translate(-${STEP}%, -${STEP}%)`,
-    2: `translate(-${STEP * 2}%, -${STEP * 2}%)`,
+    0: `translate(${STEP}%, ${STEP}%)`,
+    1: "translate(0%, 0%)",
+    2: `translate(-${STEP}%, -${STEP}%)`,
   } as const;
 
   const z = { 2: 10, 1: 20, 0: 30 } as const;
@@ -532,13 +532,15 @@ function AppWindow({
       style={{
         width: `${SIZE}%`,
         height: `${SIZE}%`,
+        top: `${(100 - SIZE) / 2}%`,
+        left: `${(100 - SIZE) / 2}%`,
         transform: translate[depth],
         zIndex: z[depth],
         transitionProperty: "transform, filter",
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute bottom-0 right-0 block overflow-hidden rounded-xl border border-white/15 bg-surface/95 text-left shadow-pop ring-1 ring-black/5 backdrop-blur-md ${
+      className={`absolute block overflow-hidden rounded-xl border border-white/15 bg-surface/95 text-left shadow-pop ring-1 ring-black/5 backdrop-blur-md ${
         depth !== 0 ? "cursor-pointer hover:brightness-110" : "cursor-default"
       }`}
     >
