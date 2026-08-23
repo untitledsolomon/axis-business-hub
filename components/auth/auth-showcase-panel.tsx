@@ -510,10 +510,8 @@ function AppWindow({
   // around that shared center — this stays visually centered regardless
   // of the stage's actual width/height ratio, instead of anchoring to a
   // corner (which looks centered only at one specific aspect ratio).
-  // Match the earlier auth showcase proportions: larger stacked windows that
-  // still leave enough breathing room for the layered cascade effect.
-  const SIZE = 92; // percent of stage
-  const STEP = 6; // percent, per depth step
+  const SIZE = 74; // percent of stage
+  const STEP = 10; // percent, per depth step
   const translate = {
     0: `translate(${STEP}%, ${STEP}%)`,
     1: "translate(0%, 0%)",
