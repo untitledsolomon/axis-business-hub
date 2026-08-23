@@ -107,7 +107,7 @@ export function AuthShowcasePanel() {
   };
 
   return (
-    <div className="relative hidden overflow-hidden bg-[#f5f1ea] lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/60 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.06),transparent_30%),linear-gradient(135deg,#f9f6f1_0%,#f3efe8_38%,#f1eee7_100%)] shadow-[0_28px_80px_rgba(15,23,42,0.12)] ring-1 ring-[#d9d2c3]/40 p-6 sm:p-8 lg:p-10 min-h-0">
+    <div className="relative hidden overflow-hidden bg-[#f5f1ea] lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/60 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.04),transparent_28%),linear-gradient(135deg,#f9f6f1_0%,#f3efe8_38%,#f1eee7_100%)] shadow-[0_28px_80px_rgba(15,23,42,0.12)] ring-1 ring-[#d9d2c3]/40 p-6 sm:p-8 lg:p-10 min-h-0">
       {/* Gradient render backdrop */}
       <div
         className="absolute inset-0 opacity-90"
@@ -122,7 +122,7 @@ export function AuthShowcasePanel() {
       />
       {/* Fine grain / mesh texture */}
       <div
-        className="absolute inset-0 mix-blend-overlay opacity-30"
+        className="absolute inset-0 mix-blend-overlay opacity-12"
         style={{
           backgroundImage:
             "radial-gradient(circle at 30% 60%, white 0%, transparent 2%), radial-gradient(circle at 70% 20%, white 0%, transparent 1.5%)",
@@ -509,8 +509,8 @@ function AppWindow({
   // around that shared center — this stays visually centered regardless
   // of the stage's actual width/height ratio, instead of anchoring to a
   // corner (which looks centered only at one specific aspect ratio).
-  const SIZE = 72; // percent of stage
-  const STEP = 12; // percent, per depth step
+  const SIZE = 76; // percent of stage
+  const STEP = 11; // percent, per depth step
   const translate = {
     0: `translate(${STEP}%, ${STEP}%) rotate(1.25deg)`,
     1: "translate(0%, 0%) rotate(-0.6deg)",
@@ -545,7 +545,7 @@ function AppWindow({
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute block overflow-visible rounded-[20px] border border-[#d9d2c3]/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,245,239,0.96))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
+      className={`absolute block overflow-visible rounded-[22px] border border-[#d9d2c3]/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,245,239,0.94))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
         depth !== 0 ? "cursor-pointer hover:brightness-105" : "cursor-default"
       }`}
     >
