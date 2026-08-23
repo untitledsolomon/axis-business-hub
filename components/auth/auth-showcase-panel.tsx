@@ -108,7 +108,7 @@ export function AuthShowcasePanel() {
   };
 
   return (
-    <div className="relative hidden overflow-hidden bg-sidebar lg:flex lg:w-1/2 lg:flex-col lg:justify-between m-3 rounded-3xl border border-white/10 shadow-lg p-6 sm:p-8 lg:p-10">
+    <div className="relative hidden overflow-hidden bg-sidebar lg:flex lg:w-1/2 lg:flex-col m-3 rounded-3xl border border-white/10 shadow-lg p-6 sm:p-8 lg:p-10">
       {/* Gradient render backdrop */}
       <div
         className="absolute inset-0 opacity-90"
@@ -156,7 +156,7 @@ export function AuthShowcasePanel() {
 
       {/* ---------------- WINDOW STACK STAGE ---------------- */}
       <div
-        className="relative z-10 mt-8 flex-1"
+        className="relative z-10 mx-auto mt-8 aspect-[4/3] w-full max-w-xl"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -424,7 +424,7 @@ export function AuthShowcasePanel() {
       </div>
 
       {/* Scene indicator dots */}
-      <div className="relative z-10 mt-4 flex items-center gap-3">
+      <div className="relative z-10 mt-4 flex h-4 items-center gap-3">
         <div className="flex gap-1.5">
           {Array.from({ length: SCENE_COUNT }).map((_, i) => (
             <button
@@ -437,11 +437,13 @@ export function AuthShowcasePanel() {
             />
           ))}
         </div>
-        {paused && (
-          <span className="text-[10px] font-medium uppercase tracking-wide text-sidebar-foreground/40">
-            Paused
-          </span>
-        )}
+        <span
+          className={`text-[10px] font-medium uppercase tracking-wide text-sidebar-foreground/40 transition-opacity duration-300 ${
+            paused ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          Paused
+        </span>
       </div>
     </div>
   );
