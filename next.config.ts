@@ -12,7 +12,11 @@ const supabaseRealtimeOrigin = supabaseOrigin
   : "";
 const posthogOrigin = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const posthogAssetsOrigin = posthogOrigin
-  ? posthogOrigin.replace("://us.i.", "://us-assets.i.")
+  ? posthogOrigin
+      .replace("://us.i.", "://us-assets.i.")
+      .replace("://eu.i.", "://eu-assets.i.")
+      .replace("://us.posthog.com", "://us-assets.i.posthog.com")
+      .replace("://eu.posthog.com", "://eu-assets.i.posthog.com")
   : "";
 
 const nextConfig: NextConfig = {
@@ -25,7 +29,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin};
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline';
