@@ -107,7 +107,7 @@ export function AuthShowcasePanel() {
   };
 
   return (
-    <div className="relative hidden overflow-hidden bg-[#f5f1ea] lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/30 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.04),transparent_28%),linear-gradient(135deg,#f9f6f1_0%,#f3efe8_38%,#f1eee7_100%)] shadow-[0_28px_80px_rgba(15,23,42,0.12)] ring-1 ring-[#d9d2c3]/40 p-6 sm:p-8 lg:p-10 min-h-0">
+    <div className="relative hidden overflow-hidden bg-[#f5f1ea]/20 lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/10 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.05),transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.02),transparent_28%),linear-gradient(135deg,rgba(249,246,241,0.5),rgba(243,239,232,0.42),rgba(241,238,231,0.5))] shadow-[0_28px_80px_rgba(15,23,42,0.06)] ring-1 ring-[#d9d2c3]/10 p-6 sm:p-8 lg:p-10 min-h-0 backdrop-blur-[2px]">
       {/* Gradient render backdrop */}
       <div
         className="absolute inset-0 opacity-90"
@@ -545,7 +545,7 @@ function AppWindow({
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute block overflow-visible rounded-[22px] border border-[#d9d2c3]/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,245,239,0.94))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
+      className={`absolute block overflow-visible rounded-[22px] border border-[#d9d2c3]/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.52),rgba(248,245,239,0.58))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
         depth !== 0 ? "cursor-pointer hover:brightness-105" : "cursor-default"
       }`}
     >
