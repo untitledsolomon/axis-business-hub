@@ -134,7 +134,7 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
               </Button>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-3 rounded-lg border border-border p-3 text-sm">
+            <div className="mb-4 grid grid-cols-3 gap-2 rounded-lg border border-border p-3 text-sm sm:gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Total invoiced</p>
                 <p className="numeric font-semibold text-foreground">

@@ -120,7 +120,7 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="entry_date"
@@ -177,8 +177,8 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
 
           <div className="space-y-3">
             {fields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-start">
-                <div className="flex-1 min-w-[200px]">
+              <div key={field.id} className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-start sm:border-0 sm:p-0">
+                <div className="flex-1 sm:min-w-[200px]">
                   <FormField
                     control={form.control}
                     name={`lines.${index}.account_id`}
@@ -203,7 +203,8 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
                     )}
                   />
                 </div>
-                <div className="w-[120px]">
+                <div className="flex gap-2">
+                <div className="w-1/2 sm:w-[120px]">
                   <FormField
                     control={form.control}
                     name={`lines.${index}.debit`}
@@ -223,7 +224,7 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
                     )}
                   />
                 </div>
-                <div className="w-[120px]">
+                <div className="w-1/2 sm:w-[120px]">
                   <FormField
                     control={form.control}
                     name={`lines.${index}.credit`}
@@ -247,12 +248,13 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="mt-1 text-axis-red"
+                  className="mt-1 shrink-0 text-axis-red"
                   onClick={() => remove(index)}
                   disabled={fields.length <= 2}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
+                </div>
               </div>
             ))}
           </div>

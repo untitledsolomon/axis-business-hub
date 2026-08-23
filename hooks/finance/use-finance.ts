@@ -4,6 +4,7 @@ import {
   createAccount,
   getTaxRates,
   createTaxRate,
+  updateTaxRate,
   getBankAccounts,
   createBankAccount,
   getJournalEntries,
@@ -48,6 +49,16 @@ export function useCreateTaxRate() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tax-rates", variables.org_id] });
     },
+  });
+}
+
+export function useUpdateTaxRate(orgId: string) {
+  return useCrudMutation({
+    mutationFn: (vars: { id: string; updates: Parameters<typeof updateTaxRate>[1] }) =>
+      updateTaxRate(vars.id, vars.updates),
+    invalidateKeys: () => [["tax-rates", orgId]],
+    successMessage: "Tax rate updated",
+    fallbackErrorMessage: "Failed to update tax rate",
   });
 }
 

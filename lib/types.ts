@@ -171,3 +171,60 @@ export interface JournalEntryLine {
     code?: string;
   };
 }
+
+export type InvitationStatus = 'pending' | 'accepted' | 'revoked';
+
+export interface OrgInvitation {
+  id: string;
+  org_id: string;
+  email: string;
+  role: string;
+  code: string;
+  invited_by?: string;
+  status: InvitationStatus;
+  expires_at: string;
+  accepted_by?: string;
+  accepted_at?: string;
+  created_at: string;
+}
+
+// Expenses & Daily Sales
+export type ExpenseRecurrence = 'one_off' | 'daily' | 'weekly' | 'monthly';
+export type ExpensePaymentMethod = 'cash' | 'bank' | 'mobile_money';
+export type ExpenseCategory = 'transport' | 'meals' | 'supplies' | 'rent' | 'utilities' | 'salaries' | 'other';
+
+export interface Expense {
+  id: string;
+  org_id: string;
+  expense_date: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number; // In cents
+  recurrence: ExpenseRecurrence;
+  payment_method: ExpensePaymentMethod;
+  expense_account_id?: string;
+  paid_from_account_id?: string;
+  journal_entry_id?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  expense_account?: { id: string; name: string; code?: string };
+  paid_from_account?: { id: string; name: string; code?: string };
+}
+
+export interface DailySale {
+  id: string;
+  org_id: string;
+  sale_date: string;
+  description: string;
+  amount: number; // In cents
+  payment_method: ExpensePaymentMethod;
+  revenue_account_id?: string;
+  received_into_account_id?: string;
+  journal_entry_id?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  revenue_account?: { id: string; name: string; code?: string };
+  received_into_account?: { id: string; name: string; code?: string };
+}

@@ -173,7 +173,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="client_id"
@@ -213,7 +213,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="issue_date"
@@ -257,8 +257,11 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
 
           <div className="space-y-4">
             {fields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-12 gap-3 items-start">
-                <div className="col-span-5">
+              <div
+                key={field.id}
+                className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0"
+              >
+                <div className="col-span-2 sm:col-span-5">
                   <FormField
                     control={form.control}
                     name={`items.${index}.description`}
@@ -272,7 +275,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
                     )}
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <FormField
                     control={form.control}
                     name={`items.${index}.quantity`}
@@ -292,7 +295,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
                     )}
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <FormField
                     control={form.control}
                     name={`items.${index}.unit_price`}
@@ -312,7 +315,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
                     )}
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <FormField
                     control={form.control}
                     name={`items.${index}.tax_rate_id`}
@@ -320,7 +323,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
                       <FormItem>
                         <Select
                           onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
-                          defaultValue={field.value || "none"}
+                          value={field.value || "none"}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -341,7 +344,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
                     )}
                   />
                 </div>
-                <div className="col-span-1 pt-1">
+                <div className="col-span-2 flex justify-end sm:col-span-1 sm:justify-start sm:pt-1">
                   <Button
                     type="button"
                     variant="ghost"
@@ -351,6 +354,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
                     disabled={fields.length <= 1}
                   >
                     <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Remove item</span>
                   </Button>
                 </div>
               </div>
@@ -358,7 +362,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 pt-6 border-t">
+        <div className="grid grid-cols-1 gap-8 pt-6 border-t sm:grid-cols-2">
           <div>
             <FormField
               control={form.control}

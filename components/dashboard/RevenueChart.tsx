@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useOrg } from "@/hooks/use-org";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
+import { DashboardTimeframe } from "@/hooks/dashboard/use-dashboard-summary";
 import {
   Area,
   AreaChart,
@@ -15,33 +16,89 @@ import {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function RevenueChart() {
+interface RevenueChartProps {
+  timeframe?: DashboardTimeframe;
+}
+
+/** Builds the bucket list (and a matching label + membership test) for a
+ * given timeframe. Shorter timeframes bucket by day so the chart still has
+ * enough points to read; longer ones bucket by month. */
+function buildBuckets(timeframe: DashboardTimeframe, now: Date) {
+  if (timeframe === "last_30_days") {
+    const buckets: { name: string; date: Date }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      buckets.push({ name: `${d.getDate()}/${d.getMonth() + 1}`, date: d });
+    }
+    return buckets;
+  }
+
+  if (timeframe === "this_quarter") {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    const buckets: { name: string; date: Date }[] = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(now.getFullYear(), quarterStartMonth + i, 1);
+      buckets.push({ name: MONTHS[d.getMonth()], date: d });
+    }
+    return buckets;
+  }
+
+  if (timeframe === "this_year") {
+    const buckets: { name: string; date: Date }[] = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), i, 1);
+      buckets.push({ name: MONTHS[d.getMonth()], date: d });
+    }
+    return buckets;
+  }
+
+  if (timeframe === "all_time") {
+    // Last 12 months, same as a rolling year view — "all time" as a daily
+    // or monthly-since-founding chart would be unreadable without knowing
+    // the org's first transaction date, so this defaults to a sensible
+    // 12-month window rather than an unbounded one.
+    const buckets: { name: string; date: Date }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.push({ name: MONTHS[d.getMonth()], date: d });
+    }
+    return buckets;
+  }
+
+  // this_month (default): last 6 months, matches prior dashboard behavior.
+  const buckets: { name: string; date: Date }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({ name: MONTHS[d.getMonth()], date: d });
+  }
+  return buckets;
+}
+
+export function RevenueChart({ timeframe = "this_month" }: RevenueChartProps) {
   const { currentOrg } = useOrg();
   const { data: invoices, isLoading } = useInvoices(currentOrg?.id ?? "");
 
   const data = useMemo(() => {
     const now = new Date();
-    const buckets: { name: string; revenue: number }[] = [];
-
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      buckets.push({ name: MONTHS[d.getMonth()], revenue: 0 });
-    }
+    const buckets = buildBuckets(timeframe, now).map((b) => ({ ...b, revenue: 0 }));
+    const isDaily = timeframe === "last_30_days";
 
     (invoices ?? []).forEach((inv) => {
       if (inv.status !== "paid" && inv.status !== "partial") return;
       const issueDate = new Date(inv.issue_date);
-      const now2 = new Date();
-      const monthsAgo =
-        (now2.getFullYear() - issueDate.getFullYear()) * 12 +
-        (now2.getMonth() - issueDate.getMonth());
-      if (monthsAgo < 0 || monthsAgo > 5) return;
-      const bucketIndex = 5 - monthsAgo;
+
+      const bucketIndex = buckets.findIndex((b) =>
+        isDaily
+          ? b.date.toDateString() === issueDate.toDateString()
+          : b.date.getFullYear() === issueDate.getFullYear() && b.date.getMonth() === issueDate.getMonth()
+      );
+      if (bucketIndex === -1) return;
       buckets[bucketIndex].revenue += inv.grand_total / 100;
     });
 
     return buckets;
-  }, [invoices]);
+  }, [invoices, timeframe]);
 
   const hasData = data.some((d) => d.revenue > 0);
 
@@ -59,7 +116,9 @@ export function RevenueChart() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Revenue overview</h2>
-          <p className="text-xs text-muted-foreground">Paid invoices, last 6 months</p>
+          <p className="text-xs text-muted-foreground">
+            Paid invoices, {timeframe === "last_30_days" ? "last 30 days" : timeframe === "this_quarter" ? "this quarter" : timeframe === "this_year" ? "this year" : timeframe === "all_time" ? "last 12 months" : "last 6 months"}
+          </p>
         </div>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className="size-2 rounded-full bg-chart-1" /> Revenue
@@ -86,6 +145,7 @@ export function RevenueChart() {
                 tickLine={false}
                 tickMargin={10}
                 tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                interval={timeframe === "last_30_days" ? 4 : 0}
               />
               <YAxis
                 axisLine={false}

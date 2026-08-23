@@ -51,6 +51,22 @@ export async function createTaxRate(taxRate: Omit<TaxRate, "id" | "created_at" |
   return data as TaxRate;
 }
 
+export async function updateTaxRate(
+  taxRateId: string,
+  updates: Partial<Pick<TaxRate, "name" | "rate" | "is_active">>
+) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("tax_rates")
+    .update(updates)
+    .eq("id", taxRateId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as TaxRate;
+}
+
 // Bank Accounts
 export async function getBankAccounts(orgId: string) {
   const supabase = createClient();

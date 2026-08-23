@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useBankAccounts, useJournalEntries } from "@/hooks/finance/use-finance";
 import { useOrg } from "@/hooks/use-org";
 import {
@@ -37,7 +38,7 @@ import { computeAccountBalance } from "@/lib/finance/balance";
 export function BankingView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
-  const { data: bankAccounts, isLoading } = useBankAccounts(currentOrg?.id || "");
+  const { data: bankAccounts, isLoading, isError, refetch } = useBankAccounts(currentOrg?.id || "");
   const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -109,7 +110,18 @@ export function BankingView() {
           <StatCard title="Connected accounts" value={isLoading ? "—" : String(bankAccounts?.length ?? 0)} icon={<Landmark className="size-4" />} />
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <div className="panel flex flex-col items-center justify-center border-dashed py-12 text-center">
+            <Wallet className="mb-4 h-12 w-12 text-muted-foreground opacity-20" />
+            <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load bank accounts</h3>
+            <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+              Something went wrong while fetching this from the server. Please try again.
+            </p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="grid gap-4 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="panel p-5">
@@ -144,8 +156,8 @@ export function BankingView() {
                   )}
                 </p>
                 <div className="mt-4 flex justify-end">
-                  <Button variant="ghost" size="sm" className="text-primary">
-                    View Transactions
+                  <Button variant="ghost" size="sm" className="text-primary" asChild>
+                    <Link href="/finance/ledger">View Transactions</Link>
                   </Button>
                 </div>
               </div>
