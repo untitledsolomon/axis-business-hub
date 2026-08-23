@@ -56,12 +56,12 @@ type WindowId = 0 | 1 | 2;
 
 const SCENE_COPY = [
   {
-    heading: "Run your business with boardroom clarity.",
-    body: "Axis brings finance, stock, and customer operations into one executive view for growing companies.",
+    heading: "Control the operating rhythm of your business.",
+    body: "Axis brings cash flow, stock, and customer performance into one sharp operating view for modern businesses.",
   },
   {
-    heading: "See margin, movement, and risk before they become decisions.",
-    body: "Built for established SMEs that need sharper visibility, tighter controls, and cleaner reporting.",
+    heading: "See margin, movement, and risk before they become problems.",
+    body: "Purpose-built for ambitious SMEs that need clarity, control, and confidence across every critical decision.",
   },
 ];
 
@@ -107,7 +107,7 @@ export function AuthShowcasePanel() {
   };
 
   return (
-    <div className="relative hidden overflow-hidden bg-[#f5f1ea] lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/60 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.04),transparent_28%),linear-gradient(135deg,#f9f6f1_0%,#f3efe8_38%,#f1eee7_100%)] shadow-[0_28px_80px_rgba(15,23,42,0.12)] ring-1 ring-[#d9d2c3]/40 p-6 sm:p-8 lg:p-10 min-h-0">
+    <div className="relative hidden overflow-hidden bg-[#f5f1ea] lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/30 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.04),transparent_28%),linear-gradient(135deg,#f9f6f1_0%,#f3efe8_38%,#f1eee7_100%)] shadow-[0_28px_80px_rgba(15,23,42,0.12)] ring-1 ring-[#d9d2c3]/40 p-6 sm:p-8 lg:p-10 min-h-0">
       {/* Gradient render backdrop */}
       <div
         className="absolute inset-0 opacity-90"
@@ -509,8 +509,8 @@ function AppWindow({
   // around that shared center — this stays visually centered regardless
   // of the stage's actual width/height ratio, instead of anchoring to a
   // corner (which looks centered only at one specific aspect ratio).
-  const SIZE = 76; // percent of stage
-  const STEP = 11; // percent, per depth step
+  const SIZE = 88; // larger, closer to the previous auth showcase sizing
+  const STEP = 7; // modest offset to keep the rear window visible while staying close to the legacy stack
   const translate = {
     0: `translate(${STEP}%, ${STEP}%) rotate(1.25deg)`,
     1: "translate(0%, 0%) rotate(-0.6deg)",
