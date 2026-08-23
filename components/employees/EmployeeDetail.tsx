@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmployeeActions } from "@/components/employees/EmployeeActions";
+import { ShiftAttendancePanel } from "@/components/employees/ShiftAttendancePanel";
 import { formatShortDate } from "@/lib/format-date";
 import { ArrowLeft, AlertTriangle, Users, Mail, Phone, Briefcase } from "lucide-react";
 
@@ -152,6 +153,10 @@ export function EmployeeDetail({ employeeId }: EmployeeDetailProps) {
             {employee.notes || "No notes on file."}
           </p>
         </section>
+      </div>
+
+      <div className="mt-4">
+        <ShiftAttendancePanel employee={employee} />
       </div>
     </>
   );

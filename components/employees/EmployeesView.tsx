@@ -47,6 +47,7 @@ export function EmployeesView() {
   const orgId = currentOrg?.id ?? "";
   const { data: employees, isLoading, isError, refetch } = useEmployees(orgId);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "on_leave" | "terminated">("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
@@ -55,19 +56,26 @@ export function EmployeesView() {
 
   const filtered = useMemo(() => {
     if (!employees) return [];
+
+    let next = employees;
+    if (statusFilter !== "all") {
+      next = next.filter((employee) => employee.status === statusFilter);
+    }
+
     const q = search.trim().toLowerCase();
-    if (!q) return employees;
-    return employees.filter(
+    if (!q) return next;
+    return next.filter(
       (e) =>
         e.full_name.toLowerCase().includes(q) ||
         (e.email ?? "").toLowerCase().includes(q) ||
         (e.department ?? "").toLowerCase().includes(q) ||
         e.role.toLowerCase().includes(q)
     );
-  }, [employees, search]);
+  }, [employees, search, statusFilter]);
 
   const active = (employees ?? []).filter((e) => e.status === "active").length;
   const onLeave = (employees ?? []).filter((e) => e.status === "on_leave").length;
+  const upcomingAttendance = (employees ?? []).filter((employee) => employee.status === "active").length;
 
   if (!mounted) return null;
 
@@ -107,9 +115,48 @@ export function EmployeesView() {
           <StatCard title="On leave" value={isLoading ? "—" : String(onLeave)} icon={<UserMinus className="size-4" />} />
         </div>
 
+        <section className="panel p-4">
+          <div className="flex items-center justify-between gap-3 pb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Today at a glance</h2>
+              <p className="text-xs text-muted-foreground">Staffing and availability for daily operations.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Scheduled</p>
+              <p className="mt-2 text-lg font-semibold text-foreground">{upcomingAttendance}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">On leave</p>
+              <p className="mt-2 text-lg font-semibold text-foreground">{onLeave}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Quick link</p>
+              <Link href="/employees" className="mt-2 inline-block text-sm font-semibold text-primary hover:underline">
+                Review staffing
+              </Link>
+            </div>
+          </div>
+        </section>
+
         <div className="panel">
           <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
             <p className="font-display text-sm font-semibold text-foreground">Directory</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["all", "active", "on_leave", "terminated"] as const).map((filter) => (
+                <Button
+                  key={filter}
+                  type="button"
+                  variant={statusFilter === filter ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setStatusFilter(filter)}
+                >
+                  {filter === "all" ? "All" : filter === "active" ? "Active" : filter === "on_leave" ? "On leave" : "Terminated"}
+                </Button>
+              ))}
+            </div>
             <div className="relative ml-auto w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input

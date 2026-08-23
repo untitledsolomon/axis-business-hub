@@ -31,6 +31,7 @@ const links = [
   { label: "Clients", to: "/clients", icon: Building2 },
   { label: "Invoices", to: "/invoices", icon: FileText },
   { label: "Transactions", to: "/transactions", icon: Receipt },
+  { label: "Inventory", to: "/inventory", icon: ShoppingBag },
   { label: "Chart of Accounts", to: "/finance/accounts", icon: Wallet },
   { label: "General Ledger", to: "/finance/ledger", icon: BookOpen },
   { label: "Banking", to: "/finance/banking", icon: CreditCard },

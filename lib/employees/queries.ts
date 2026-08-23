@@ -1,5 +1,5 @@
 import { createClient as getSupabaseClient } from "@/lib/supabase/client";
-import { Employee } from "@/lib/types";
+import { Employee, EmployeeAttendance, EmployeeShift } from "@/lib/types";
 
 export async function getEmployees(orgId: string) {
   const supabase = getSupabaseClient();
@@ -59,6 +59,68 @@ export async function updateEmployee(
  * archived rather than hard-deleted. */
 export async function terminateEmployee(employeeId: string) {
   return updateEmployee(employeeId, { status: "terminated" });
+}
+
+export async function getEmployeeShifts(orgId: string, employeeId?: string) {
+  const supabase = getSupabaseClient();
+  let query = supabase.from("employee_shifts").select("*").eq("org_id", orgId);
+
+  if (employeeId) {
+    query = query.eq("employee_id", employeeId);
+  }
+
+  const { data, error } = await query.order("shift_date", { ascending: true });
+  if (error) throw error;
+  return data as EmployeeShift[];
+}
+
+export async function createEmployeeShift(shift: Omit<EmployeeShift, "id" | "created_at" | "updated_at">) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("employee_shifts").insert(shift).select().single();
+  if (error) throw error;
+  return data as EmployeeShift;
+}
+
+export async function updateEmployeeShift(
+  shiftId: string,
+  updates: Partial<Omit<EmployeeShift, "id" | "org_id" | "employee_id" | "created_at" | "updated_at">>
+) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("employee_shifts").update(updates).eq("id", shiftId).select().single();
+  if (error) throw error;
+  return data as EmployeeShift;
+}
+
+export async function getEmployeeAttendance(orgId: string, employeeId?: string) {
+  const supabase = getSupabaseClient();
+  let query = supabase.from("employee_attendance").select("*").eq("org_id", orgId);
+
+  if (employeeId) {
+    query = query.eq("employee_id", employeeId);
+  }
+
+  const { data, error } = await query.order("attendance_date", { ascending: true });
+  if (error) throw error;
+  return data as EmployeeAttendance[];
+}
+
+export async function createEmployeeAttendance(
+  attendance: Omit<EmployeeAttendance, "id" | "created_at" | "updated_at">
+) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("employee_attendance").insert(attendance).select().single();
+  if (error) throw error;
+  return data as EmployeeAttendance;
+}
+
+export async function updateEmployeeAttendance(
+  attendanceId: string,
+  updates: Partial<Omit<EmployeeAttendance, "id" | "org_id" | "employee_id" | "created_at" | "updated_at">>
+) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("employee_attendance").update(updates).eq("id", attendanceId).select().single();
+  if (error) throw error;
+  return data as EmployeeAttendance;
 }
 
 export async function deleteEmployee(employeeId: string) {

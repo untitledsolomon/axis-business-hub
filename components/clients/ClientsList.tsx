@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState, useEffect } from "react";
 import { useClients } from "@/hooks/clients/use-clients";
 import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,12 @@ import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useState, useEffect } from "react";
-import { Client } from "@/lib/types";
+import { Client, ClientStatus } from "@/lib/types";
 
 export function ClientsList() {
   const [mounted, setMounted] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | ClientStatus>("all");
   const { currentOrg } = useOrg();
   const { data: clients, isLoading, isError, refetch } = useClients(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -32,6 +35,27 @@ export function ClientsList() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const filteredClients = useMemo(() => {
+    if (!clients) return [];
+
+    let next = clients;
+    if (statusFilter !== "all") {
+      next = next.filter((client) => client.status === statusFilter);
+    }
+
+    const q = search.trim().toLowerCase();
+    if (!q) return next;
+
+    return next.filter((client) => {
+      return (
+        client.name.toLowerCase().includes(q) ||
+        (client.company_name ?? "").toLowerCase().includes(q) ||
+        (client.email ?? "").toLowerCase().includes(q) ||
+        (client.phone ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [clients, search, statusFilter]);
 
   if (!mounted) return null;
 
@@ -72,7 +96,26 @@ export function ClientsList() {
           <div className="flex flex-wrap items-center gap-2 px-5 py-4">
             <div className="relative flex-1 md:max-w-xs">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search clients" className="pl-9" />
+              <Input
+                placeholder="Search clients"
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["all", "active", "inactive", "blocked"] as const).map((filter) => (
+                <Button
+                  key={filter}
+                  type="button"
+                  variant={statusFilter === filter ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setStatusFilter(filter)}
+                >
+                  {filter === "all" ? "All" : filter === "active" ? "Active" : filter === "inactive" ? "Inactive" : "Blocked"}
+                </Button>
+              ))}
             </div>
             <Button variant="outline" size="icon" aria-label="Filters">
               <Filter className="size-4" />
@@ -123,8 +166,8 @@ export function ClientsList() {
                       <td className="px-5 py-3"><Skeleton className="ml-auto h-8 w-8" /></td>
                     </tr>
                   ))
-                ) : clients && clients.length > 0 ? (
-                  clients.map((client: Client) => (
+                ) : filteredClients.length > 0 ? (
+                  filteredClients.map((client: Client) => (
                     <tr key={client.id} className="transition-colors hover:bg-muted/40">
                       <td className="px-5 py-3 font-medium text-foreground">
                         <Link href={`/clients/${client.id}`} className="hover:text-primary hover:underline">
@@ -159,19 +202,25 @@ export function ClientsList() {
                     <td colSpan={5} className="h-64 text-center">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Users className="h-12 w-12 text-muted-foreground opacity-20" />
-                        <h3 className="text-sm font-semibold text-foreground">No clients yet</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Get started by adding your first client.
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => setIsFormOpen(true)}
-                        >
-                          <Plus className="size-4" />
-                          Add Client
-                        </Button>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {search ? "No clients match your search." : "No clients yet"}
+                        </h3>
+                        {!search && (
+                          <>
+                            <p className="text-sm text-muted-foreground">
+                              Get started by adding your first client.
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => setIsFormOpen(true)}
+                            >
+                              <Plus className="size-4" />
+                              Add Client
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

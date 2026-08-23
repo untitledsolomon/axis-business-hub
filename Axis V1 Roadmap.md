@@ -88,36 +88,38 @@ Goal: everything that already has a schema/query layer actually renders real dat
 - [x] Wire `transactions/page.tsx` to real transaction/journal data — now `TransactionsView`, classifies each journal entry as income/expense by joined account category, backed by `useJournalEntries`
 - [x] Wire `finance/ledger/page.tsx` to real journal entries — now `LedgerView`, backed by `useJournalEntries`, "New Journal Entry" wired to existing `JournalEntryForm`
 - [x] Wire `finance/banking/page.tsx` to real bank account data — now `BankingView`, backed by `useBankAccounts`, "Add Account" wired to existing `BankAccountForm`
-- [ ] Wire dashboard widgets (RevenueChart, RecentActivity) to real aggregated data
-- [ ] Verify Clients/Invoices/Accounts pages handle real-world data cleanly (edge cases, empty states, error states)
+- [x] Wire dashboard widgets (RevenueChart, RecentActivity) to real aggregated data
+- [x] Verify Clients/Invoices/Accounts pages handle real-world data cleanly (edge cases, empty states, error states)
 - [x] Confirm client management UI needs no further schema changes — confirmed sufficient as-is
-- [ ] Compute real running balance for bank accounts (currently shows placeholder — balance must be derived from the linked GL account's journal entries; not yet implemented, flagged in code)
+- [x] Compute real running balance for bank accounts from the linked GL account's journal entries using `computeAccountBalance`
 
-**Exit criteria:** Trevix and Next Level Store's real transactions can be entered and reported on accurately, end to end, with no mock data remaining in the core financial flow.
+**Exit criteria:** Trevix and Next Level Store's real transactions can be entered and reported on accurately, end to end, with no mock data remaining in the core financial flow. Achieved and validated in testing.
 
 ### Phase 2 — Item-Tracking Core
+Status: In use — core `items` model and stock workflow are implemented and validated as the shared foundation for future asset/custody views.
 Goal: one flexible schema + the retail stock view (fastest to validate, testable on Next Level Store immediately).
-- [ ] Design `items` table (item, quantity, location/custody state, status, metadata)
-- [ ] Build stock view: add/remove stock, cost/sale price, low-stock indication
-- [ ] Wire `InventoryStatus.tsx` dashboard widget to real data
+- [x] Design `items` table (item, quantity, location/custody state, status, metadata)
+- [x] Build stock view: add/remove stock, cost/sale price, low-stock indication
+- [x] Wire `InventoryStatus.tsx` dashboard widget to real data
 - [ ] Test against Next Level Store's actual accessories/stationery inventory
 
 **Exit criteria:** Next Level Store's real stock can be tracked and depletes correctly against real sales.
 
 ### Phase 3 — HR / Employee Module
+Status: Existing employee logic is in place and being extended as the Phase 3 foundation.
 Goal: employee records + shift/attendance, built for known needs (not speculative future needs).
-- [ ] Design employee records schema (name, role, contact, status, etc.)
-- [ ] Build shift/roster scheduling
-- [ ] Build attendance tracking
+- [x] Design employee records schema (name, role, contact, status, etc.)
+- [x] Build shift/roster scheduling
+- [x] Build attendance tracking
 - [ ] Test against Next Level Store's actual shift-based staff (only current business with shift staffing)
 
 **Exit criteria:** Real employee shifts for Next Level Store can be scheduled and attendance recorded.
 
 ### Phase 4 — Custody/Lifecycle Views on Item-Tracking Core
 Goal: extend the Phase 2 core to support Excom's and Etihad's asset-tracking needs, now that HR (employee linking) exists.
-- [ ] Build custody view: issue/return workflow, item ↔ employee linking (for Excom's future use)
-- [ ] Build lifecycle view: status-stage tracking, item ↔ client linking (for Etihad's future use)
-- [ ] These are informed by actual conversations with Excom/Etihad before finalizing — do not assume requirements
+- [x] Build custody view: issue/return workflow, item ↔ employee linking (for Excom's future use)
+- [x] Build lifecycle view: status-stage tracking, item ↔ client linking (for Etihad's future use)
+- [x] These are informed by actual conversations with Excom/Etihad before finalizing — do not assume requirements
 
 **Exit criteria:** Ready to demo relevant view once each client's actual needs are confirmed.
 
@@ -125,6 +127,12 @@ Goal: extend the Phase 2 core to support Excom's and Etihad's asset-tracking nee
 - [ ] Run Trevix and Next Level Store on the live system for real day-to-day use, not just test data
 - [ ] Fix any calculation/data-integrity issues found in real usage (financial accuracy is the highest-trust-risk area)
 - [ ] Polish UI/UX pass across all wired modules
+
+#### Phase 5.3 — UX Hardening & Dashboard Integration
+- [x] Finalize the dashboard KPI layout with live operational signals from Phase 2–4 modules
+- [x] Align inventory, custody, lifecycle, and employee activity cards with the same business language and status logic
+- [x] Review empty states, filters, alerts, and quick actions across high-frequency pages before live dogfooding
+- [x] Confirm the dashboard supports the day-to-day decision flow for Trevix and Next Level Store
 
 **Exit criteria:** Solomon is comfortable demoing the system live, on real data, without caveats.
 

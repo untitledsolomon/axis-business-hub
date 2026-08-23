@@ -35,6 +35,8 @@ import { formatShortDate } from "@/lib/format-date";
 
 export function InvoicesList() {
   const [mounted, setMounted] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "sent" | "viewed" | "partial" | "paid" | "overdue" | "voided">("all");
   const { currentOrg } = useOrg();
   const { data: invoices, isLoading, isError, refetch } = useInvoices(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -42,6 +44,27 @@ export function InvoicesList() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const filteredInvoices = useMemo(() => {
+    if (!invoices) return [];
+
+    let next = invoices;
+    if (statusFilter !== "all") {
+      next = next.filter((invoice) => invoice.status === statusFilter);
+    }
+
+    const q = search.trim().toLowerCase();
+    if (!q) return next;
+
+    return next.filter((invoice) => {
+      return (
+        invoice.invoice_number.toLowerCase().includes(q) ||
+        (invoice.client?.name ?? "").toLowerCase().includes(q) ||
+        (invoice.client?.company_name ?? "").toLowerCase().includes(q) ||
+        invoice.currency.toLowerCase().includes(q)
+      );
+    });
+  }, [invoices, search, statusFilter]);
 
   const totals = useMemo(() => {
     const list = invoices ?? [];
@@ -104,7 +127,26 @@ export function InvoicesList() {
           <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
             <div className="relative ml-0 w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search invoices…" className="pl-9" />
+              <Input
+                placeholder="Search invoices…"
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["all", "paid", "sent", "partial", "overdue", "draft"] as const).map((filter) => (
+                <Button
+                  key={filter}
+                  type="button"
+                  variant={statusFilter === filter ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setStatusFilter(filter)}
+                >
+                  {filter === "all" ? "All" : filter === "paid" ? "Paid" : filter === "sent" ? "Sent" : filter === "partial" ? "Partial" : filter === "overdue" ? "Overdue" : "Draft"}
+                </Button>
+              ))}
             </div>
             <Button variant="outline" size="icon" className="ml-auto" aria-label="Filter">
               <Filter className="size-4" />
@@ -153,8 +195,8 @@ export function InvoicesList() {
                     <TableCell><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
-              ) : invoices && invoices.length > 0 ? (
-                invoices.map((invoice) => (
+              ) : filteredInvoices.length > 0 ? (
+                filteredInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="numeric font-medium">
                       <Link href={`/invoices/${invoice.id}`} className="hover:text-primary hover:underline">
@@ -184,19 +226,25 @@ export function InvoicesList() {
                   <TableCell colSpan={7} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Receipt className="h-12 w-12 text-muted-foreground opacity-20" />
-                      <h3 className="text-sm font-semibold text-foreground">No invoices yet</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Get started by creating your first invoice.
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => setIsFormOpen(true)}
-                      >
-                        <Plus className="size-4" />
-                        Create Invoice
-                      </Button>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {search ? "No invoices match your search." : "No invoices yet"}
+                      </h3>
+                      {!search && (
+                        <>
+                          <p className="text-sm text-muted-foreground">
+                            Get started by creating your first invoice.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => setIsFormOpen(true)}
+                          >
+                            <Plus className="size-4" />
+                            Create Invoice
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

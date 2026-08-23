@@ -58,6 +58,8 @@ export interface Invoice {
 }
 
 export type EmployeeStatus = 'active' | 'on_leave' | 'terminated';
+export type EmployeeShiftStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+export type EmployeeAttendanceStatus = 'scheduled' | 'present' | 'late' | 'absent' | 'half_day' | 'approved_leave';
 
 export interface Employee {
   id: string;
@@ -72,6 +74,68 @@ export interface Employee {
   notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface EmployeeShift {
+  id: string;
+  org_id: string;
+  employee_id: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  shift_type: string;
+  status: EmployeeShiftStatus;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeAttendance {
+  id: string;
+  org_id: string;
+  employee_id: string;
+  shift_id?: string | null;
+  attendance_date: string;
+  status: EmployeeAttendanceStatus;
+  notes?: string;
+  check_in?: string | null;
+  check_out?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ItemStatus = 'active' | 'inactive' | 'archived';
+export type ItemMovementType = 'sale' | 'purchase' | 'adjustment' | 'issue' | 'return' | 'transfer';
+
+export interface Item {
+  id: string;
+  org_id: string;
+  sku?: string;
+  name: string;
+  description?: string;
+  category: string;
+  unit: string;
+  status: ItemStatus;
+  current_quantity: number;
+  reorder_level: number;
+  cost_price: number;
+  selling_price: number;
+  location?: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ItemMovement {
+  id: string;
+  org_id: string;
+  item_id: string;
+  movement_type: ItemMovementType;
+  quantity: number;
+  unit_cost: number;
+  reference?: string;
+  notes?: string;
+  created_at: string;
 }
 
 export type TransactionType = 'income' | 'expense';

@@ -43,6 +43,7 @@ import {
 import { CommandPalette, useCommandPalette } from "@/components/app/command-palette";
 import { useOrg } from "@/hooks/use-org";
 import { useAuth } from "@/hooks/use-auth";
+import { useNotifications } from "@/hooks/notifications/use-notifications";
 import { cn } from "@/lib/utils";
 
 type NavItem = { label: string; to: string; icon: typeof LayoutDashboard };
@@ -55,6 +56,9 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { label: "Clients", to: "/clients", icon: Building2 },
       { label: "Invoices", to: "/invoices", icon: FileText },
       { label: "Transactions", to: "/transactions", icon: Receipt },
+      { label: "Inventory", to: "/inventory", icon: ShoppingBag },
+      { label: "Asset custody", to: "/inventory/custody", icon: ShoppingBag },
+      { label: "Asset lifecycle", to: "/inventory/lifecycle", icon: ShoppingBag },
     ],
   },
   {
@@ -194,6 +198,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const { notifications, unreadCount } = useNotifications();
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = initialsOf(displayName);
@@ -249,16 +254,46 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
                     <Bell className="size-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute right-1.5 top-1.5 flex size-2.5 items-center justify-center rounded-full bg-destructive text-[0px]">
+                        •
+                      </span>
+                    )}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-80 p-0">
                   <div className="border-b border-border px-4 py-3">
                     <p className="text-sm font-semibold">Notifications</p>
-                    <p className="text-xs text-muted-foreground">You&apos;re all caught up</p>
+                    <p className="text-xs text-muted-foreground">
+                      {unreadCount > 0 ? `${unreadCount} active alerts` : "You&apos;re all caught up"}
+                    </p>
                   </div>
-                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    No new notifications
-                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No new notifications
+                    </div>
+                  ) : (
+                    <div className="max-h-80 overflow-y-auto p-2">
+                      {notifications.map((notification) => (
+                        <Link
+                          key={notification.id}
+                          href={notification.href}
+                          className="flex gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/60"
+                        >
+                          <span className={cn(
+                            "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
+                            notification.priority === "high" && "bg-destructive",
+                            notification.priority === "medium" && "bg-warning",
+                            notification.priority === "low" && "bg-primary"
+                          )} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-foreground">{notification.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{notification.message}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
 
