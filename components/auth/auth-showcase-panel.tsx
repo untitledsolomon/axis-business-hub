@@ -503,16 +503,17 @@ function AppWindow({
   onFocus?: () => void;
   children: React.ReactNode;
 }) {
-  // Every window is the same size and cascades via translate (animates
-  // smoothly, unlike swapping inset/position classes). Size + total travel
-  // must stay within 100% so the FRONT window is never clipped by the
-  // stage — only the back windows should be partially covered.
-  const SIZE = 62; // percent of stage
-  const STEP = 19; // percent, per depth step
+  // Anchor every window to the stage's bottom-right corner (like beehiiv's
+  // front card, which fills out to the edge) and cascade BACKWARD from
+  // there — depth 1 and 2 shift up-and-left via a negative translate so
+  // they peek out from behind. This keeps the front window always filling
+  // its full size against the corner, instead of floating with a gap.
+  const SIZE = 84; // percent of stage — the front window's size
+  const STEP = 13; // percent, per depth step, shifted up-and-left
   const translate = {
-    2: "translate(0%, 0%)",
-    1: `translate(${STEP}%, ${STEP}%)`,
-    0: `translate(${STEP * 2}%, ${STEP * 2}%)`,
+    0: "translate(0%, 0%)",
+    1: `translate(-${STEP}%, -${STEP}%)`,
+    2: `translate(-${STEP * 2}%, -${STEP * 2}%)`,
   } as const;
 
   const z = { 2: 10, 1: 20, 0: 30 } as const;
@@ -535,7 +536,7 @@ function AppWindow({
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute left-0 top-0 block overflow-hidden rounded-xl border border-white/15 bg-surface/95 text-left shadow-pop ring-1 ring-black/5 backdrop-blur-md ${
+      className={`absolute bottom-0 right-0 block overflow-hidden rounded-xl border border-white/15 bg-surface/95 text-left shadow-pop ring-1 ring-black/5 backdrop-blur-md ${
         depth !== 0 ? "cursor-pointer hover:brightness-110" : "cursor-default"
       }`}
     >
