@@ -107,7 +107,7 @@ export function AuthShowcasePanel() {
   };
 
   return (
-    <div className="relative hidden overflow-hidden bg-sidebar lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/10 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.14),transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.08),transparent_30%),linear-gradient(145deg,#171d24_0%,#0d1015_52%,#121821_100%)] shadow-[0_40px_120px_rgba(2,6,23,0.62)] ring-1 ring-white/5 p-6 sm:p-8 lg:p-10 min-h-0">
+    <div className="relative hidden overflow-hidden bg-[#f5f1ea] lg:flex lg:w-1/2 lg:flex-col m-3 rounded-[30px] border border-[#d9d2c3]/60 bg-[radial-gradient(circle_at_top,_rgba(214,182,122,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.06),transparent_30%),linear-gradient(135deg,#f9f6f1_0%,#f3efe8_38%,#f1eee7_100%)] shadow-[0_28px_80px_rgba(15,23,42,0.12)] ring-1 ring-[#d9d2c3]/40 p-6 sm:p-8 lg:p-10 min-h-0">
       {/* Gradient render backdrop */}
       <div
         className="absolute inset-0 opacity-90"
@@ -130,7 +130,7 @@ export function AuthShowcasePanel() {
         }}
       />
       {/* Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-sidebar/90 via-sidebar/10 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#f5f1ea]/90 via-[#f5f1ea]/20 to-transparent" />
 
       {/* Headline copy — crossfades per scene */}
       <div className="relative z-10 max-w-md">
@@ -509,8 +509,8 @@ function AppWindow({
   // around that shared center — this stays visually centered regardless
   // of the stage's actual width/height ratio, instead of anchoring to a
   // corner (which looks centered only at one specific aspect ratio).
-  const SIZE = 78; // percent of stage
-  const STEP = 8; // percent, per depth step
+  const SIZE = 72; // percent of stage
+  const STEP = 12; // percent, per depth step
   const translate = {
     0: `translate(${STEP}%, ${STEP}%) rotate(1.25deg)`,
     1: "translate(0%, 0%) rotate(-0.6deg)",
@@ -545,14 +545,14 @@ function AppWindow({
         transitionDuration: "600ms",
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
       }}
-      className={`absolute block overflow-hidden rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,26,34,0.96),rgba(11,15,20,0.92))] text-left ring-1 ring-black/10 backdrop-blur-xl ${
-        depth !== 0 ? "cursor-pointer hover:brightness-110" : "cursor-default"
+      className={`absolute block overflow-visible rounded-[20px] border border-[#d9d2c3]/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,245,239,0.96))] text-left ring-1 ring-black/5 backdrop-blur-xl ${
+        depth !== 0 ? "cursor-pointer hover:brightness-105" : "cursor-default"
       }`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_35%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.6),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.12),transparent_32%)]" />
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accentClasses.wash}`} />
 
-      <div className="relative flex h-full flex-col overflow-hidden p-4 sm:p-5">
+      <div className="relative flex h-full flex-col overflow-visible p-4 sm:p-5">
         <div className="flex shrink-0 items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${accentClasses.bar}`} />
