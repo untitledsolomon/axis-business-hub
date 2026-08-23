@@ -21,7 +21,6 @@ import { ClientActions } from "@/components/clients/ClientActions";
 import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { useState, useEffect } from "react";
 import { Client, ClientStatus } from "@/lib/types";
 
 export function ClientsList() {
