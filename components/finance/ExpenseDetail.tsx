@@ -203,7 +203,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
           <div className="mt-3 space-y-2">
             {expense.journal_entry_id ? (
               <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link href={`/finance/ledger/${expense.journal_entry_id}`}>
+                <Link href={`/transactions/${expense.journal_entry_id}`}>
                   <BookOpen className="size-4" /> View journal entry
                 </Link>
               </Button>

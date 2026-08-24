@@ -161,7 +161,7 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
           <div className="mt-3 space-y-2">
             {sale.journal_entry_id ? (
               <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link href={`/finance/ledger/${sale.journal_entry_id}`}>
+                <Link href={`/transactions/${sale.journal_entry_id}`}>
                   <BookOpen className="size-4" /> View journal entry
                 </Link>
               </Button>
