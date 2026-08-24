@@ -11,18 +11,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, MoreHorizontal, FileSpreadsheet, History, ArrowUpRight, ArrowDownLeft, Scale } from "lucide-react";
+import { Plus, Search, FileSpreadsheet, History, ArrowUpRight, ArrowDownLeft, Scale } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
+import { JournalEntryActions } from "@/components/finance/JournalEntryActions";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SummaryBar } from "@/components/shared/SummaryBar";
@@ -192,31 +185,7 @@ export function LedgerView() {
                         </TableCell>
                         <TableCell className="numeric text-right">{fmt(entryTotal(entry))}</TableCell>
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Open menu for ${entry.reference || entry.id}`}
-                              >
-                                <MoreHorizontal className="size-4" />
-                                <span className="sr-only">
-                                  Open menu for {entry.reference || entry.id}
-                                </span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Entry</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {entry.status === "posted" ? (
-                                <DropdownMenuItem className="text-destructive">Void Entry</DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem className="text-success">Post Entry</DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <JournalEntryActions orgId={currentOrg?.id || ""} entry={entry} />
                         </TableCell>
                       </TableRow>
                     ))

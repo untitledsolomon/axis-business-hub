@@ -34,6 +34,7 @@ import { AccountForm } from "@/components/finance/AccountForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { computeAccountBalance } from "@/lib/finance/balance";
 
 export function AccountsList() {
@@ -42,6 +43,7 @@ export function AccountsList() {
   const { data: accounts, isLoading, isError, refetch } = useAccounts(currentOrg?.id || "");
   const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -70,6 +72,14 @@ export function AccountsList() {
       expenses: sum("expense"),
     };
   }, [accounts, balances]);
+
+  const filteredAccounts = useMemo(() => {
+    if (!search.trim()) return accounts ?? [];
+    const q = search.toLowerCase();
+    return (accounts ?? []).filter(
+      (a) => a.name.toLowerCase().includes(q) || a.code?.toLowerCase().includes(q) || a.sub_type?.toLowerCase().includes(q)
+    );
+  }, [accounts, search]);
 
   const fmt = (cents: number) =>
     (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -124,7 +134,12 @@ export function AccountsList() {
             <p className="font-display text-sm font-semibold text-foreground">All accounts</p>
             <div className="relative ml-auto w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search accounts…" className="pl-9" />
+              <Input
+                placeholder="Search accounts…"
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
 
@@ -159,8 +174,8 @@ export function AccountsList() {
                     <TableCell><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
-              ) : accounts && accounts.length > 0 ? (
-                accounts.map((account) => (
+              ) : filteredAccounts.length > 0 ? (
+                filteredAccounts.map((account) => (
                   <TableRow key={account.id}>
                     <TableCell className="numeric text-muted-foreground">{account.code}</TableCell>
                     <TableCell className="font-medium">
@@ -192,10 +207,12 @@ export function AccountsList() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>View transactions</DropdownMenuItem>
-                          <DropdownMenuItem>Edit account</DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/finance/ledger">View transactions</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled>Edit account</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">Archive account</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" disabled>Archive account</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

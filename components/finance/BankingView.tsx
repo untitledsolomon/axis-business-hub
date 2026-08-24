@@ -214,11 +214,11 @@ export function BankingView() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>Import Statement</DropdownMenuItem>
-                          <DropdownMenuItem>Reconcile</DropdownMenuItem>
+                          <DropdownMenuItem disabled>Import Statement</DropdownMenuItem>
+                          <DropdownMenuItem disabled>Reconcile</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>Edit Details</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                          <DropdownMenuItem disabled>Edit Details</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" disabled>Deactivate</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
