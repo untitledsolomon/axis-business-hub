@@ -122,6 +122,8 @@ export interface Item {
   selling_price: number;
   location?: string;
   metadata: Record<string, unknown>;
+  can_sell: boolean;
+  can_custody: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -291,4 +293,12 @@ export interface DailySale {
   updated_at: string;
   revenue_account?: { id: string; name: string; code?: string };
   received_into_account?: { id: string; name: string; code?: string };
+  item_id?: string;
+  quantity?: number;
+  unit_list_price?: number; // cents
+  unit_sale_price?: number; // cents
+  discount_amount?: number; // cents
+  discount_pct?: number;
+  item_movement_id?: string;
+  item?: { id: string; name: string; sku?: string };
 }

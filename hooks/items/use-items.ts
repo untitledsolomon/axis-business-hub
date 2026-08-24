@@ -3,6 +3,7 @@ import {
   getItems,
   getItem,
   getItemMovements,
+  getOrgItemMovements,
   createItem,
   updateItem,
   deleteItem,
@@ -33,6 +34,14 @@ export function useItemMovements(orgId: string, itemId: string) {
     queryKey: ["item-movements", orgId, itemId],
     queryFn: () => getItemMovements(orgId, itemId),
     enabled: typeof window !== "undefined" && !!orgId && !!itemId,
+  });
+}
+
+export function useOrgItemMovements(orgId: string, filters?: { from?: string; to?: string }) {
+  return useQuery({
+    queryKey: ["item-movements", orgId, "org", filters],
+    queryFn: () => getOrgItemMovements(orgId, filters),
+    enabled: typeof window !== "undefined" && !!orgId,
   });
 }
 

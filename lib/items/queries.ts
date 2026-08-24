@@ -39,6 +39,23 @@ export async function getItemMovements(orgId: string, itemId: string) {
   return data as ItemMovement[];
 }
 
+export async function getOrgItemMovements(orgId: string, filters?: { from?: string; to?: string }) {
+  const supabase = getSupabaseClient();
+  let query = supabase
+    .from("item_movements")
+    .select("*, item:items(id, name, category)")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false });
+
+  if (filters?.from) query = query.gte("created_at", filters.from);
+  if (filters?.to) query = query.lte("created_at", filters.to);
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data as (ItemMovement & { item?: { id: string; name: string; category: string } })[];
+}
+
 export async function createItem(item: Omit<Item, "id" | "created_at" | "updated_at">) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.from("items").insert(item).select().single();

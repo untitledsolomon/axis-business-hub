@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,13 +22,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccounts } from "@/hooks/finance/use-finance";
-import { useCreateDailySale } from "@/hooks/finance/use-daily-sales";
+import { useCreateDailySale, useCreateItemSale } from "@/hooks/finance/use-daily-sales";
+import { useItems } from "@/hooks/items/use-items";
 import { toast } from "sonner";
 import posthog from "posthog-js";
 import { Account } from "@/lib/types";
 
-const formSchema = z.object({
+const freeTextSchema = z.object({
   amount: z.coerce.number().positive("Amount must be greater than zero"),
   description: z.string().min(1, "Description is required"),
   sale_date: z.string().min(1, "Date is required"),
@@ -36,22 +39,45 @@ const formSchema = z.object({
   revenue_account_id: z.string().min(1, "Select a revenue account"),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+const itemSaleSchema = z.object({
+  item_id: z.string().min(1, "Select an item"),
+  quantity: z.coerce.number().int().positive("Quantity must be at least 1"),
+  unit_sale_price: z.coerce.number().min(0, "Price can't be negative"),
+  description: z.string().optional(),
+  sale_date: z.string().min(1, "Date is required"),
+  payment_method: z.enum(["cash", "bank", "mobile_money"]),
+  received_into_account_id: z.string().min(1, "Select where this was received into"),
+  revenue_account_id: z.string().min(1, "Select a revenue account"),
+});
+
+type FreeTextValues = z.infer<typeof freeTextSchema>;
+type ItemSaleValues = z.infer<typeof itemSaleSchema>;
 
 interface QuickSaleFormProps {
   orgId: string;
   onSuccess?: () => void;
 }
 
+function fmtUGX(cents: number) {
+  return `UGX ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
 export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
+  const [mode, setMode] = useState<"item" | "freeform">("item");
   const { data: accounts } = useAccounts(orgId);
+  const { data: items = [] } = useItems(orgId);
   const createDailySale = useCreateDailySale(orgId);
+  const createItemSale = useCreateItemSale(orgId);
 
   const cashBankAccounts = (accounts ?? []).filter((a: Account) => a.category === "asset");
   const revenueAccounts = (accounts ?? []).filter((a: Account) => a.category === "revenue");
+  const sellableItems = useMemo(
+    () => items.filter((item) => item.can_sell && item.status === "active"),
+    [items]
+  );
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const freeTextForm = useForm<FreeTextValues>({
+    resolver: zodResolver(freeTextSchema),
     defaultValues: {
       amount: undefined,
       description: "",
@@ -62,7 +88,61 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
     },
   });
 
-  async function onSubmit(values: FormValues) {
+  const itemForm = useForm<ItemSaleValues>({
+    resolver: zodResolver(itemSaleSchema),
+    defaultValues: {
+      item_id: "",
+      quantity: 1,
+      unit_sale_price: 0,
+      description: "",
+      sale_date: new Date().toISOString().slice(0, 10),
+      payment_method: "cash",
+      received_into_account_id: "",
+      revenue_account_id: "",
+    },
+  });
+
+  const selectedItemId = itemForm.watch("item_id");
+  const selectedItem = sellableItems.find((i) => i.id === selectedItemId);
+  const quantity = itemForm.watch("quantity") || 0;
+  const unitSalePriceUGX = itemForm.watch("unit_sale_price") || 0;
+  const unitSalePriceCents = Math.round(unitSalePriceUGX * 100);
+  const listPriceCents = selectedItem?.selling_price ?? 0;
+  const discountPerUnit = Math.max(listPriceCents - unitSalePriceCents, 0);
+  const totalDiscount = discountPerUnit * quantity;
+  const discountPct = listPriceCents > 0 ? (discountPerUnit / listPriceCents) * 100 : 0;
+  const total = unitSalePriceCents * quantity;
+
+  function handleSelectItem(itemId: string) {
+    itemForm.setValue("item_id", itemId);
+    const item = sellableItems.find((i) => i.id === itemId);
+    if (item) {
+      itemForm.setValue("unit_sale_price", item.selling_price / 100);
+    }
+  }
+
+  async function onSubmitItemSale(values: ItemSaleValues) {
+    try {
+      await createItemSale.mutateAsync({
+        item_id: values.item_id,
+        quantity: values.quantity,
+        unit_sale_price: Math.round(values.unit_sale_price * 100),
+        sale_date: values.sale_date,
+        payment_method: values.payment_method,
+        revenue_account_id: values.revenue_account_id,
+        received_into_account_id: values.received_into_account_id,
+        description: values.description,
+      });
+      posthog.capture("item_sale_logged", { quantity: values.quantity, discount_pct: discountPct });
+      itemForm.reset();
+      onSuccess?.();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to log sale";
+      toast.error(message);
+    }
+  }
+
+  async function onSubmitFreeText(values: FreeTextValues) {
     try {
       await createDailySale.mutateAsync({
         sale_date: values.sale_date,
@@ -73,7 +153,7 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
         received_into_account_id: values.received_into_account_id,
       });
       posthog.capture("daily_sale_logged", {});
-      form.reset();
+      freeTextForm.reset();
       onSuccess?.();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to log sale";
@@ -82,133 +162,332 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="amount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Amount (UGX)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="sale_date"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+    <div className="space-y-4">
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "item" | "freeform")}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="item">Sell an item</TabsTrigger>
+          <TabsTrigger value="freeform">Other sale</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea placeholder="e.g. Sticker + A4 printing, walk-ins" rows={2} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      {mode === "item" ? (
+        <Form {...itemForm}>
+          <form onSubmit={itemForm.handleSubmit(onSubmitItemSale)} className="space-y-4">
+            <FormField
+              control={itemForm.control}
+              name="item_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Item</FormLabel>
+                  <Select onValueChange={handleSelectItem} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={sellableItems.length ? "Select item" : "No sellable items"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sellableItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} — {item.current_quantity} in stock
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="payment_method"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Payment method</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+            {selectedItem && (
+              <p className="text-xs text-muted-foreground">
+                List price {fmtUGX(selectedItem.selling_price)} · {selectedItem.current_quantity} {selectedItem.unit}(s) available
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={itemForm.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantity</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={selectedItem?.current_quantity}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={itemForm.control}
+                name="unit_sale_price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price per unit (UGX)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {selectedItem && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Total</span>
+                  <span className="numeric font-mono font-semibold text-foreground">{fmtUGX(total)}</span>
+                </div>
+                {totalDiscount > 0 && (
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-muted-foreground">Discount given</span>
+                    <span className="numeric font-mono font-medium text-warning">
+                      {fmtUGX(totalDiscount)} ({discountPct.toFixed(1)}%)
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <FormField
+              control={itemForm.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Note (optional)</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select method" />
-                    </SelectTrigger>
+                    <Textarea placeholder="e.g. Sold with discount for bulk order" rows={2} {...field} />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank">Bank</SelectItem>
-                    <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="received_into_account_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Received into</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={itemForm.control}
+                name="sale_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={itemForm.control}
+                name="payment_method"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment method</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bank">Bank</SelectItem>
+                        <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={itemForm.control}
+              name="received_into_account_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Received into</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {cashBankAccounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={itemForm.control}
+              name="revenue_account_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Revenue account (Chart of Accounts)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select GL account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {revenueAccounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button
+              type="submit"
+              className="w-full bg-axis-blue hover:bg-axis-blue-light"
+              disabled={createItemSale.isPending || sellableItems.length === 0}
+            >
+              {createItemSale.isPending ? "Logging…" : "Log Sale"}
+            </Button>
+          </form>
+        </Form>
+      ) : (
+        <Form {...freeTextForm}>
+          <form onSubmit={freeTextForm.handleSubmit(onSubmitFreeText)} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={freeTextForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount (UGX)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={freeTextForm.control}
+                name="sale_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={freeTextForm.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select account" />
-                    </SelectTrigger>
+                    <Textarea placeholder="e.g. Sticker + A4 printing, walk-ins" rows={2} {...field} />
                   </FormControl>
-                  <SelectContent>
-                    {cashBankAccounts.map((acc) => (
-                      <SelectItem key={acc.id} value={acc.id}>
-                        {acc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <FormField
-          control={form.control}
-          name="revenue_account_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Revenue account (Chart of Accounts)</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select GL account" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {revenueAccounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      {acc.code} - {acc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={freeTextForm.control}
+                name="payment_method"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment method</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bank">Bank</SelectItem>
+                        <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={freeTextForm.control}
+                name="received_into_account_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Received into</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select account" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {cashBankAccounts.map((acc) => (
+                          <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-        <Button
-          type="submit"
-          className="w-full bg-axis-blue hover:bg-axis-blue-light"
-          disabled={createDailySale.isPending}
-        >
-          {createDailySale.isPending ? "Logging…" : "Log Sale"}
-        </Button>
-      </form>
-    </Form>
+            <FormField
+              control={freeTextForm.control}
+              name="revenue_account_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Revenue account (Chart of Accounts)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select GL account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {revenueAccounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>{acc.code} - {acc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button
+              type="submit"
+              className="w-full bg-axis-blue hover:bg-axis-blue-light"
+              disabled={createDailySale.isPending}
+            >
+              {createDailySale.isPending ? "Logging…" : "Log Sale"}
+            </Button>
+          </form>
+        </Form>
+      )}
+    </div>
   );
 }

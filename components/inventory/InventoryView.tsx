@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SummaryBar } from "@/components/shared/SummaryBar";
+import { InventoryAnalytics } from "@/components/inventory/InventoryAnalytics";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
@@ -155,6 +156,8 @@ export function InventoryView() {
             { label: "Low stock", value: isLoading ? "—" : String(lowStockCount), icon: <TrendingDown className="size-4" />, tone: lowStockCount > 0 ? "warning" : "default" },
           ]}
         />
+
+        <InventoryAnalytics />
 
         <section className="panel p-4">
           <div className="flex items-center justify-between gap-3 pb-3">

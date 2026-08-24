@@ -24,12 +24,17 @@ export function CustodyView() {
   const updateItem = useUpdateItem(orgId);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<Record<string, string>>({});
 
+  const custodyEligibleItems = useMemo(
+    () => items.filter((item) => item.can_custody && item.status !== "archived"),
+    [items]
+  );
+
   const custodyItems = useMemo(() => {
-    return items.filter((item) => {
+    return custodyEligibleItems.filter((item) => {
       const meta = getMeta(item);
-      return item.status !== "archived" && (meta.assigned_employee_id || meta.custody_status === "issued");
+      return meta.assigned_employee_id || meta.custody_status === "issued";
     });
-  }, [items]);
+  }, [custodyEligibleItems]);
 
   const assignedCount = custodyItems.length;
   const dueSoonCount = custodyItems.filter((item) => {
@@ -39,9 +44,9 @@ export function CustodyView() {
     const sevenDays = 1000 * 60 * 60 * 24 * 7;
     return Number.isFinite(dueDate) && dueDate - Date.now() <= sevenDays;
   }).length;
-  const availableCount = items.filter((item) => {
+  const availableCount = custodyEligibleItems.filter((item) => {
     const meta = getMeta(item);
-    return item.status !== "archived" && !meta.assigned_employee_id && meta.custody_status !== "issued";
+    return !meta.assigned_employee_id && meta.custody_status !== "issued";
   }).length;
 
   const employeeMap = useMemo(() => {
@@ -123,17 +128,17 @@ export function CustodyView() {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 ? (
+              {custodyEligibleItems.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                     <div className="space-y-2">
-                      <p>No asset assignments yet.</p>
-                      <p className="text-xs text-muted-foreground">Add stock in the inventory module to begin issuing items to staff.</p>
+                      <p>No custody-eligible items yet.</p>
+                      <p className="text-xs text-muted-foreground">Mark an item as custody-eligible from its edit form in Inventory to issue it to staff.</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                items.map((item) => {
+                custodyEligibleItems.map((item) => {
                   const meta = getMeta(item);
                   const employeeId = typeof meta.assigned_employee_id === "string" ? meta.assigned_employee_id : "";
                   const assigned = employeeMap.get(employeeId) ?? (typeof meta.assigned_employee_name === "string" ? meta.assigned_employee_name : "Unassigned");

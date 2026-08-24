@@ -3,6 +3,7 @@ import {
   getDailySales,
   getDailySale,
   createDailySale,
+  createItemSale,
   updateDailySale,
   deleteDailySale,
   DailySaleFilters,
@@ -31,6 +32,16 @@ export function useCreateDailySale(orgId: string) {
     mutationFn: (vars: Omit<Parameters<typeof createDailySale>[0], "org_id">) =>
       createDailySale({ ...vars, org_id: orgId }),
     invalidateKeys: () => [["daily-sales", orgId]],
+    successMessage: "Sale logged",
+    fallbackErrorMessage: "Failed to log sale",
+  });
+}
+
+export function useCreateItemSale(orgId: string) {
+  return useCrudMutation({
+    mutationFn: (vars: Omit<Parameters<typeof createItemSale>[0], "org_id">) =>
+      createItemSale({ ...vars, org_id: orgId }),
+    invalidateKeys: () => [["daily-sales", orgId], ["items", orgId]],
     successMessage: "Sale logged",
     fallbackErrorMessage: "Failed to log sale",
   });

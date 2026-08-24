@@ -6,6 +6,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { InventoryStatus } from "@/components/dashboard/InventoryStatus";
+import { InventoryAnalytics } from "@/components/inventory/InventoryAnalytics";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useClients } from "@/hooks/clients/use-clients";
@@ -176,6 +177,8 @@ export default function DashboardPage() {
             <InventoryStatus />
           </div>
         </div>
+
+        <InventoryAnalytics />
       </div>
     </>
   );

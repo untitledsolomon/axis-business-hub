@@ -13,7 +13,8 @@ export async function getDailySales(orgId: string, filters?: DailySaleFilters) {
     .select(`
       *,
       revenue_account:accounts!daily_sales_revenue_account_id_fkey(id, name, code),
-      received_into_account:accounts!daily_sales_received_into_account_id_fkey(id, name, code)
+      received_into_account:accounts!daily_sales_received_into_account_id_fkey(id, name, code),
+      item:items(id, name, sku)
     `)
     .eq("org_id", orgId)
     .order("sale_date", { ascending: false });
@@ -62,6 +63,34 @@ export async function createDailySale(params: {
     p_payment_method: params.payment_method,
     p_revenue_account_id: params.revenue_account_id,
     p_received_into_account_id: params.received_into_account_id,
+  });
+
+  if (error) throw error;
+  return data as string;
+}
+
+export async function createItemSale(params: {
+  org_id: string;
+  item_id: string;
+  quantity: number;
+  unit_sale_price: number; // cents
+  sale_date: string;
+  payment_method: string;
+  revenue_account_id: string;
+  received_into_account_id: string;
+  description?: string;
+}) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_item_sale_v1", {
+    p_org_id: params.org_id,
+    p_item_id: params.item_id,
+    p_quantity: params.quantity,
+    p_unit_sale_price: params.unit_sale_price,
+    p_sale_date: params.sale_date,
+    p_payment_method: params.payment_method,
+    p_revenue_account_id: params.revenue_account_id,
+    p_received_into_account_id: params.received_into_account_id,
+    p_description: params.description ?? null,
   });
 
   if (error) throw error;

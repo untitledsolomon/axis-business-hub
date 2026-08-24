@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,11 @@ const formSchema = z.object({
   cost_price: z.number().min(0),
   selling_price: z.number().min(0),
   location: z.string().optional(),
+  can_sell: z.boolean(),
+  can_custody: z.boolean(),
+}).refine((data) => data.can_sell || data.can_custody, {
+  message: "Item must be sellable, custody-eligible, or both",
+  path: ["can_sell"],
 });
 
 interface ItemFormProps {
@@ -70,6 +76,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
       cost_price: item ? item.cost_price / 100 : 0,
       selling_price: item ? item.selling_price / 100 : 0,
       location: item?.location ?? "",
+      can_sell: item?.can_sell ?? true,
+      can_custody: item?.can_custody ?? false,
     },
   });
 
@@ -86,6 +94,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
       cost_price: item ? item.cost_price / 100 : 0,
       selling_price: item ? item.selling_price / 100 : 0,
       location: item?.location ?? "",
+      can_sell: item?.can_sell ?? true,
+      can_custody: item?.can_custody ?? false,
     });
   }, [item, form]);
 
@@ -110,6 +120,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
             cost_price: cost_price_cents,
             selling_price: selling_price_cents,
             location: values.location || undefined,
+            can_sell: values.can_sell,
+            can_custody: values.can_custody,
           },
         });
       } else {
@@ -126,6 +138,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
           cost_price: cost_price_cents,
           selling_price: selling_price_cents,
           location: values.location || undefined,
+          can_sell: values.can_sell,
+          can_custody: values.can_custody,
           metadata: {},
         });
         form.reset();
@@ -317,6 +331,44 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="can_sell"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start gap-2 space-y-0">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <div className="space-y-0.5 leading-none">
+                  <FormLabel className="font-normal">Sellable</FormLabel>
+                  <p className="text-xs text-muted-foreground">Available for quick sale and invoicing</p>
+                </div>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="can_custody"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start gap-2 space-y-0">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <div className="space-y-0.5 leading-none">
+                  <FormLabel className="font-normal">Custody-eligible</FormLabel>
+                  <p className="text-xs text-muted-foreground">Can be issued to staff and tracked in Custody</p>
+                </div>
+              </FormItem>
+            )}
+          />
+          {form.formState.errors.can_sell && (
+            <p className="text-sm font-medium text-destructive sm:col-span-2">
+              {form.formState.errors.can_sell.message}
+            </p>
+          )}
         </div>
 
         <FormField
