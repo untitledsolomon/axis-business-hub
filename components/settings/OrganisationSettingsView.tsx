@@ -107,6 +107,28 @@ export function OrganisationSettingsView() {
     }
   }
 
+  async function saveInvoiceSettings() {
+    const values = form.getValues();
+    if (values.invoice_template_id === "custom" && !values.invoice_template_storage_path?.trim()) {
+      toast.error("Upload a custom HTML template first");
+      return;
+    }
+    try {
+      await updateOrg.mutateAsync({
+        orgId,
+        updates: {
+          invoice_template_id: values.invoice_template_id,
+          invoice_template_storage_path: values.invoice_template_id === "custom" ? values.invoice_template_storage_path || null : null,
+          invoice_brand_color: values.invoice_brand_color,
+        },
+      });
+      toast.success("Invoice design saved");
+    } catch (error) {
+      toast.error("Failed to save invoice design");
+      console.error(error);
+    }
+  }
+
   function previewTemplate() {
     const values = form.getValues();
     const data: InvoicePdfData = {
@@ -143,6 +165,10 @@ export function OrganisationSettingsView() {
       if (!response.ok) throw new Error(result.error ?? "Template upload failed");
       form.setValue("invoice_template_storage_path", result.path, { shouldValidate: true });
       setTemplateFile({ fileName: result.fileName, uploadedAt: result.uploadedAt });
+      await updateOrg.mutateAsync({
+        orgId,
+        updates: { invoice_template_id: "custom", invoice_template_storage_path: result.path },
+      });
       toast.success("Invoice template uploaded");
     } catch (error) { setUploadError(error instanceof Error ? error.message : "Template upload failed"); }
     finally { setUploading(false); }
@@ -166,6 +192,7 @@ export function OrganisationSettingsView() {
       if (error) throw error;
       const { data } = supabase.storage.from("organisation-logos").getPublicUrl(path);
       form.setValue("logo_url", data.publicUrl, { shouldValidate: true });
+      await updateOrg.mutateAsync({ orgId, updates: { logo_url: data.publicUrl } });
       toast.success("Organisation logo uploaded");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Logo upload failed");
@@ -235,7 +262,10 @@ export function OrganisationSettingsView() {
                     event.target.value = "";
                   }} />
                   {form.watch("logo_url") && (
-                    <button type="button" className="mt-2 text-sm text-muted-foreground underline-offset-4 hover:underline" onClick={() => form.setValue("logo_url", "")}>Remove logo</button>
+                    <button type="button" className="mt-2 text-sm text-muted-foreground underline-offset-4 hover:underline" onClick={() => {
+                      form.setValue("logo_url", "");
+                      void updateOrg.mutateAsync({ orgId, updates: { logo_url: null } });
+                    }}>Remove logo</button>
                   )}
                 </div>
               </div>
@@ -342,6 +372,9 @@ export function OrganisationSettingsView() {
               {form.formState.errors.invoice_template_storage_path?.message && <p className="mt-1 text-sm text-destructive">{form.formState.errors.invoice_template_storage_path.message}</p>}
             </div>}
             <Button type="button" variant="outline" onClick={previewTemplate}>Preview</Button>
+            <Button type="button" onClick={() => void saveInvoiceSettings()} disabled={updateOrg.isPending || uploading}>
+              {updateOrg.isPending ? "Saving..." : "Save Invoice Design"}
+            </Button>
           </div>
         </div>
       </div>
