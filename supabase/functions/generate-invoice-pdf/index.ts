@@ -1,20 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
-
-// Real PDF generation. Deno's edge runtime can't run a headless browser
-// (no Puppeteer/Chromium available), so this renders the invoice directly
-// with jsPDF's drawing primitives instead of HTML->PDF conversion. Layout
-// is intentionally simple — one page, clear sections — since the goal is a
-// correct, sendable invoice document, not pixel-matching a design mock.
+import { interpolateTemplate } from "../../../lib/invoicing/templates/interpolate.ts"
+import { BUILT_IN_TEMPLATES } from "../../../lib/invoicing/templates/registry.ts"
+import type { InvoicePdfData } from "../../../lib/invoicing/templates/types.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-}
-
-function money(cents: number, currency: string) {
-  return `${currency} ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 }
 
 serve(async (req) => {
@@ -42,7 +34,7 @@ serve(async (req) => {
         *,
         client:clients(*),
         items:invoice_items(*),
-        org:organisations(*)
+        org:organisations(name, logo_url, address, invoice_template_id, invoice_custom_html, invoice_brand_color)
       `)
       .eq('id', invoiceId)
       .single()
@@ -54,113 +46,46 @@ serve(async (req) => {
       })
     }
 
-    const doc = new jsPDF({ unit: "pt", format: "a4" })
-    const marginX = 48
-    let y = 56
-
-    // Header
-    doc.setFontSize(20).setFont("helvetica", "bold")
-    doc.text(invoice.org?.name ?? "Invoice", marginX, y)
-    doc.setFontSize(11).setFont("helvetica", "normal")
-    doc.text(`Invoice ${invoice.invoice_number}`, 545, y, { align: "right" })
-    y += 30
-
-    doc.setDrawColor(220).line(marginX, y, 547, y)
-    y += 24
-
-    // Bill to / dates
-    doc.setFontSize(9).setFont("helvetica", "bold").text("BILL TO", marginX, y)
-    doc.text("ISSUE DATE", 340, y)
-    doc.text("DUE DATE", 460, y)
-    y += 14
-
-    doc.setFontSize(11).setFont("helvetica", "normal")
-    doc.text(invoice.client?.name ?? "—", marginX, y)
-    doc.setFontSize(10)
-    doc.text(invoice.issue_date ?? "—", 340, y)
-    doc.text(invoice.due_date ?? "—", 460, y)
-    y += 14
-
-    if (invoice.client?.company_name) {
-      doc.setFontSize(10).text(invoice.client.company_name, marginX, y)
-      y += 14
+    const data: InvoicePdfData = {
+      org: { name: invoice.org?.name ?? "Invoice", logo_url: invoice.org?.logo_url ?? null, address: invoice.org?.address ?? null, brand_color: invoice.org?.invoice_brand_color ?? "#0f172a" },
+      invoice: { number: invoice.invoice_number, issue_date: invoice.issue_date, due_date: invoice.due_date, currency: invoice.currency, notes: invoice.notes ?? null },
+      client: { name: invoice.client?.name ?? "", company_name: invoice.client?.company_name ?? null, email: invoice.client?.email ?? null },
+      items: (invoice.items ?? []).map((item: { description: string; quantity: number; unit_price: number; total: number }) => ({ description: item.description, quantity: Number(item.quantity), unit_price_cents: Number(item.unit_price), total_cents: Number(item.total) })),
+      totals: { subtotal_cents: Number(invoice.subtotal), discount_cents: Number(invoice.discount_total), tax_cents: Number(invoice.tax_total), grand_total_cents: Number(invoice.grand_total) },
     }
-    if (invoice.client?.email) {
-      doc.setFontSize(10).text(invoice.client.email, marginX, y)
-      y += 14
-    }
-    y += 16
+    const templateId = invoice.org?.invoice_template_id
+    const html = templateId === "custom" && invoice.org?.invoice_custom_html
+      ? interpolateTemplate(invoice.org.invoice_custom_html, data)
+      : (BUILT_IN_TEMPLATES[templateId as keyof typeof BUILT_IN_TEMPLATES] ?? BUILT_IN_TEMPLATES.classic).render(data)
 
-    // Line items table header
-    doc.setFillColor(245, 245, 245).rect(marginX, y, 499, 22, "F")
-    doc.setFontSize(9).setFont("helvetica", "bold")
-    doc.text("DESCRIPTION", marginX + 8, y + 15)
-    doc.text("QTY", 360, y + 15, { align: "right" })
-    doc.text("UNIT PRICE", 460, y + 15, { align: "right" })
-    doc.text("TOTAL", 547, y + 15, { align: "right" })
-    y += 32
+    try {
+      const apiKey = Deno.env.get("PDFSHIFT_API_KEY")
+      if (!apiKey) throw new Error("PDFSHIFT_API_KEY is not configured")
 
-    doc.setFont("helvetica", "normal").setFontSize(10)
-    const items = invoice.items ?? []
-    for (const item of items) {
-      if (y > 720) {
-        doc.addPage()
-        y = 56
+      const pdfshiftRes = await fetch("https://api.pdfshift.io/v3/convert/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Basic ${btoa(`api:${apiKey}`)}` },
+        body: JSON.stringify({ source: html, landscape: false, format: "A4" }),
+      })
+
+      if (!pdfshiftRes.ok) {
+        throw new Error(`PDFShift returned ${pdfshiftRes.status}: ${await pdfshiftRes.text()}`)
       }
-      const lines = doc.splitTextToSize(item.description ?? "", 260)
-      doc.text(lines, marginX + 8, y)
-      doc.text(String(item.quantity), 360, y, { align: "right" })
-      doc.text(money(item.unit_price, invoice.currency), 460, y, { align: "right" })
-      doc.text(money(item.total, invoice.currency), 547, y, { align: "right" })
-      y += Math.max(16, lines.length * 13)
+      const pdfBytes = new Uint8Array(await pdfshiftRes.arrayBuffer())
+
+      return new Response(pdfBytes, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${invoice.invoice_number}.pdf"`,
+        },
+      })
+    } catch (err) {
+      return new Response(JSON.stringify({ error: `PDFShift request failed: ${err instanceof Error ? err.message : "network error"}` }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
     }
-
-    y += 8
-    doc.setDrawColor(220).line(marginX, y, 547, y)
-    y += 20
-
-    // Totals
-    const totalsX = 460
-    doc.setFontSize(10).setFont("helvetica", "normal")
-    doc.text("Subtotal", totalsX, y, { align: "right" })
-    doc.text(money(invoice.subtotal, invoice.currency), 547, y, { align: "right" })
-    y += 16
-
-    if (invoice.discount_total > 0) {
-      doc.text("Discount", totalsX, y, { align: "right" })
-      doc.text(`-${money(invoice.discount_total, invoice.currency)}`, 547, y, { align: "right" })
-      y += 16
-    }
-    if (invoice.tax_total > 0) {
-      doc.text("Tax", totalsX, y, { align: "right" })
-      doc.text(money(invoice.tax_total, invoice.currency), 547, y, { align: "right" })
-      y += 16
-    }
-
-    doc.setDrawColor(220).line(totalsX - 20, y, 547, y)
-    y += 16
-    doc.setFontSize(12).setFont("helvetica", "bold")
-    doc.text("Total", totalsX, y, { align: "right" })
-    doc.text(money(invoice.grand_total, invoice.currency), 547, y, { align: "right" })
-    y += 30
-
-    if (invoice.notes) {
-      doc.setFontSize(9).setFont("helvetica", "bold").text("NOTES", marginX, y)
-      y += 14
-      doc.setFont("helvetica", "normal").setFontSize(10)
-      const noteLines = doc.splitTextToSize(invoice.notes, 499)
-      doc.text(noteLines, marginX, y)
-    }
-
-    const pdfBytes = doc.output("arraybuffer")
-
-    return new Response(pdfBytes, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${invoice.invoice_number}.pdf"`,
-      },
-    })
   } catch (err) {
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "PDF generation failed" }), {
       status: 500,
