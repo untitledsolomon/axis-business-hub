@@ -1,17 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
+import { renderInvoicePdf } from "../_shared/invoice-pdf.ts"
 
 // Sends the invoice to the client's email via Resend, with the PDF
 // attached. Requires RESEND_API_KEY to be set as a Supabase Edge Function
 // secret (`supabase secrets set RESEND_API_KEY=...`) — this function fails
 // clearly if it isn't configured rather than silently pretending to send.
 //
-// PDF generation is duplicated from generate-invoice-pdf rather than
-// calling that function internally, since edge functions calling edge
-// functions adds latency/auth complexity for no real benefit here — both
-// stay small and simple to read independently.
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -21,66 +16,12 @@ function money(cents: number, currency: string) {
   return `${currency} ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 }
 
-function buildInvoicePdfBase64(invoice: Record<string, unknown> & {
-  invoice_number: string;
-  issue_date: string;
-  due_date: string;
-  currency: string;
-  grand_total: number;
-  org?: { name?: string };
-  client?: { name?: string };
-  items?: Array<{ description?: string; quantity: number; unit_price: number; total: number }>;
-}): string {
-  const doc = new jsPDF({ unit: "pt", format: "a4" })
-  const marginX = 48
-  let y = 56
-
-  doc.setFontSize(20).setFont("helvetica", "bold")
-  doc.text(invoice.org?.name ?? "Invoice", marginX, y)
-  doc.setFontSize(11).setFont("helvetica", "normal")
-  doc.text(`Invoice ${invoice.invoice_number}`, 545, y, { align: "right" })
-  y += 30
-  doc.setDrawColor(220).line(marginX, y, 547, y)
-  y += 24
-
-  doc.setFontSize(9).setFont("helvetica", "bold").text("BILL TO", marginX, y)
-  doc.text("ISSUE DATE", 340, y)
-  doc.text("DUE DATE", 460, y)
-  y += 14
-  doc.setFontSize(11).setFont("helvetica", "normal")
-  doc.text(invoice.client?.name ?? "—", marginX, y)
-  doc.setFontSize(10)
-  doc.text(invoice.issue_date ?? "—", 340, y)
-  doc.text(invoice.due_date ?? "—", 460, y)
-  y += 24
-
-  doc.setFillColor(245, 245, 245).rect(marginX, y, 499, 22, "F")
-  doc.setFontSize(9).setFont("helvetica", "bold")
-  doc.text("DESCRIPTION", marginX + 8, y + 15)
-  doc.text("QTY", 360, y + 15, { align: "right" })
-  doc.text("UNIT PRICE", 460, y + 15, { align: "right" })
-  doc.text("TOTAL", 547, y + 15, { align: "right" })
-  y += 32
-
-  doc.setFont("helvetica", "normal").setFontSize(10)
-  for (const item of invoice.items ?? []) {
-    if (y > 720) { doc.addPage(); y = 56 }
-    const lines = doc.splitTextToSize(item.description ?? "", 260)
-    doc.text(lines, marginX + 8, y)
-    doc.text(String(item.quantity), 360, y, { align: "right" })
-    doc.text(money(item.unit_price, invoice.currency), 460, y, { align: "right" })
-    doc.text(money(item.total, invoice.currency), 547, y, { align: "right" })
-    y += Math.max(16, lines.length * 13)
+function toBase64(bytes: Uint8Array): string {
+  let binary = ""
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
   }
-
-  y += 8
-  doc.setDrawColor(220).line(marginX, y, 547, y)
-  y += 20
-  doc.setFontSize(12).setFont("helvetica", "bold")
-  doc.text("Total", 460, y, { align: "right" })
-  doc.text(money(invoice.grand_total, invoice.currency), 547, y, { align: "right" })
-
-  return doc.output("datauristring").split(",")[1] // strip the data: prefix, keep base64
+  return btoa(binary)
 }
 
 serve(async (req) => {
@@ -130,7 +71,7 @@ serve(async (req) => {
       })
     }
 
-    const pdfBase64 = buildInvoicePdfBase64(invoice)
+    const pdfBase64 = toBase64(await renderInvoicePdf(invoice, supabase))
     const orgName = invoice.org?.name ?? "Your supplier"
 
     const emailHtml = `
