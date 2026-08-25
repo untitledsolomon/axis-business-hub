@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -16,8 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { interpolateTemplate, validateCustomTemplate } from "@/lib/invoicing/templates/interpolate";
+import { validateCustomTemplate, interpolateTemplate } from "@/lib/invoicing/templates/interpolate";
 import { BUILT_IN_TEMPLATES } from "@/lib/invoicing/templates/registry";
 import type { InvoicePdfData } from "@/lib/invoicing/templates/types";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -31,14 +30,11 @@ const formSchema = z.object({
   base_currency: z.string().min(1, "Currency is required"),
   country: z.string().min(1, "Country is required"),
   invoice_template_id: z.enum(["classic", "modern", "minimal", "custom"]),
-  invoice_custom_html: z.string().optional(),
+  invoice_template_storage_path: z.string().optional(),
   invoice_brand_color: z.string().regex(/^#[0-9a-f]{6}$/i, "Use a valid hex colour"),
 }).superRefine((values, context) => {
-  if (values.invoice_template_id === "custom" && !values.invoice_custom_html?.trim()) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["invoice_custom_html"], message: "A custom HTML template is required." });
-  } else if (values.invoice_template_id === "custom" && values.invoice_custom_html) {
-    const error = validateCustomTemplate(values.invoice_custom_html);
-    if (error) context.addIssue({ code: z.ZodIssueCode.custom, path: ["invoice_custom_html"], message: error });
+  if (values.invoice_template_id === "custom" && !values.invoice_template_storage_path?.trim()) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["invoice_template_storage_path"], message: "Upload a custom HTML template first." });
   }
 });
 
@@ -48,6 +44,9 @@ export function OrganisationSettingsView() {
   const { data: org, isLoading } = useOrganisation(orgId);
   const updateOrg = useUpdateOrganisation();
   const updateInvoiceSettings = useUpdateInvoiceTemplateSettings();
+  const [templateFile, setTemplateFile] = useState<{ fileName: string; uploadedAt: string | null } | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -59,7 +58,7 @@ export function OrganisationSettingsView() {
       base_currency: "UGX",
       country: "Uganda",
       invoice_template_id: "classic",
-      invoice_custom_html: "",
+      invoice_template_storage_path: "",
       invoice_brand_color: "#0f172a",
     },
   });
@@ -74,21 +73,27 @@ export function OrganisationSettingsView() {
         base_currency: org.base_currency,
         country: org.country,
         invoice_template_id: (org.invoice_template_id as "classic" | "modern" | "minimal" | "custom") ?? "classic",
-        invoice_custom_html: org.invoice_custom_html ?? "",
+        invoice_template_storage_path: org.invoice_template_storage_path ?? "",
         invoice_brand_color: org.invoice_brand_color ?? "#0f172a",
       });
+      if (org.invoice_template_storage_path) {
+        fetch(`/api/invoice-template?orgId=${encodeURIComponent(orgId)}`)
+          .then((response) => response.ok ? response.json() : null)
+          .then((file) => file?.fileName && setTemplateFile({ fileName: file.fileName, uploadedAt: file.uploadedAt }))
+          .catch(() => undefined);
+      }
     }
-  }, [org, form]);
+  }, [org, orgId, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const { invoice_template_id, invoice_custom_html, invoice_brand_color, ...profileUpdates } = values;
+      const { invoice_template_id, invoice_template_storage_path, invoice_brand_color, ...profileUpdates } = values;
       await updateOrg.mutateAsync({ orgId, updates: profileUpdates });
       await updateInvoiceSettings.mutateAsync({
         orgId,
         settings: {
           templateId: invoice_template_id,
-          customHtml: invoice_custom_html || null,
+          storagePath: invoice_template_storage_path || null,
           brandColor: invoice_brand_color,
         },
       });
@@ -108,13 +113,36 @@ export function OrganisationSettingsView() {
       items: [{ description: "Sample service", quantity: 2, unit_price_cents: 25000, total_cents: 50000 }],
       totals: { subtotal_cents: 50000, discount_cents: 0, tax_cents: 0, grand_total_cents: 50000 },
     };
-    const template = values.invoice_template_id === "custom" && values.invoice_custom_html
-      ? Promise.resolve(interpolateTemplate(values.invoice_custom_html, data))
+    const preview = values.invoice_template_id === "custom" && values.invoice_template_storage_path
+      ? fetch(`/api/invoice-template?orgId=${encodeURIComponent(orgId)}&content=true`).then((response) => response.json()).then((result) => {
+        if (!result.html) throw new Error(result.error ?? "Unable to load the uploaded template");
+        return interpolateTemplate(result.html, data);
+      })
       : Promise.resolve((BUILT_IN_TEMPLATES[values.invoice_template_id as keyof typeof BUILT_IN_TEMPLATES] ?? BUILT_IN_TEMPLATES.classic).render(data));
-    template.then((html) => {
+    preview.then((html) => {
       const previewWindow = window.open("", "invoice-preview");
       if (previewWindow) { previewWindow.document.write(html); previewWindow.document.close(); }
-    });
+    }).catch((error) => toast.error(error instanceof Error ? error.message : "Unable to preview template"));
+  }
+
+  async function uploadTemplate(file: File) {
+    setUploadError(null);
+    if (file.size > 500 * 1024) { setUploadError("Template files must be 500KB or smaller."); return; }
+    if (!/\.html?$/i.test(file.name)) { setUploadError("Only .html and .htm files are allowed."); return; }
+    const html = await file.text();
+    const validationError = validateCustomTemplate(html);
+    if (validationError) { setUploadError(validationError); return; }
+    setUploading(true);
+    try {
+      const body = new FormData(); body.append("orgId", orgId); body.append("file", file);
+      const response = await fetch("/api/invoice-template", { method: "POST", body });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Template upload failed");
+      form.setValue("invoice_template_storage_path", result.path, { shouldValidate: true });
+      setTemplateFile({ fileName: result.fileName, uploadedAt: result.uploadedAt });
+      toast.success("Invoice template uploaded");
+    } catch (error) { setUploadError(error instanceof Error ? error.message : "Template upload failed"); }
+    finally { setUploading(false); }
   }
 
   if (isLoading) {
@@ -255,10 +283,12 @@ export function OrganisationSettingsView() {
               <Input id="invoice_brand_color" type="color" className="mt-2 h-10 w-20 p-1" disabled={form.watch("invoice_template_id") === "custom"} {...form.register("invoice_brand_color")} />
             </div>
             {form.watch("invoice_template_id") === "custom" && <div>
-              <label className="text-sm font-medium" htmlFor="invoice_custom_html">Custom HTML template</label>
-              <Textarea id="invoice_custom_html" className="mt-2 min-h-52 font-mono text-xs" placeholder="<!doctype html>..." {...form.register("invoice_custom_html")} />
-              <p className="mt-2 text-xs text-muted-foreground">Use the org, invoice, client, totals, and items placeholders described in the template guide. Script tags and inline event handlers are blocked.</p>
-              {form.formState.errors.invoice_custom_html?.message && <p className="mt-1 text-sm text-destructive">{form.formState.errors.invoice_custom_html.message}</p>}
+              <label className="text-sm font-medium" htmlFor="invoice_template_file">Custom HTML template</label>
+              <Input id="invoice_template_file" type="file" accept=".html,.htm" className="mt-2" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadTemplate(file); event.target.value = ""; }} />
+              <p className="mt-2 text-xs text-muted-foreground">Upload an HTML file up to 500KB. Script tags and inline event handlers are blocked.</p>
+              {templateFile && <p className="mt-1 text-xs text-muted-foreground">{templateFile.fileName}{templateFile.uploadedAt ? `, uploaded ${new Date(templateFile.uploadedAt).toLocaleDateString()}` : ""}</p>}
+              {uploadError && <p className="mt-1 text-sm text-destructive">{uploadError}</p>}
+              {form.formState.errors.invoice_template_storage_path?.message && <p className="mt-1 text-sm text-destructive">{form.formState.errors.invoice_template_storage_path.message}</p>}
             </div>}
             <Button type="button" variant="outline" onClick={previewTemplate}>Preview</Button>
           </div>

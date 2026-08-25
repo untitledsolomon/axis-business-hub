@@ -34,7 +34,7 @@ serve(async (req) => {
         *,
         client:clients(*),
         items:invoice_items(*),
-        org:organisations(name, logo_url, address, invoice_template_id, invoice_custom_html, invoice_brand_color)
+        org:organisations(name, logo_url, address, invoice_template_id, invoice_template_storage_path, invoice_brand_color)
       `)
       .eq('id', invoiceId)
       .single()
@@ -54,9 +54,17 @@ serve(async (req) => {
       totals: { subtotal_cents: Number(invoice.subtotal), discount_cents: Number(invoice.discount_total), tax_cents: Number(invoice.tax_total), grand_total_cents: Number(invoice.grand_total) },
     }
     const templateId = invoice.org?.invoice_template_id
-    const html = templateId === "custom" && invoice.org?.invoice_custom_html
-      ? interpolateTemplate(invoice.org.invoice_custom_html, data)
-      : (BUILT_IN_TEMPLATES[templateId as keyof typeof BUILT_IN_TEMPLATES] ?? BUILT_IN_TEMPLATES.classic).render(data)
+    let html = (BUILT_IN_TEMPLATES[templateId as keyof typeof BUILT_IN_TEMPLATES] ?? BUILT_IN_TEMPLATES.classic).render(data)
+    if (templateId === "custom" && invoice.org?.invoice_template_storage_path) {
+      const { data: templateFile, error: templateError } = await supabase.storage
+        .from("invoice-templates")
+        .download(invoice.org.invoice_template_storage_path)
+      if (templateError || !templateFile) {
+        console.warn("Invoice template file missing; falling back to classic template", templateError)
+      } else {
+        html = interpolateTemplate(await templateFile.text(), data)
+      }
+    }
 
     try {
       const apiKey = Deno.env.get("PDFSHIFT_API_KEY")
