@@ -112,7 +112,7 @@ export function OrganisationSettingsView() {
     const data: InvoicePdfData = {
       org: { name: org?.name ?? "Organisation", logo_url: values.logo_url || org?.logo_url || null, address: org?.address ?? null, brand_color: values.invoice_brand_color },
       invoice: { number: "PREVIEW-001", issue_date: new Date().toISOString().slice(0, 10), due_date: new Date().toISOString().slice(0, 10), currency: org?.base_currency ?? "UGX", notes: "Thank you for your business." },
-      client: { name: "Sample Client", company_name: "Sample Company", email: "client@example.com" },
+      client: { name: "Sample Client", company_name: "Sample Company", email: "client@example.com", phone: null },
       items: [{ description: "Sample service", quantity: 2, unit_price_cents: 25000, total_cents: 50000 }],
       totals: { subtotal_cents: 50000, discount_cents: 0, tax_cents: 0, grand_total_cents: 50000 },
     };

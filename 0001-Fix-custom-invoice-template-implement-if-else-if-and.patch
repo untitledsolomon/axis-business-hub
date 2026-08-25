@@ -1,0 +1,87 @@
+From 8763caa66d5d0ea349db511cc8f153b00a21f54e Mon Sep 17 00:00:00 2001
+From: Assistant <assistant@regent.local>
+Date: Tue, 25 Aug 2026 14:26:51 +0000
+Subject: [PATCH] Fix custom invoice template: implement
+ {{#if}}/{{else}}/{{/if}} and add client.phone field
+
+- interpolateTemplate never handled {{#if}}...{{else}}...{{/if}} blocks,
+  causing both branches (logo and fallback name) to render simultaneously
+  in custom templates.
+- client.phone was missing from InvoicePdfData, fieldValues(), and the
+  edge function's data mapping, so {{client.phone}} always rendered blank.
+---
+ lib/invoicing/templates/interpolate.ts        | 22 +++++++++++++++++--
+ lib/invoicing/templates/types.ts              |  2 +-
+ .../functions/generate-invoice-pdf/index.ts   |  2 +-
+ 3 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/lib/invoicing/templates/interpolate.ts b/lib/invoicing/templates/interpolate.ts
+index b8e2562..ed6cc2b 100644
+--- a/lib/invoicing/templates/interpolate.ts
++++ b/lib/invoicing/templates/interpolate.ts
+@@ -12,16 +12,34 @@ const fieldValues = (data: InvoicePdfData) => ({
+   "org.name": data.org.name, "org.logo_url": data.org.logo_url, "org.address": data.org.address,
+   "invoice.number": data.invoice.number, "invoice.issue_date": data.invoice.issue_date,
+   "invoice.due_date": data.invoice.due_date, "invoice.notes": data.invoice.notes,
+-  "client.name": data.client.name, "client.company_name": data.client.company_name, "client.email": data.client.email,
++  "client.name": data.client.name, "client.company_name": data.client.company_name, "client.email": data.client.email, "client.phone": data.client.phone,
+   "totals.subtotal": money(data.totals.subtotal_cents, data.invoice.currency),
+   "totals.tax": money(data.totals.tax_cents, data.invoice.currency),
+   "totals.discount": money(data.totals.discount_cents, data.invoice.currency),
+   "totals.grand_total": money(data.totals.grand_total_cents, data.invoice.currency),
+ });
+ 
++function resolveConditionals(html: string, values: Record<string, string | null | undefined>): string {
++  // Handles {{#if field}}truthy{{else}}falsy{{/if}} and {{#if field}}truthy{{/if}}
++  // Non-greedy match, run repeatedly to support sibling (not nested) conditionals.
++  const ifRe = /\{\{#if\s+([\w.]+)\}\}([\s\S]*?)(?:\{\{else\}\}([\s\S]*?))?\{\{\/if\}\}/;
++  let result = html;
++  let guard = 0;
++  while (ifRe.test(result) && guard < 100) {
++    result = result.replace(ifRe, (_match, key: string, truthyBlock: string, falsyBlock = "") => {
++      const val = values[key];
++      const isTruthy = val !== null && val !== undefined && val !== "";
++      return isTruthy ? truthyBlock : falsyBlock;
++    });
++    guard++;
++  }
++  return result;
++}
++
+ export function interpolateTemplate(html: string, data: InvoicePdfData): string {
+   const values = fieldValues(data);
+-  const withItems = html.replace(/\{\{#each items\}\}([\s\S]*?)\{\{\/each\}\}/g, (_, block: string) =>
++  const withConditionals = resolveConditionals(html, values);
++  const withItems = withConditionals.replace(/\{\{#each items\}\}([\s\S]*?)\{\{\/each\}\}/g, (_, block: string) =>
+     data.items.map((item) => block.replace(/\{\{\s*(description|quantity|unit_price|total)\s*\}\}/g, (_match, key: string) =>
+       escapeHtml(key === "description" ? item.description : key === "quantity" ? item.quantity : key === "unit_price" ? money(item.unit_price_cents, data.invoice.currency) : money(item.total_cents, data.invoice.currency))
+     )).join("")
+diff --git a/lib/invoicing/templates/types.ts b/lib/invoicing/templates/types.ts
+index a7b05b1..6e6daec 100644
+--- a/lib/invoicing/templates/types.ts
++++ b/lib/invoicing/templates/types.ts
+@@ -1,7 +1,7 @@
+ export interface InvoicePdfData {
+   org: { name: string; logo_url: string | null; address: string | null; brand_color: string };
+   invoice: { number: string; issue_date: string; due_date: string; currency: string; notes: string | null };
+-  client: { name: string; company_name: string | null; email: string | null };
++  client: { name: string; company_name: string | null; email: string | null; phone: string | null };
+   items: { description: string; quantity: number; unit_price_cents: number; total_cents: number }[];
+   totals: { subtotal_cents: number; discount_cents: number; tax_cents: number; grand_total_cents: number };
+ }
+diff --git a/supabase/functions/generate-invoice-pdf/index.ts b/supabase/functions/generate-invoice-pdf/index.ts
+index bba8384..6dfc415 100644
+--- a/supabase/functions/generate-invoice-pdf/index.ts
++++ b/supabase/functions/generate-invoice-pdf/index.ts
+@@ -49,7 +49,7 @@ serve(async (req) => {
+     const data: InvoicePdfData = {
+       org: { name: invoice.org?.name ?? "Invoice", logo_url: invoice.org?.logo_url ?? null, address: invoice.org?.address ?? null, brand_color: invoice.org?.invoice_brand_color ?? "#0f172a" },
+       invoice: { number: invoice.invoice_number, issue_date: invoice.issue_date, due_date: invoice.due_date, currency: invoice.currency, notes: invoice.notes ?? null },
+-      client: { name: invoice.client?.name ?? "", company_name: invoice.client?.company_name ?? null, email: invoice.client?.email ?? null },
++      client: { name: invoice.client?.name ?? "", company_name: invoice.client?.company_name ?? null, email: invoice.client?.email ?? null, phone: invoice.client?.phone ?? null },
+       items: (invoice.items ?? []).map((item: { description: string; quantity: number; unit_price: number; total: number }) => ({ description: item.description, quantity: Number(item.quantity), unit_price_cents: Number(item.unit_price), total_cents: Number(item.total) })),
+       totals: { subtotal_cents: Number(invoice.subtotal), discount_cents: Number(invoice.discount_total), tax_cents: Number(invoice.tax_total), grand_total_cents: Number(invoice.grand_total) },
+     }
+-- 
+2.43.0
+
