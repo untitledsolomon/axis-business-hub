@@ -111,66 +111,50 @@ export function EmployeeDetail({ employeeId }: EmployeeDetailProps) {
         actions={<EmployeeActions orgId={orgId} employee={employee} showViewDetails={false} />}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className="panel p-5 lg:col-span-2">
-          <div className="mb-4 flex items-center gap-3">
-            <Avatar className="size-12">
+      <section className="panel p-5">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+          <label className="group relative size-24 shrink-0 cursor-pointer overflow-hidden rounded-2xl bg-primary-soft shadow-sm ring-1 ring-border">
+            <Avatar className="size-full rounded-2xl">
               {employee.photo_url && <AvatarImage src={employee.photo_url} alt={employee.full_name} />}
-              <AvatarFallback className="bg-primary-soft text-sm text-primary">
+              <AvatarFallback className="rounded-2xl bg-primary-soft text-2xl text-primary">
                 {initials(employee.full_name)}
               </AvatarFallback>
             </Avatar>
-            <label className="cursor-pointer text-xs text-primary hover:underline">
-              <Camera className="mr-1 inline size-3.5" /> Update photo
-              <input className="sr-only" type="file" accept="image/*" onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                const path = `${orgId}/${employee.id}/${crypto.randomUUID()}-${file.name}`;
-                const supabase = (await import("@/lib/supabase/client")).createClient();
-                const upload = await supabase.storage.from("employee-photos").upload(path, file, { upsert: true });
-                if (upload.error) { toast.error(upload.error.message); return; }
-                const { data } = supabase.storage.from("employee-photos").getPublicUrl(path);
-                await updateEmployee.mutateAsync({ id: employee.id, updates: { photo_url: data.publicUrl } });
-                toast.success("Employee photo updated");
-              }} />
-            </label>
-            <div>
-              <p className="font-semibold text-foreground">{employee.full_name}</p>
+            <span className="absolute inset-0 flex items-center justify-center bg-foreground/60 text-background opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <Camera className="size-6" />
+              <span className="sr-only">Update photo</span>
+            </span>
+            <input className="sr-only" type="file" accept="image/*" onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              const path = `${orgId}/${employee.id}/${crypto.randomUUID()}-${file.name}`;
+              const supabase = (await import("@/lib/supabase/client")).createClient();
+              const upload = await supabase.storage.from("employee-photos").upload(path, file, { upsert: true });
+              if (upload.error) { toast.error(upload.error.message); return; }
+              const { data } = supabase.storage.from("employee-photos").getPublicUrl(path);
+              await updateEmployee.mutateAsync({ id: employee.id, updates: { photo_url: data.publicUrl } });
+              toast.success("Employee photo updated");
+              event.target.value = "";
+            }} />
+          </label>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="font-display text-xl font-semibold text-foreground">{employee.full_name}</h2>
               <StatusBadge status={employee.status} />
             </div>
-          </div>
-
-          <div className="space-y-3 text-sm">
-            {employee.email && (
-              <div className="flex justify-between border-b border-border pb-3">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="size-4" /> Email
-                </span>
-                <span className="text-foreground">{employee.email}</span>
-              </div>
-            )}
-            {employee.phone && (
-              <div className="flex justify-between border-b border-border pb-3">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="size-4" /> Phone
-                </span>
-                <span className="text-foreground">{employee.phone}</span>
-              </div>
-            )}
-            <div className="flex justify-between border-b border-border pb-3">
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <Briefcase className="size-4" /> Department
-              </span>
-              <span className="text-foreground">{employee.department || "—"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Hire Date</span>
-              <span className="numeric text-foreground">{formatShortDate(employee.hire_date)}</span>
+            <p className="mt-1 text-sm text-muted-foreground">{employee.role}</p>
+            <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+              {employee.email && <div className="min-w-0"><p className="text-xs text-muted-foreground">Email</p><p className="mt-1 flex min-w-0 items-center gap-2 truncate text-foreground"><Mail className="size-3.5 shrink-0 text-muted-foreground" />{employee.email}</p></div>}
+              {employee.phone && <div><p className="text-xs text-muted-foreground">Phone</p><p className="mt-1 flex items-center gap-2 text-foreground"><Phone className="size-3.5 shrink-0 text-muted-foreground" />{employee.phone}</p></div>}
+              <div><p className="text-xs text-muted-foreground">Department</p><p className="mt-1 flex items-center gap-2 text-foreground"><Briefcase className="size-3.5 shrink-0 text-muted-foreground" />{employee.department || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Hire date</p><p className="numeric mt-1 text-foreground">{formatShortDate(employee.hire_date)}</p></div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="panel p-5">
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <section className="panel p-5 lg:col-span-1">
           <h2 className="text-sm font-semibold text-foreground">Notes</h2>
           <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
             {employee.notes || "No notes on file."}

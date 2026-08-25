@@ -13,10 +13,12 @@ export interface ActivityLog {
   profile?: { full_name: string | null; email: string | null } | null;
 }
 
-export async function getActivityLog(orgId: string, limit = 25, offset = 0) {
-  const { data, error } = await createClient().from("audit_log")
+export async function getActivityLog(orgId: string, limit = 25, offset = 0, tableName?: string) {
+  let query = createClient().from("audit_log")
     .select("*, profile:profiles!user_id(full_name,email)")
-    .eq("org_id", orgId).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    .eq("org_id", orgId);
+  if (tableName) query = query.eq("table_name", tableName);
+  const { data, error } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (error) throw error;
   return (data ?? []) as ActivityLog[];
 }

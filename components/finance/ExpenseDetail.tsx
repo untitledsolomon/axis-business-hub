@@ -160,6 +160,13 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
+        <section className="panel p-5 lg:col-span-3">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div><p className="text-xs text-muted-foreground">Amount</p><p className="numeric mt-1 text-2xl font-semibold text-foreground">UGX {(expense.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+            <div><p className="text-xs text-muted-foreground">Category</p><p className="mt-1 text-lg font-semibold capitalize text-foreground">{CATEGORY_LABELS[expense.category] || expense.category}</p></div>
+            <div><p className="text-xs text-muted-foreground">Recorded</p><p className="numeric mt-1 text-lg font-semibold text-foreground">{formatShortDate(expense.expense_date)}</p></div>
+          </div>
+        </section>
         <section className="panel p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Details</h2>

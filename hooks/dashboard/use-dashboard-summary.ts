@@ -101,10 +101,15 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
       (entry.lines ?? []).forEach((line) => {
         const category = line.account?.category;
         const debit = line.debit ?? 0;
+        const credit = line.credit ?? 0;
 
         if (category === "expense") {
           if (isCurrent) expenseCurrent += debit;
           else expensePrevious += debit;
+        }
+        if (category === "revenue") {
+          if (isCurrent) incomeCurrent += credit;
+          else incomePrevious += credit;
         }
       });
     });

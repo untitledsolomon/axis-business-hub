@@ -128,6 +128,13 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
+        <section className="panel p-5 lg:col-span-3">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div><p className="text-xs text-muted-foreground">Sale total</p><p className="numeric mt-1 text-2xl font-semibold text-foreground">UGX {(sale.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+            <div><p className="text-xs text-muted-foreground">Payment method</p><p className="mt-1 text-lg font-semibold capitalize text-foreground">{sale.payment_method.replace("_", " ")}</p></div>
+            <div><p className="text-xs text-muted-foreground">Quantity</p><p className="numeric mt-1 text-lg font-semibold text-foreground">{sale.quantity ?? "—"}</p></div>
+          </div>
+        </section>
         <section className="panel p-5 lg:col-span-2">
           <h2 className="mb-4 text-sm font-semibold text-foreground">Details</h2>
           <div className="space-y-3 text-sm">

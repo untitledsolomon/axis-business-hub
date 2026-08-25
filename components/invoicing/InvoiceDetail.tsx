@@ -105,6 +105,13 @@ export function InvoiceDetail({ invoiceId }: InvoiceDetailProps) {
           <StatusBadge status={invoice.status} />
         </div>
 
+        <section className="panel grid gap-4 p-5 sm:grid-cols-4">
+          <div><p className="text-xs text-muted-foreground">Invoice total</p><p className="numeric mt-1 text-xl font-semibold text-foreground">{fmtMoney(invoice.grand_total, invoice.currency)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Subtotal</p><p className="numeric mt-1 text-lg font-semibold text-foreground">{fmtMoney(invoice.subtotal, invoice.currency)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Tax</p><p className="numeric mt-1 text-lg font-semibold text-foreground">{fmtMoney(invoice.tax_total, invoice.currency)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Line items</p><p className="numeric mt-1 text-lg font-semibold text-foreground">{invoice.items?.length ?? 0}</p></div>
+        </section>
+
         <div className="grid gap-4 lg:grid-cols-3">
           <section className="panel p-5 lg:col-span-2">
             <h2 className="text-sm font-semibold text-foreground">Line items</h2>

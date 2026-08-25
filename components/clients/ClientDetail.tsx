@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useClient } from "@/hooks/clients/use-clients";
 import { useInvoicesByClient } from "@/hooks/invoicing/use-invoices";
+import { getClientDocumentUrl, useClientDocuments, useDeleteClientDocument, useUploadClientDocument } from "@/hooks/clients/use-client-documents";
 import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,8 +28,11 @@ import {
   MapPin,
   FileText,
   Plus,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { formatShortDate } from "@/lib/format-date";
+import { toast } from "sonner";
 
 interface ClientDetailProps {
   clientId: string;
@@ -41,6 +45,10 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
 
   const { data: client, isLoading, isError, refetch } = useClient(orgId, clientId);
   const { data: invoices, isLoading: invoicesLoading } = useInvoicesByClient(orgId, clientId);
+  const { data: documents = [], isLoading: documentsLoading } = useClientDocuments(orgId, clientId);
+  const uploadDocument = useUploadClientDocument(orgId, clientId);
+  const deleteDocument = useDeleteClientDocument(orgId, clientId);
+  const [documentType, setDocumentType] = useState("other");
 
   useEffect(() => {
     setMounted(true);
@@ -121,6 +129,12 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
         <div>
           <StatusBadge status={client.status} />
         </div>
+
+        <section className="panel grid gap-4 p-5 sm:grid-cols-3">
+          <div><p className="text-xs text-muted-foreground">Lifetime invoiced</p><p className="numeric mt-1 text-xl font-semibold text-foreground">{client.currency} {(totals.total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+          <div><p className="text-xs text-muted-foreground">Paid to date</p><p className="numeric mt-1 text-xl font-semibold text-success">{client.currency} {(totals.paid / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+          <div><p className="text-xs text-muted-foreground">Invoices</p><p className="numeric mt-1 text-xl font-semibold text-foreground">{invoices?.length ?? 0}</p></div>
+        </section>
 
         <div className="grid gap-4 lg:grid-cols-3">
           <section className="panel p-5 lg:col-span-2">
@@ -267,6 +281,17 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
           </section>
         </div>
       </div>
+
+      <section className="panel mt-4 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-sm font-semibold text-foreground">Documents</h2><p className="text-xs text-muted-foreground">Contracts, agreements, and client records.</p></div>
+          <div className="flex items-center gap-2">
+            <select className="h-9 rounded-md border border-border bg-background px-2 text-sm" value={documentType} onChange={(event) => setDocumentType(event.target.value)} aria-label="Document type"><option value="other">Other</option><option value="contract">Contract</option><option value="agreement">Agreement</option><option value="tax">Tax document</option></select>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90"><FileText className="size-4" /> Upload<input className="sr-only" type="file" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { await uploadDocument.mutateAsync({ file, documentType }); toast.success("Document uploaded"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not upload document"); } event.target.value = ""; }} /></label>
+          </div>
+        </div>
+        <div className="mt-4 divide-y divide-border">{documentsLoading ? <Skeleton className="h-10 w-full" /> : documents.length === 0 ? <p className="text-sm text-muted-foreground">No documents uploaded yet.</p> : documents.map((document) => <div key={document.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{document.file_name}</p><p className="text-xs text-muted-foreground">{document.document_type} · {formatShortDate(document.uploaded_at)}</p></div><div className="flex shrink-0 gap-1"><Button variant="ghost" size="icon" aria-label={`Open ${document.file_name}`} onClick={async () => { try { window.open(await getClientDocumentUrl(document.file_url), "_blank", "noopener,noreferrer"); } catch { toast.error("Could not open document"); } }}><ExternalLink className="size-4" /></Button><Button variant="ghost" size="icon" aria-label={`Delete ${document.file_name}`} onClick={async () => { try { await deleteDocument.mutateAsync(document); toast.success("Document deleted"); } catch { toast.error("Could not delete document"); } }}><Trash2 className="size-4 text-destructive" /></Button></div></div>)}</div>
+      </section>
     </>
   );
 }
