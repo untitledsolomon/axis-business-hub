@@ -2,21 +2,26 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getClients, getClient, createClient, updateClient, deleteClient, archiveClient } from "@/lib/clients/queries";
 import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
 import { Client } from "@/lib/types";
+import { useOrg } from "@/hooks/use-org";
 
 export function useClients(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["clients", orgId],
     queryFn: () => getClients(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useClient(orgId: string, clientId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["clients", orgId, clientId],
     queryFn: () => getClient(orgId, clientId),
     enabled: typeof window !== 'undefined' && !!orgId && !!clientId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useCreateClient() {

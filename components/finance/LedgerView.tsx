@@ -29,6 +29,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { isDateInTimeframe, TIMEFRAME_LABELS, type DashboardTimeframe } from "@/lib/shared/timeframe";
 
 function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
@@ -106,8 +107,10 @@ export function LedgerView() {
         description="The source of truth for all financial transactions and journal entries."
         actions={
           <>
-            <Button variant="outline">
-              <History className="size-4" /> Audit Log
+            <Button variant="outline" asChild>
+              <Link href="/activity">
+                <History className="size-4" /> Audit Log
+              </Link>
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>

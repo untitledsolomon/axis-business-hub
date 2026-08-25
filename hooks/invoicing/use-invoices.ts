@@ -14,21 +14,26 @@ import {
 } from "@/lib/invoicing/queries";
 import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
 import { Invoice, InvoiceItem } from "@/lib/types";
+import { useOrg } from "@/hooks/use-org";
 
 export function useInvoices(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["invoices", orgId],
     queryFn: () => getInvoices(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useInvoice(orgId: string, invoiceId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["invoices", orgId, invoiceId],
     queryFn: () => getInvoice(orgId, invoiceId),
     enabled: typeof window !== 'undefined' && !!orgId && !!invoiceId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useInvoicesByClient(orgId: string, clientId: string) {

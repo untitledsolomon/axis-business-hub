@@ -12,21 +12,26 @@ import {
 } from "@/lib/items/queries";
 import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
 import type { Item, ItemMovementType } from "@/lib/types";
+import { useOrg } from "@/hooks/use-org";
 
 export function useItems(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["items", orgId],
     queryFn: () => getItems(orgId),
     enabled: typeof window !== "undefined" && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useItem(orgId: string, itemId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["items", orgId, itemId],
     queryFn: () => getItem(orgId, itemId),
     enabled: typeof window !== "undefined" && !!orgId && !!itemId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useItemMovements(orgId: string, itemId: string) {

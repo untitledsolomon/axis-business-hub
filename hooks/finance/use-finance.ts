@@ -13,14 +13,17 @@ import {
   voidJournalEntry,
 } from "@/lib/finance/queries";
 import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
+import { useOrg } from "@/hooks/use-org";
 
 // Accounts
 export function useAccounts(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["accounts", orgId],
     queryFn: () => getAccounts(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useCreateAccount() {
@@ -35,11 +38,13 @@ export function useCreateAccount() {
 
 // Tax Rates
 export function useTaxRates(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["tax-rates", orgId],
     queryFn: () => getTaxRates(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useCreateTaxRate() {
@@ -64,11 +69,13 @@ export function useUpdateTaxRate(orgId: string) {
 
 // Bank Accounts
 export function useBankAccounts(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["bank-accounts", orgId],
     queryFn: () => getBankAccounts(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useCreateBankAccount() {
@@ -83,19 +90,23 @@ export function useCreateBankAccount() {
 
 // Journal Entries
 export function useJournalEntries(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["journal-entries", orgId],
     queryFn: () => getJournalEntries(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useJournalEntry(orgId: string, entryId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["journal-entries", orgId, entryId],
     queryFn: () => getJournalEntry(orgId, entryId),
     enabled: typeof window !== 'undefined' && !!orgId && !!entryId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useVoidJournalEntry(orgId: string) {

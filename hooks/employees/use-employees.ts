@@ -15,21 +15,26 @@ import {
 } from "@/lib/employees/queries";
 import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
 import { Employee, EmployeeAttendance, EmployeeShift } from "@/lib/types";
+import { useOrg } from "@/hooks/use-org";
 
 export function useEmployees(orgId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["employees", orgId],
     queryFn: () => getEmployees(orgId),
     enabled: typeof window !== 'undefined' && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useEmployee(orgId: string, employeeId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["employees", orgId, employeeId],
     queryFn: () => getEmployee(orgId, employeeId),
     enabled: typeof window !== 'undefined' && !!orgId && !!employeeId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useCreateEmployee(orgId: string) {

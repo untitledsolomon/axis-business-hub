@@ -10,21 +10,26 @@ import {
 } from "@/lib/finance/daily-sales-queries";
 import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
 import { DailySale } from "@/lib/types";
+import { useOrg } from "@/hooks/use-org";
 
 export function useDailySales(orgId: string, filters?: DailySaleFilters) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["daily-sales", orgId, filters],
     queryFn: () => getDailySales(orgId, filters),
     enabled: typeof window !== "undefined" && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useDailySale(orgId: string, saleId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["daily-sales", orgId, saleId],
     queryFn: () => getDailySale(orgId, saleId),
     enabled: typeof window !== "undefined" && !!orgId && !!saleId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useCreateDailySale(orgId: string) {

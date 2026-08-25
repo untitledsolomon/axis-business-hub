@@ -9,21 +9,26 @@ import {
 } from "@/lib/finance/expenses-queries";
 import { useCrudMutation } from "@/hooks/shared/use-crud-mutation";
 import { Expense } from "@/lib/types";
+import { useOrg } from "@/hooks/use-org";
 
 export function useExpenses(orgId: string, filters?: ExpenseFilters) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["expenses", orgId, filters],
     queryFn: () => getExpenses(orgId, filters),
     enabled: typeof window !== "undefined" && !!orgId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useExpense(orgId: string, expenseId: string) {
-  return useQuery({
+  const { isLoading: orgLoading } = useOrg();
+  const query = useQuery({
     queryKey: ["expenses", orgId, expenseId],
     queryFn: () => getExpense(orgId, expenseId),
     enabled: typeof window !== "undefined" && !!orgId && !!expenseId,
   });
+  return { ...query, isLoading: orgLoading || query.isPending };
 }
 
 export function useCreateExpense(orgId: string) {

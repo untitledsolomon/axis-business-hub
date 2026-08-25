@@ -124,28 +124,29 @@ export default function DashboardPage() {
         </div>
 
         <SummaryBar
+          isLoading={summary.isLoading}
           stats={[
             {
               label: "Paid",
-              value: summary.isLoading ? "—" : paidInvoices.length.toString(),
+              value: paidInvoices.length.toString(),
               icon: <PackageCheck className="size-4" />,
               tone: "success",
             },
             {
               label: "Overdue",
-              value: summary.isLoading ? "—" : `${overdueInvoices.length} (${fmtUGX(overdueTotal)})`,
+              value: `${overdueInvoices.length} (${fmtUGX(overdueTotal)})`,
               icon: <AlertTriangle className="size-4" />,
               tone: overdueInvoices.length > 0 ? "destructive" : "default",
             },
             {
               label: "Low-stock",
-              value: summary.isLoading ? "—" : `${lowStockItems.length} of ${items.length}`,
+              value: `${lowStockItems.length} of ${items.length}`,
               icon: <TrendingUp className="size-4" />,
               tone: lowStockItems.length > 0 ? "warning" : "default",
             },
             {
               label: "On leave",
-              value: summary.isLoading ? "—" : `${onLeaveCount} of ${employees.length}`,
+              value: `${onLeaveCount} of ${employees.length}`,
               icon: <BriefcaseBusiness className="size-4" />,
             },
           ]}

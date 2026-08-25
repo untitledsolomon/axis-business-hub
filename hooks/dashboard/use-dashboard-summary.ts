@@ -54,14 +54,14 @@ function getRangeBounds(timeframe: DashboardTimeframe, now: Date) {
 }
 
 export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month") {
-  const { currentOrg } = useOrg();
+  const { currentOrg, isLoading: orgLoading } = useOrg();
   const orgId = currentOrg?.id ?? "";
 
   const clients = useClients(orgId);
   const invoices = useInvoices(orgId);
   const journal = useJournalEntries(orgId);
 
-  const isLoading = clients.isLoading || invoices.isLoading || journal.isLoading;
+  const isLoading = orgLoading || clients.isPending || invoices.isPending || journal.isPending;
 
   const summary = useMemo(() => {
     const now = new Date();

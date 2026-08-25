@@ -29,3 +29,10 @@ export function activityDescription(activity: ActivityLog) {
   const pastTense = action === "delete" ? "deleted" : action === "insert" ? "created" : "updated";
   return { title: `${entity} ${pastTense}`, description: `${label} was ${pastTense}.` };
 }
+
+export async function getActivityEntityNames(orgId: string) {
+  const { data, error } = await createClient().from("audit_log").select("table_name").eq("org_id", orgId);
+  if (error) throw error;
+  const rows = (data ?? []) as Array<{ table_name: string }>;
+  return Array.from(new Set(rows.map((row) => row.table_name))).sort();
+}

@@ -72,6 +72,7 @@ export interface Employee {
   status: EmployeeStatus;
   hire_date: string;
   notes?: string;
+  photo_url?: string | null;
   created_at: string;
   updated_at: string;
 }

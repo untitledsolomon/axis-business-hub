@@ -17,6 +17,7 @@ export interface NotificationItem {
   message: string;
   priority: NotificationPriority;
   type: string;
+  related_entity_id: string;
   href: string;
   createdAt: string;
   readAt: string | null;
@@ -51,12 +52,26 @@ export function useNotifications() {
   ], [clients.data, employees.data, invoices.data, items.data]);
 
   useEffect(() => {
-    if (!orgId || !user?.id || !candidates.length) return;
-    void createClient().from("notifications").upsert(candidates.map((candidate) => ({ ...candidate, org_id: orgId, user_id: user.id })), { onConflict: "org_id,type,related_entity_id", ignoreDuplicates: true }).then(() => queryClient.invalidateQueries({ queryKey: ["notifications", orgId] }));
-  }, [candidates, orgId, queryClient, user?.id]);
+    const sources = [invoices, items, employees, clients];
+    if (!orgId || !user?.id || query.isPending || query.isError || sources.some((source) => source.isPending || source.isError)) return;
+
+    const trackedTypes = new Set(["overdue_invoice", "low_stock", "on_leave", "inactive_client"]);
+    const activePairs = new Set(candidates.map((candidate) => `${candidate.type}:${candidate.related_entity_id}`));
+    const staleIds = (query.data ?? [])
+      .filter((notification) => trackedTypes.has(notification.type) && !activePairs.has(`${notification.type}:${notification.related_entity_id}`))
+      .map((notification) => notification.id);
+
+    const client = createClient();
+    const writes = candidates.length
+      ? [client.from("notifications").upsert(candidates.map((candidate) => ({ ...candidate, org_id: orgId, user_id: user.id })), { onConflict: "org_id,type,related_entity_id", ignoreDuplicates: true })]
+      : [];
+    if (staleIds.length) writes.push(client.from("notifications").delete().eq("org_id", orgId).in("id", staleIds));
+    if (!writes.length) return;
+    void Promise.all(writes).then(() => queryClient.invalidateQueries({ queryKey: ["notifications", orgId] }));
+  }, [candidates, clients, employees, invoices, items, orgId, query.data, query.isError, query.isPending, queryClient, user?.id]);
 
   const markAsRead = useMutation({ mutationFn: async (id: string) => { const { error } = await createClient().from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).eq("org_id", orgId); if (error) throw error; }, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications", orgId] }) });
   const markAllAsRead = useMutation({ mutationFn: async () => { const { error } = await createClient().from("notifications").update({ read_at: new Date().toISOString() }).eq("org_id", orgId).is("read_at", null); if (error) throw error; }, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications", orgId] }) });
-  const notifications = (query.data ?? []).map((item) => ({ id: item.id, title: item.title, message: item.message, priority: item.priority, type: item.type, href: item.href, createdAt: item.created_at, readAt: item.read_at }));
+  const notifications = (query.data ?? []).map((item) => ({ id: item.id, title: item.title, message: item.message, priority: item.priority, type: item.type, related_entity_id: item.related_entity_id, href: item.href, createdAt: item.created_at, readAt: item.read_at }));
   return { notifications, unreadCount: notifications.filter((notification) => !notification.readAt).length, markAsRead: markAsRead.mutate, markAllAsRead: markAllAsRead.mutate };
 }
