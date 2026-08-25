@@ -49,7 +49,7 @@ serve(async (req) => {
     const data: InvoicePdfData = {
       org: { name: invoice.org?.name ?? "Invoice", logo_url: invoice.org?.logo_url ?? null, address: invoice.org?.address ?? null, brand_color: invoice.org?.invoice_brand_color ?? "#0f172a" },
       invoice: { number: invoice.invoice_number, issue_date: invoice.issue_date, due_date: invoice.due_date, currency: invoice.currency, notes: invoice.notes ?? null },
-      client: { name: invoice.client?.name ?? "", company_name: invoice.client?.company_name ?? null, email: invoice.client?.email ?? null },
+      client: { name: invoice.client?.name ?? "", company_name: invoice.client?.company_name ?? null, email: invoice.client?.email ?? null, phone: invoice.client?.phone ?? null },
       items: (invoice.items ?? []).map((item: { description: string; quantity: number; unit_price: number; total: number }) => ({ description: item.description, quantity: Number(item.quantity), unit_price_cents: Number(item.unit_price), total_cents: Number(item.total) })),
       totals: { subtotal_cents: Number(invoice.subtotal), discount_cents: Number(invoice.discount_total), tax_cents: Number(invoice.tax_total), grand_total_cents: Number(invoice.grand_total) },
     }
