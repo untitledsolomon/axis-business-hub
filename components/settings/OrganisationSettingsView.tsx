@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useOrg } from "@/hooks/use-org";
-import { useOrganisation, useUpdateInvoiceTemplateSettings, useUpdateOrganisation } from "@/hooks/organisation/use-organisation";
+import { useOrganisation, useUpdateOrganisation } from "@/hooks/organisation/use-organisation";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -24,6 +25,7 @@ import { toast } from "sonner";
 
 const formSchema = z.object({
   name: z.string().min(1, "Organisation name is required"),
+  logo_url: z.string().optional(),
   address: z.string().optional(),
   registration_number: z.string().optional(),
   tax_id: z.string().optional(),
@@ -43,7 +45,6 @@ export function OrganisationSettingsView() {
   const orgId = currentOrg?.id ?? "";
   const { data: org, isLoading } = useOrganisation(orgId);
   const updateOrg = useUpdateOrganisation();
-  const updateInvoiceSettings = useUpdateInvoiceTemplateSettings();
   const [templateFile, setTemplateFile] = useState<{ fileName: string; uploadedAt: string | null } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -52,6 +53,7 @@ export function OrganisationSettingsView() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      logo_url: "",
       address: "",
       registration_number: "",
       tax_id: "",
@@ -67,6 +69,7 @@ export function OrganisationSettingsView() {
     if (org) {
       form.reset({
         name: org.name,
+        logo_url: org.logo_url ?? "",
         address: org.address ?? "",
         registration_number: org.registration_number ?? "",
         tax_id: org.tax_id ?? "",
@@ -88,13 +91,13 @@ export function OrganisationSettingsView() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       const { invoice_template_id, invoice_template_storage_path, invoice_brand_color, ...profileUpdates } = values;
-      await updateOrg.mutateAsync({ orgId, updates: profileUpdates });
-      await updateInvoiceSettings.mutateAsync({
+      await updateOrg.mutateAsync({
         orgId,
-        settings: {
-          templateId: invoice_template_id,
-          storagePath: invoice_template_storage_path || null,
-          brandColor: invoice_brand_color,
+        updates: {
+          ...profileUpdates,
+          invoice_template_id,
+          invoice_template_storage_path: invoice_template_id === "custom" ? invoice_template_storage_path || null : null,
+          invoice_brand_color,
         },
       });
       toast.success("Organisation profile updated");
@@ -107,7 +110,7 @@ export function OrganisationSettingsView() {
   function previewTemplate() {
     const values = form.getValues();
     const data: InvoicePdfData = {
-      org: { name: org?.name ?? "Organisation", logo_url: org?.logo_url ?? null, address: org?.address ?? null, brand_color: values.invoice_brand_color },
+      org: { name: org?.name ?? "Organisation", logo_url: values.logo_url || org?.logo_url || null, address: org?.address ?? null, brand_color: values.invoice_brand_color },
       invoice: { number: "PREVIEW-001", issue_date: new Date().toISOString().slice(0, 10), due_date: new Date().toISOString().slice(0, 10), currency: org?.base_currency ?? "UGX", notes: "Thank you for your business." },
       client: { name: "Sample Client", company_name: "Sample Company", email: "client@example.com" },
       items: [{ description: "Sample service", quantity: 2, unit_price_cents: 25000, total_cents: 50000 }],
@@ -143,6 +146,31 @@ export function OrganisationSettingsView() {
       toast.success("Invoice template uploaded");
     } catch (error) { setUploadError(error instanceof Error ? error.message : "Template upload failed"); }
     finally { setUploading(false); }
+  }
+
+  async function uploadLogo(file: File) {
+    if (!orgId) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file for the organisation logo.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo files must be 2MB or smaller.");
+      return;
+    }
+
+    try {
+      const path = `${orgId}/logo-${crypto.randomUUID()}-${file.name.replace(/\s+/g, "-")}`;
+      const supabase = (await import("@/lib/supabase/client")).createClient();
+      const { error } = await supabase.storage.from("organisation-logos").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("organisation-logos").getPublicUrl(path);
+      form.setValue("logo_url", data.publicUrl, { shouldValidate: true });
+      toast.success("Organisation logo uploaded");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Logo upload failed");
+      console.error(error);
+    }
   }
 
   if (isLoading) {
@@ -188,6 +216,26 @@ export function OrganisationSettingsView() {
                   </FormItem>
                 )}
               />
+              <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4 sm:flex-row sm:items-center">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
+                  {form.watch("logo_url") ? (
+                    <Image src={form.watch("logo_url")} alt="Organisation logo" width={64} height={64} className="h-full w-full object-cover" unoptimized />
+                  ) : (
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium" htmlFor="org_logo_upload">Organisation logo</label>
+                  <Input id="org_logo_upload" type="file" accept="image/*" className="mt-2" onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadLogo(file);
+                    event.target.value = "";
+                  }} />
+                  {form.watch("logo_url") && (
+                    <button type="button" className="mt-2 text-sm text-muted-foreground underline-offset-4 hover:underline" onClick={() => form.setValue("logo_url", "")}>Remove logo</button>
+                  )}
+                </div>
+              </div>
               <FormField
                 control={form.control}
                 name="address"
