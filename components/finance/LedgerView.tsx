@@ -1,6 +1,6 @@
 "use client";
 
-import { useJournalEntries } from "@/hooks/finance/use-finance";
+import { useAccounts, useJournalEntries } from "@/hooks/finance/use-finance";
 import { useOrg } from "@/hooks/use-org";
 import {
   Table,
@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, FileSpreadsheet, History, ArrowUpRight, ArrowDownLeft, Scale } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
+import { isDateInTimeframe, TIMEFRAME_LABELS, type DashboardTimeframe } from "@/lib/shared/timeframe";
 
 function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
   if (!entry.lines || entry.lines.length === 0) return 0;
@@ -39,12 +41,34 @@ export function LedgerView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
   const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
+  const { data: accounts, isLoading: accountsLoading } = useAccounts(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [ledgerTimeframe, setLedgerTimeframe] = useState<DashboardTimeframe>("all_time");
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!selectedAccountId && accounts?.[0]) setSelectedAccountId(accounts[0].id);
+  }, [accounts, selectedAccountId]);
+
+  const selectedAccount = accounts?.find((account) => account.id === selectedAccountId);
+  const ledgerRows = useMemo(() => {
+    if (!selectedAccountId) return [];
+    const rows = (entries ?? []).flatMap((entry) => (entry.lines ?? [])
+      .filter((line) => line.account_id === selectedAccountId && (ledgerTimeframe === "all_time" || isDateInTimeframe(entry.entry_date, ledgerTimeframe)))
+      .map((line) => ({ entry, line })));
+    rows.sort((a, b) => a.entry.entry_date.localeCompare(b.entry.entry_date));
+    let balance = 0;
+    return rows.map(({ entry, line }) => {
+      const debitNormal = selectedAccount?.category === "asset" || selectedAccount?.category === "expense";
+      balance += debitNormal ? line.debit - line.credit : line.credit - line.debit;
+      return { entry, line, balance };
+    });
+  }, [entries, selectedAccount, selectedAccountId, ledgerTimeframe]);
 
   const filteredEntries = useMemo(() => {
     if (!entries) return [];
@@ -110,12 +134,13 @@ export function LedgerView() {
 
       <div className="space-y-4 ">
         <SummaryBar
+          isLoading={isLoading}
           stats={[
-            { label: "Total debits", value: isLoading ? "—" : fmt(totals.debits), icon: <ArrowUpRight className="size-4" /> },
-            { label: "Total credits", value: isLoading ? "—" : fmt(totals.credits), icon: <ArrowDownLeft className="size-4" /> },
+            { label: "Total debits", value: fmt(totals.debits), icon: <ArrowUpRight className="size-4" /> },
+            { label: "Total credits", value: fmt(totals.credits), icon: <ArrowDownLeft className="size-4" /> },
             {
               label: "Out of balance",
-              value: isLoading ? "—" : fmt(Math.abs(totals.debits - totals.credits)),
+              value: fmt(Math.abs(totals.debits - totals.credits)),
               icon: <Scale className="size-4" />,
               tone: !isLoading && totals.debits !== totals.credits ? "warning" : "default",
             },
@@ -211,15 +236,23 @@ export function LedgerView() {
           </TabsContent>
 
           <TabsContent value="ledger" className="pt-4">
-            <div className="panel flex flex-col items-center justify-center border-dashed py-12 text-center">
-              <FileSpreadsheet className="mb-4 h-12 w-12 text-muted-foreground opacity-20" />
-              <h3 className="text-sm font-semibold text-foreground">Detailed Ledger View</h3>
-              <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-                Select an account to view its full transaction history and running balance.
-              </p>
-              <Button variant="outline" size="sm" className="mt-4">
-                Select Account
-              </Button>
+            <div className="panel">
+              <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger className="w-full sm:w-64" aria-label="Select account"><SelectValue placeholder={accountsLoading ? "Loading accounts…" : "Select account"} /></SelectTrigger>
+                  <SelectContent>{(accounts ?? []).map((account) => <SelectItem key={account.id} value={account.id}>{account.code ? `${account.code} ` : ""}{account.name}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={ledgerTimeframe} onValueChange={(value) => setLedgerTimeframe(value as DashboardTimeframe)}>
+                  <SelectTrigger className="w-full sm:w-36" aria-label="Select ledger timeframe"><SelectValue /></SelectTrigger>
+                  <SelectContent>{(Object.keys(TIMEFRAME_LABELS) as DashboardTimeframe[]).map((value) => <SelectItem key={value} value={value}>{TIMEFRAME_LABELS[value]}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              {!selectedAccountId ? <div className="py-12 text-center text-sm text-muted-foreground">Select an account to view its transaction history.</div> : (
+                <Table>
+                  <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Running balance</TableHead></TableRow></TableHeader>
+                  <TableBody>{ledgerRows.map(({ entry, line, balance }) => <TableRow key={line.id}><TableCell>{entry.entry_date}</TableCell><TableCell>{line.description || entry.description || entry.reference || "—"}</TableCell><TableCell className="text-right">{line.debit ? fmt(line.debit) : "—"}</TableCell><TableCell className="text-right">{line.credit ? fmt(line.credit) : "—"}</TableCell><TableCell className="text-right font-medium">{fmt(balance)}</TableCell></TableRow>)}{ledgerRows.length === 0 && <TableRow><TableCell colSpan={5} className="h-32 text-center text-sm text-muted-foreground">No transactions in this timeframe.</TableCell></TableRow>}</TableBody>
+                </Table>
+              )}
             </div>
           </TabsContent>
         </Tabs>

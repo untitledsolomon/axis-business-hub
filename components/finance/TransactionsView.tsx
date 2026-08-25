@@ -30,6 +30,9 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { JournalEntry } from "@/lib/types";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isDateInTimeframe, TIMEFRAME_LABELS, type DashboardTimeframe } from "@/lib/shared/timeframe";
 
 type TxType = "income" | "expense" | "other";
 
@@ -92,6 +95,10 @@ export function TransactionsView() {
   const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [timeframe, setTimeframe] = useState<DashboardTimeframe>("all_time");
+  const [typeFilter, setTypeFilter] = useState<"all" | TxType>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -100,19 +107,24 @@ export function TransactionsView() {
   const transactions = useMemo(() => {
     if (!entries) return [];
     const derived = entries.map(deriveTransaction);
-    if (!search.trim()) return derived;
+    const byDate = derived.filter((transaction) => {
+      const inTimeframe = timeframe === "all_time" || isDateInTimeframe(transaction.date, timeframe);
+      return inTimeframe && (!fromDate || transaction.date >= fromDate) && (!toDate || transaction.date <= toDate);
+    });
+    const byType = typeFilter === "all" ? byDate : byDate.filter((transaction) => transaction.type === typeFilter);
+    if (!search.trim()) return byType;
     const q = search.toLowerCase();
-    return derived.filter(
+    return byType.filter(
       (t) => t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
     );
-  }, [entries, search]);
+  }, [entries, search, timeframe, typeFilter, fromDate, toDate]);
 
   const totals = useMemo(() => {
-    const all = entries ? entries.map(deriveTransaction) : [];
+    const all = transactions;
     const inflow = all.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
     const outflow = all.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
     return { inflow, outflow, net: inflow - outflow };
-  }, [entries]);
+  }, [transactions]);
 
   const fmt = (cents: number) =>
     (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -149,10 +161,11 @@ export function TransactionsView() {
 
       <div className="space-y-4 ">
         <SummaryBar
+          isLoading={isLoading}
           stats={[
-            { label: "Money in", value: isLoading ? "—" : fmt(totals.inflow), icon: <ArrowUpRight className="size-4" />, tone: "success" },
-            { label: "Money out", value: isLoading ? "—" : fmt(totals.outflow), icon: <ArrowDownLeft className="size-4" /> },
-            { label: "Net movement", value: isLoading ? "—" : fmt(totals.net), icon: <Scale className="size-4" /> },
+            { label: "Money in", value: fmt(totals.inflow), icon: <ArrowUpRight className="size-4" />, tone: "success" },
+            { label: "Money out", value: fmt(totals.outflow), icon: <ArrowDownLeft className="size-4" /> },
+            { label: "Net movement", value: fmt(totals.net), icon: <Scale className="size-4" /> },
           ]}
         />
 
@@ -168,9 +181,22 @@ export function TransactionsView() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="icon" aria-label="Filter">
-              <Filter className="size-4" />
-            </Button>
+            <Select value={timeframe} onValueChange={(value) => setTimeframe(value as DashboardTimeframe)}>
+              <SelectTrigger className="w-full sm:w-36" aria-label="Select timeframe"><SelectValue /></SelectTrigger>
+              <SelectContent>{(Object.keys(TIMEFRAME_LABELS) as DashboardTimeframe[]).map((value) => <SelectItem key={value} value={value}>{TIMEFRAME_LABELS[value]}</SelectItem>)}</SelectContent>
+            </Select>
+            <Popover>
+              <PopoverTrigger asChild><Button variant="outline" size="icon" aria-label="Filter"><Filter className="size-4" /></Button></PopoverTrigger>
+              <PopoverContent align="end" className="w-64 space-y-4">
+                <p className="text-sm font-semibold">Filter transactions</p>
+                <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}>
+                  <SelectTrigger aria-label="Transaction type"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="all">All types</SelectItem><SelectItem value="income">Income</SelectItem><SelectItem value="expense">Expense</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent>
+                </Select>
+                <div className="grid gap-2"><label className="text-xs text-muted-foreground" htmlFor="transaction-from">From</label><Input id="transaction-from" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></div>
+                <div className="grid gap-2"><label className="text-xs text-muted-foreground" htmlFor="transaction-to">To</label><Input id="transaction-to" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <Table>

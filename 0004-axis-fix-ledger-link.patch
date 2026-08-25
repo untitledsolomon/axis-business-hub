@@ -1,0 +1,54 @@
+From 86188aaeec60e04d1c6659523337a8ce3bc27c2f Mon Sep 17 00:00:00 2001
+From: Solomon <solomon@regentplatform.com>
+Date: Mon, 24 Aug 2026 11:07:56 +0000
+Subject: [PATCH] Fix dead links to a nonexistent /finance/ledger/[id] route
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+ExpenseDetail and DailySaleDetail both linked their 'View journal
+entry' action to /finance/ledger/{journal_entry_id}, but that route
+was never built — only a flat /finance/ledger listing page exists.
+The actual journal-entry detail page (JournalEntryDetail, showing
+lines/status/actions) is mounted at /transactions/[id]. Point both
+links there instead.
+
+Pre-existing bug, unrelated to the item-sales/custody/analytics work
+— surfaced because item-linked sales made it more likely someone
+would actually click through from a sale to its journal entry.
+
+Typecheck and lint clean.
+---
+ components/finance/DailySaleDetail.tsx | 2 +-
+ components/finance/ExpenseDetail.tsx   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/components/finance/DailySaleDetail.tsx b/components/finance/DailySaleDetail.tsx
+index 956f9d4..9e8b5dc 100644
+--- a/components/finance/DailySaleDetail.tsx
++++ b/components/finance/DailySaleDetail.tsx
+@@ -161,7 +161,7 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
+           <div className="mt-3 space-y-2">
+             {sale.journal_entry_id ? (
+               <Button variant="outline" size="sm" className="w-full" asChild>
+-                <Link href={`/finance/ledger/${sale.journal_entry_id}`}>
++                <Link href={`/transactions/${sale.journal_entry_id}`}>
+                   <BookOpen className="size-4" /> View journal entry
+                 </Link>
+               </Button>
+diff --git a/components/finance/ExpenseDetail.tsx b/components/finance/ExpenseDetail.tsx
+index be8d408..11a7ccc 100644
+--- a/components/finance/ExpenseDetail.tsx
++++ b/components/finance/ExpenseDetail.tsx
+@@ -203,7 +203,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
+           <div className="mt-3 space-y-2">
+             {expense.journal_entry_id ? (
+               <Button variant="outline" size="sm" className="w-full" asChild>
+-                <Link href={`/finance/ledger/${expense.journal_entry_id}`}>
++                <Link href={`/transactions/${expense.journal_entry_id}`}>
+                   <BookOpen className="size-4" /> View journal entry
+                 </Link>
+               </Button>
+-- 
+2.43.0
+

@@ -83,7 +83,8 @@ export default function DashboardPage() {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title={revenueLabel}
-            value={summary.isLoading ? "—" : fmtUGX(summary.revenueThisMonth)}
+            value={fmtUGX(summary.revenueThisMonth)}
+            isLoading={summary.isLoading}
             icon={<Wallet className="size-4" />}
             tone="success"
             trend={
@@ -94,21 +95,24 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Active Clients"
-            value={summary.isLoading ? "—" : summary.activeClients.toString()}
+            value={summary.activeClients.toString()}
+            isLoading={summary.isLoading}
             icon={<Users className="size-4" />}
             tone="primary"
             subtitle={summary.isLoading ? undefined : `${clients.length} total clients`}
           />
           <StatCard
             title="Outstanding Invoices"
-            value={summary.isLoading ? "—" : summary.outstandingCount.toString()}
+            value={summary.outstandingCount.toString()}
+            isLoading={summary.isLoading}
             icon={<FileText className="size-4" />}
             tone="warning"
             subtitle={summary.isLoading ? undefined : `${fmtUGX(summary.outstandingTotal)} total`}
           />
           <StatCard
             title={profitLabel}
-            value={summary.isLoading ? "—" : fmtUGX(summary.netProfitThisMonth)}
+            value={fmtUGX(summary.netProfitThisMonth)}
+            isLoading={summary.isLoading}
             icon={<TrendingUp className="size-4" />}
             tone="destructive"
             trend={

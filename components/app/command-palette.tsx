@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { useRouter } from "next/navigation";
+import { useOrg } from "@/hooks/use-org";
+import { useClients } from "@/hooks/clients/use-clients";
+import { useInvoices } from "@/hooks/invoicing/use-invoices";
+import { useItems } from "@/hooks/items/use-items";
+import { useAccounts } from "@/hooks/finance/use-finance";
 import {
   CommandDialog,
   CommandEmpty,
@@ -10,7 +15,6 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "@/components/ui/command";
 import {
   BookOpen,
@@ -40,6 +44,7 @@ const links = [
   { label: "Tax Rates", to: "/settings/tax-rates", icon: Percent },
   { label: "Settings", to: "/settings", icon: Settings },
   { label: "Connections", to: "/settings/connections", icon: Plug },
+  { label: "Activity", to: "/activity", icon: Receipt },
 ];
 
 interface CommandPaletteProps {
@@ -49,9 +54,30 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({ open, onOpenChange, router }: CommandPaletteProps) {
+  const { currentOrg } = useOrg();
+  const orgId = currentOrg?.id || "";
+  const { data: clients } = useClients(orgId);
+  const { data: invoices } = useInvoices(orgId);
+  const { data: items } = useItems(orgId);
+  const { data: accounts } = useAccounts(orgId);
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const results = useMemo(() => ({
+    clients: (clients ?? []).filter((client) => !query || `${client.name} ${client.company_name ?? ""}`.toLowerCase().includes(query)).slice(0, 8),
+    invoices: (invoices ?? []).filter((invoice) => !query || `${invoice.invoice_number} ${invoice.client?.name ?? ""}`.toLowerCase().includes(query)).slice(0, 8),
+    accounts: (accounts ?? []).filter((account) => !query || `${account.name} ${account.code ?? ""}`.toLowerCase().includes(query)).slice(0, 8),
+    items: (items ?? []).filter((item) => !query || `${item.name} ${item.sku ?? ""}`.toLowerCase().includes(query)).slice(0, 8),
+  }), [accounts, clients, invoices, items, query]);
+
+  const select = (to: string) => {
+    onOpenChange(false);
+    setSearch("");
+    router.push(to);
+  };
+
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search pages, clients, invoices…" />
+      <CommandInput placeholder="Search pages, clients, invoices…" value={search} onValueChange={setSearch} />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Navigate">
@@ -59,10 +85,7 @@ export function CommandPalette({ open, onOpenChange, router }: CommandPalettePro
             <CommandItem
               key={link.to}
               value={link.label}
-              onSelect={() => {
-                onOpenChange(false);
-                router.push(link.to);
-              }}
+              onSelect={() => select(link.to)}
             >
               <link.icon className="size-4" />
               {link.label}
@@ -70,30 +93,18 @@ export function CommandPalette({ open, onOpenChange, router }: CommandPalettePro
           ))}
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="Quick actions">
-          <CommandItem
-            value="New invoice"
-            onSelect={() => {
-              onOpenChange(false);
-              router.push("/invoices");
-            }}
-          >
-            <FileText className="size-4" />
-            New invoice
-            <CommandShortcut>⌘I</CommandShortcut>
-          </CommandItem>
-          <CommandItem
-            value="New client"
-            onSelect={() => {
-              onOpenChange(false);
-              router.push("/clients");
-            }}
-          >
-            <Building2 className="size-4" />
-            New client
-            <CommandShortcut>⌘K</CommandShortcut>
-          </CommandItem>
-        </CommandGroup>
+        {results.clients.length > 0 && <CommandGroup heading="Clients">
+          {results.clients.map((client) => <CommandItem key={client.id} value={`${client.name} ${client.company_name ?? ""}`} onSelect={() => select(`/clients/${client.id}`)}><Building2 className="size-4" />{client.name}</CommandItem>)}
+        </CommandGroup>}
+        {results.invoices.length > 0 && <CommandGroup heading="Invoices">
+          {results.invoices.map((invoice) => <CommandItem key={invoice.id} value={`${invoice.invoice_number} ${invoice.client?.name ?? ""}`} onSelect={() => select(`/invoices/${invoice.id}`)}><FileText className="size-4" />{invoice.invoice_number} <span className="text-muted-foreground">{invoice.client?.name}</span></CommandItem>)}
+        </CommandGroup>}
+        {results.accounts.length > 0 && <CommandGroup heading="Accounts">
+          {results.accounts.map((account) => <CommandItem key={account.id} value={`${account.name} ${account.code ?? ""}`} onSelect={() => select("/finance/accounts")}><Wallet className="size-4" />{account.name} <span className="text-muted-foreground">{account.code}</span></CommandItem>)}
+        </CommandGroup>}
+        {results.items.length > 0 && <CommandGroup heading="Items">
+          {results.items.map((item) => <CommandItem key={item.id} value={`${item.name} ${item.sku ?? ""}`} onSelect={() => select(`/inventory/${item.id}`)}><ShoppingBag className="size-4" />{item.name}</CommandItem>)}
+        </CommandGroup>}
       </CommandList>
     </CommandDialog>
   );

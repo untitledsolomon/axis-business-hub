@@ -84,6 +84,18 @@ export function AccountsList() {
   const fmt = (cents: number) =>
     (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
+  const exportCsv = () => {
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = filteredAccounts.map((account) => [account.name, account.code || "", account.category, fmt(balances.get(account.id) || 0)]);
+    const csv = [["Name", "Code", "Category", "Balance"], ...rows].map((row) => row.map((value) => escape(String(value))).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "chart-of-accounts.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -93,7 +105,7 @@ export function AccountsList() {
         description="The account structure every journal entry posts against."
         actions={
           <>
-            <Button variant="outline">
+            <Button variant="outline" onClick={exportCsv}>
               <Download className="size-4" /> Export
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -121,11 +133,12 @@ export function AccountsList() {
 
       <div className="space-y-4 ">
         <SummaryBar
+          isLoading={balancesLoading}
           stats={[
-            { label: "Total assets", value: balancesLoading ? "—" : fmt(totals.assets), icon: <Wallet className="size-4" /> },
-            { label: "Total liabilities", value: balancesLoading ? "—" : fmt(totals.liabilities), icon: <Landmark className="size-4" /> },
-            { label: "Revenue", value: balancesLoading ? "—" : fmt(totals.revenue), icon: <TrendingUp className="size-4" />, tone: "success" },
-            { label: "Expenses", value: balancesLoading ? "—" : fmt(totals.expenses), icon: <TrendingDown className="size-4" /> },
+            { label: "Total assets", value: fmt(totals.assets), icon: <Wallet className="size-4" /> },
+            { label: "Total liabilities", value: fmt(totals.liabilities), icon: <Landmark className="size-4" /> },
+            { label: "Revenue", value: fmt(totals.revenue), icon: <TrendingUp className="size-4" />, tone: "success" },
+            { label: "Expenses", value: fmt(totals.expenses), icon: <TrendingDown className="size-4" /> },
           ]}
         />
 

@@ -1,9 +1,11 @@
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface StatCardProps {
   title: string;
   value: string;
+  isLoading?: boolean;
   icon: ReactNode;
   trend?: {
     value: string;
@@ -21,17 +23,17 @@ const badgeTone: Record<NonNullable<StatCardProps["tone"]>, string> = {
   destructive: "bg-destructive text-destructive-foreground",
 };
 
-export function StatCard({ title, value, icon, trend, subtitle, tone = "primary", className }: StatCardProps) {
+export function StatCard({ title, value, isLoading = false, icon, trend, subtitle, tone = "primary", className }: StatCardProps) {
   return (
     <div className={cn("panel p-4", className)}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">{title}</p>
         <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg [&>svg]:size-3.5", badgeTone[tone])}>
-          {icon}
+          {isLoading ? <Skeleton className="size-7 rounded-lg" /> : icon}
         </span>
       </div>
-      <p className="numeric mt-3 font-mono text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      {trend && (
+      <p className="numeric mt-3 font-mono text-2xl font-semibold tracking-tight text-foreground">{isLoading ? <Skeleton className="h-8 w-28" /> : value}</p>
+      {trend && !isLoading && (
         <div className="mt-1 flex items-center gap-1">
           <span
             className={cn(

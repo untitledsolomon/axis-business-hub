@@ -85,6 +85,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Settings", to: "/settings", icon: Settings },
       { label: "Connections", to: "/settings/connections", icon: Plug },
+      { label: "Activity", to: "/activity", icon: Receipt },
     ],
   },
 ];
@@ -198,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const router = useRouter();
-  const { notifications, unreadCount } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = initialsOf(displayName);
@@ -267,6 +268,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <p className="text-xs text-muted-foreground">
                       {unreadCount > 0 ? `${unreadCount} active alerts` : "You&apos;re all caught up"}
                     </p>
+                    {unreadCount > 0 && <button className="mt-2 text-xs font-medium text-primary hover:underline" onClick={() => markAllAsRead()}>Mark all as read</button>}
                   </div>
                   {notifications.length === 0 ? (
                     <div className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -279,6 +281,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           key={notification.id}
                           href={notification.href}
                           className="flex gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/60"
+                          onClick={() => markAsRead(notification.id)}
                         >
                           <span className={cn(
                             "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
@@ -297,9 +300,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </PopoverContent>
               </Popover>
 
-              <Button variant="ghost" size="icon" aria-label="Help">
-                <HelpCircle className="size-5" />
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Help"><HelpCircle className="size-5" /></Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72">
+                  <p className="text-sm font-semibold">Need a hand?</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Use the search button to jump between pages and records, or contact your organisation administrator for access and billing help.</p>
+                </PopoverContent>
+              </Popover>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

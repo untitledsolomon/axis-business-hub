@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter, Receipt, CheckCircle, FileDown, AlertTriangle } from "lucide-react";
+import { Plus, Search, Receipt, CheckCircle, FileDown, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -32,11 +32,14 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect } from "react";
 import { formatShortDate } from "@/lib/format-date";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isDateInTimeframe, TIMEFRAME_LABELS, type DashboardTimeframe } from "@/lib/shared/timeframe";
 
 export function InvoicesList() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "sent" | "viewed" | "partial" | "paid" | "overdue" | "voided">("all");
+  const [timeframe, setTimeframe] = useState<DashboardTimeframe>("all_time");
   const { currentOrg } = useOrg();
   const { data: invoices, isLoading, isError, refetch } = useInvoices(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -49,6 +52,7 @@ export function InvoicesList() {
     if (!invoices) return [];
 
     let next = invoices;
+    if (timeframe !== "all_time") next = next.filter((invoice) => isDateInTimeframe(invoice.issue_date, timeframe));
     if (statusFilter !== "all") {
       next = next.filter((invoice) => invoice.status === statusFilter);
     }
@@ -64,10 +68,10 @@ export function InvoicesList() {
         invoice.currency.toLowerCase().includes(q)
       );
     });
-  }, [invoices, search, statusFilter]);
+  }, [invoices, search, statusFilter, timeframe]);
 
   const totals = useMemo(() => {
-    const list = invoices ?? [];
+    const list = (invoices ?? []).filter((invoice) => timeframe === "all_time" || isDateInTimeframe(invoice.issue_date, timeframe));
     return {
       all: list.reduce((s, i) => s + i.grand_total, 0),
       paid: list.filter((i) => i.status === "paid").reduce((s, i) => s + i.grand_total, 0),
@@ -76,7 +80,7 @@ export function InvoicesList() {
         .reduce((s, i) => s + i.grand_total, 0),
       overdue: list.filter((i) => i.status === "overdue").length,
     };
-  }, [invoices]);
+  }, [invoices, timeframe]);
 
   const fmt = (cents: number) =>
     `UGX ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -123,6 +127,7 @@ export function InvoicesList() {
             { label: "Outstanding", value: isLoading ? "—" : fmt(totals.outstanding), icon: <FileDown className="size-4" /> },
             { label: "Overdue", value: isLoading ? "—" : totals.overdue.toString(), icon: <AlertTriangle className="size-4" />, tone: totals.overdue > 0 ? "destructive" : "default" },
           ]}
+          isLoading={isLoading}
         />
 
         <div className="panel">
@@ -150,9 +155,10 @@ export function InvoicesList() {
                 </Button>
               ))}
             </div>
-            <Button variant="outline" size="icon" className="ml-auto" aria-label="Filter">
-              <Filter className="size-4" />
-            </Button>
+            <Select value={timeframe} onValueChange={(value) => setTimeframe(value as DashboardTimeframe)}>
+              <SelectTrigger className="ml-auto w-full sm:w-36" aria-label="Select timeframe"><SelectValue /></SelectTrigger>
+              <SelectContent>{(Object.keys(TIMEFRAME_LABELS) as DashboardTimeframe[]).map((value) => <SelectItem key={value} value={value}>{TIMEFRAME_LABELS[value]}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
 
           <Table aria-label="Invoices list">
