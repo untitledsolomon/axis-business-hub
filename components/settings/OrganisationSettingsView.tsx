@@ -218,11 +218,14 @@ export function OrganisationSettingsView() {
               />
               <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4 sm:flex-row sm:items-center">
                 <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
-                  {form.watch("logo_url") ? (
-                    <Image src={form.watch("logo_url")} alt="Organisation logo" width={64} height={64} className="h-full w-full object-cover" unoptimized />
-                  ) : (
-                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo</span>
-                  )}
+                  {(() => {
+                    const logoUrl = form.watch("logo_url");
+                    return logoUrl ? (
+                      <Image src={logoUrl} alt="Organisation logo" width={64} height={64} className="h-full w-full object-cover" unoptimized />
+                    ) : (
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo</span>
+                    );
+                  })()}
                 </div>
                 <div className="flex-1">
                   <label className="text-sm font-medium" htmlFor="org_logo_upload">Organisation logo</label>
