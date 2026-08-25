@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline';
-                    img-src 'self' data:;
+                    img-src 'self' data: ${supabaseOrigin};
                     font-src 'self';
                     object-src 'none';
                     base-uri 'self';
