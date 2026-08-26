@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { InventoryStatus } from "@/components/dashboard/InventoryStatus";
-import { InventoryAnalytics } from "@/components/inventory/InventoryAnalytics";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useClients } from "@/hooks/clients/use-clients";
@@ -24,6 +23,35 @@ import { useAuth } from "@/hooks/use-auth";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useOrg } from "@/hooks/use-org";
 import { Users, FileText, TrendingUp, Wallet, AlertTriangle, PackageCheck, BriefcaseBusiness } from "lucide-react";
+
+// recharts measures the container on the client and builds SVG ids from a
+// module counter, so its output cannot match server-rendered HTML. Load the
+// chart panels on the client only to avoid a hydration mismatch on "/".
+const RevenueChart = dynamic(
+  () => import("@/components/dashboard/RevenueChart").then((m) => m.RevenueChart),
+  {
+    ssr: false,
+    loading: () => (
+      <section className="panel p-5 lg:col-span-2">
+        <h2 className="text-sm font-semibold text-foreground">Revenue overview</h2>
+        <div className="mt-5 h-64 animate-pulse rounded-xl bg-muted" />
+      </section>
+    ),
+  }
+);
+
+const InventoryAnalytics = dynamic(
+  () => import("@/components/inventory/InventoryAnalytics").then((m) => m.InventoryAnalytics),
+  {
+    ssr: false,
+    loading: () => (
+      <section className="panel p-4 sm:p-5">
+        <h2 className="text-sm font-semibold text-foreground">Inventory analytics</h2>
+        <div className="mt-4 h-72 animate-pulse rounded-xl bg-muted" />
+      </section>
+    ),
+  }
+);
 
 function fmtUGX(value: number) {
   return `UGX ${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;

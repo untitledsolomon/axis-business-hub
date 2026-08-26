@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Activity } from "lucide-react";
 import { useOrg } from "@/hooks/use-org";
@@ -22,6 +23,10 @@ function timeAgo(iso: string) {
 export function RecentActivity() {
   const { currentOrg } = useOrg();
   const { data: activities, isLoading } = useActivityLog(currentOrg?.id ?? "", 6);
+  // timeAgo reads the clock, which differs between the server (UTC) and the
+  // browser (local time). Render the relative time only after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <section className="panel p-5">
@@ -53,7 +58,7 @@ export function RecentActivity() {
                   <p className="truncate text-sm text-foreground">
                     <span className="font-medium">{formatted.title}</span>
                   </p>
-                  <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(activity.created_at)}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{mounted ? timeAgo(activity.created_at) : ""}</span>
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{formatted.description}</p>
               </div>
