@@ -1,0 +1,59 @@
+From b22eefd594440010fca00a783c9c98bf9fcfd790 Mon Sep 17 00:00:00 2001
+From: Solomon <solomon@regentplatform.com>
+Date: Wed, 26 Aug 2026 08:50:59 +0000
+Subject: [PATCH] fix(transactions): count invoice payments as Money In
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+mark_invoice_paid_v1 posts a journal entry that debits the deposit
+account and credits Accounts Receivable — it never touches a revenue
+account, since revenue isn't recognized at invoice creation either.
+deriveTransaction() only classified entries as income when a revenue
+account line was present, so invoice payments fell into "other" and
+were excluded from the Money In stat (and from type filtering).
+
+Now an entry that credits Accounts Receivable against a debited
+cash/bank line is also classified as income (category: Invoice
+Payment), using the deposited amount.
+---
+ components/finance/TransactionsView.tsx | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/components/finance/TransactionsView.tsx b/components/finance/TransactionsView.tsx
+index a197d5a..1c6b547 100644
+--- a/components/finance/TransactionsView.tsx
++++ b/components/finance/TransactionsView.tsx
+@@ -59,6 +59,18 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
+   const lines = entry.lines || [];
+   const revenueLine = lines.find((l) => l.account?.category === "revenue");
+   const expenseLine = lines.find((l) => l.account?.category === "expense");
++  // Invoice payments (mark_invoice_paid_v1) never touch a revenue account —
++  // revenue was already recognized when the invoice was raised. The entry
++  // instead debits a bank/cash account and credits Accounts Receivable to
++  // clear it. On a cash basis that credit-to-AR leg IS the "money in" event,
++  // so treat it as income too or it silently falls into "other" and never
++  // counts toward Money In.
++  const arClearingLine = lines.find(
++    (l) => l.account?.category === "asset" && l.account?.name === "Accounts Receivable" && (l.credit || 0) > 0
++  );
++  const depositLine = lines.find(
++    (l) => l.account?.category === "asset" && l.account?.name !== "Accounts Receivable" && (l.debit || 0) > 0
++  );
+ 
+   let type: TxType = "other";
+   let amount = 0;
+@@ -72,6 +84,10 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
+     type = "expense";
+     amount = expenseLine.debit || expenseLine.credit || 0;
+     category = expenseLine.account?.name || "Expense";
++  } else if (arClearingLine) {
++    type = "income";
++    amount = depositLine?.debit || arClearingLine.credit || 0;
++    category = "Invoice Payment";
+   } else if (lines.length > 0) {
+     amount = lines.reduce((sum, l) => sum + (l.debit || 0), 0);
+     category = lines[0].account?.name || "General";
+-- 
+2.43.0
+

@@ -19,6 +19,11 @@ const posthogAssetsOrigin = posthogOrigin
       .replace("://eu.posthog.com", "://eu-assets.i.posthog.com")
   : "";
 
+const revenueCatOrigins = [  
+ 'https://api.revenuecat.com',  
+ 'https://api.revenuecat.com/v1',  
+];
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
@@ -29,7 +34,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${revenueCatOrigins};
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline';

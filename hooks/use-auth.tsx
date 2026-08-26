@@ -1,104 +1,117 @@
-"use client";
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
-import posthog from "posthog-js";
+"use client";  
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";  
+import { useRouter } from "next/navigation";  
+import { createClient } from "@/lib/supabase/client";  
+import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";  
+import posthog from "posthog-js";  
+import { Purchases } from "@revenuecat/purchases-js";
 
-interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  signOut: () => Promise<void>;
+const RC_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_API_KEY!;
+
+interface AuthContextType {  
+ user: User | null;  
+ isLoading: boolean;  
+ signOut: () => Promise<void>;  
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const identifiedUserId = useRef<string | null>(null);
-  const router = useRouter();
-  const supabase = typeof window === 'undefined' ? null : createClient();
+export function AuthProvider({ children }: { children: React.ReactNode }) {  
+ const [user, setUser] = useState<User | null>(null);  
+ const [isLoading, setIsLoading] = useState(true);  
+ const identifiedUserId = useRef<string | null>(null);  
+ const router = useRouter();  
+ const supabase = typeof window === "undefined" ? null : createClient();
 
-  const identifyUser = (authenticatedUser: User) => {
-    if (identifiedUserId.current === authenticatedUser.id) {
-      return;
-    }
+ const identifyUser = (authenticatedUser: User) => {  
+ if (identifiedUserId.current === authenticatedUser.id) {  
+ return;  
+ }
 
-    if (identifiedUserId.current) {
-      posthog.reset();
-    }
+ if (identifiedUserId.current) {  
+ posthog.reset();  
+ }
 
-    posthog.identify(authenticatedUser.id, {
-      email: authenticatedUser.email,
-      name: typeof authenticatedUser.user_metadata.full_name === "string"
-        ? authenticatedUser.user_metadata.full_name
-        : undefined,
-    });
-    identifiedUserId.current = authenticatedUser.id;
-  };
+ posthog.identify(authenticatedUser.id, {  
+ email: authenticatedUser.email,  
+ name:  
+ typeof authenticatedUser.user_metadata.full_name === "string"  
+ ? authenticatedUser.user_metadata.full_name  
+ : undefined,  
+ });
 
-  useEffect(() => {
-    if (!supabase) {
-      setUser(null);
-      setIsLoading(false);
-      return;
-    }
+ // Initialize RevenueCat with the same user ID as PostHog/Supabase,  
+ // so subscriptions are linked to the correct account across platforms.  
+ Purchases.configure(RC_API_KEY, authenticatedUser.id);
 
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        identifyUser(user);
-      }
-      setIsLoading(false);
-    };
+ identifiedUserId.current = authenticatedUser.id;  
+ };
 
-    getUser();
+ useEffect(() => {  
+ if (!supabase) {  
+ setUser(null);  
+ setIsLoading(false);  
+ return;  
+ }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, session: Session | null) => {
-        const authenticatedUser = session?.user ?? null;
-        setUser(authenticatedUser);
-        if (authenticatedUser) {
-          identifyUser(authenticatedUser);
-        }
-        setIsLoading(false);
-        if (event === "SIGNED_IN") {
-          posthog.capture("user_signed_in");
-          router.refresh();
-        }
-        if (event === "SIGNED_OUT") {
-          identifiedUserId.current = null;
-          router.push("/login");
-          router.refresh();
-        }
-      }
-    );
+ const getUser = async () => {  
+ const {  
+ data: { user },  
+ } = await supabase.auth.getUser();  
+ setUser(user);  
+ if (user) {  
+ identifyUser(user);  
+ }  
+ setIsLoading(false);  
+ };
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [router, supabase]);
+ getUser();
 
-  const signOut = async () => {
-    if (!supabase) return;
-    posthog.reset();
-    identifiedUserId.current = null;
-    await supabase.auth.signOut();
-  };
+ const {  
+ data: { subscription },  
+ } = supabase.auth.onAuthStateChange(  
+ (event: AuthChangeEvent, session: Session | null) => {  
+ const authenticatedUser = session?.user ?? null;  
+ setUser(authenticatedUser);  
+ if (authenticatedUser) {  
+ identifyUser(authenticatedUser);  
+ }  
+ setIsLoading(false);  
+ if (event === "SIGNED_IN") {  
+ posthog.capture("user_signed_in");  
+ router.refresh();  
+ }  
+ if (event === "SIGNED_OUT") {  
+ identifiedUserId.current = null;  
+ router.push("/login");  
+ router.refresh();  
+ }  
+ }  
+ );
 
-  return (
-    <AuthContext.Provider value={{ user, isLoading, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
+ return () => {  
+ subscription.unsubscribe();  
+ };  
+ }, [router, supabase]);
+
+ const signOut = async () => {  
+ if (!supabase) return;  
+ posthog.reset();  
+ identifiedUserId.current = null;  
+ await supabase.auth.signOut();  
+ };
+
+ return (  
+ <AuthContext.Provider value={{ user, isLoading, signOut }}>  
+ {children}  
+ </AuthContext.Provider>  
+ );  
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
+export function useAuth() {  
+ const context = useContext(AuthContext);  
+ if (context === undefined) {  
+ throw new Error("useAuth must be used within an AuthProvider");  
+ }  
+ return context;  
+}  
