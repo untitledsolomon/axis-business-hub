@@ -118,6 +118,10 @@ export function useUpdateInvoiceStatus(orgId: string) {
     mutationFn: (vars) => updateInvoiceStatus({ org_id: orgId, ...vars }),
     invalidateKeys: (variables) => {
       queryClient.invalidateQueries({ queryKey: ["invoices", orgId, variables.invoice_id] });
+      // Leaving 'draft' now posts the AR/revenue accrual entry (see
+      // update_invoice_status_v1), so the ledger/dashboard need to refresh
+      // too — same pattern as useMarkInvoicePaid.
+      queryClient.invalidateQueries({ queryKey: ["journal-entries", orgId] });
       return [["invoices", orgId]];
     },
     successMessage: "Invoice status updated",

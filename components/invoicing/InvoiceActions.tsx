@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { MarkPaidDialog } from "@/components/invoicing/MarkPaidDialog";
-import { useVoidInvoice, useSendInvoiceEmail, generateInvoicePdf } from "@/hooks/invoicing/use-invoices";
+import { useVoidInvoice, useSendInvoiceEmail, useUpdateInvoiceStatus, generateInvoicePdf } from "@/hooks/invoicing/use-invoices";
 import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { Invoice } from "@/lib/types";
 import { MoreHorizontal, FileDown, Send, CheckCircle, Eye, XCircle } from "lucide-react";
@@ -52,6 +52,7 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
 
   const voidInvoice = useVoidInvoice(orgId);
   const sendEmail = useSendInvoiceEmail(orgId);
+  const updateStatus = useUpdateInvoiceStatus(orgId);
   const openMarkPaid = useDeferredModalOpen(setIsMarkPaidOpen);
   const openVoidConfirm = useDeferredModalOpen(setIsVoidConfirmOpen);
 
@@ -60,6 +61,25 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
   const canMarkPaid = !isPaid && !isVoided;
   const canVoid = !isPaid && !isVoided;
   const canSend = !isVoided;
+  // Manual forward-only status moves through the non-accounting states.
+  // 'paid' and 'voided' go through their own dedicated actions above,
+  // which post the real journal entries — this menu only ever writes a
+  // plain status (plus, on the first draft exit, the accrual entry — see
+  // update_invoice_status_v1).
+  const manualStatusOptions: { value: "draft" | "sent" | "viewed" | "partial" | "overdue"; label: string }[] = [
+    { value: "draft", label: "Draft" },
+    { value: "sent", label: "Sent" },
+    { value: "viewed", label: "Viewed" },
+    { value: "partial", label: "Partially Paid" },
+    { value: "overdue", label: "Overdue" },
+  ];
+  const canChangeStatus = !isPaid && !isVoided;
+
+  async function handleStatusChange(status: string) {
+    if (status === invoice.status) return;
+    await updateStatus.mutateAsync({ invoice_id: invoice.id, status });
+    posthog.capture("invoice_status_changed", { from: invoice.status, to: status });
+  }
 
   async function handleDownloadPdf() {
     setIsDownloading(true);
@@ -132,6 +152,17 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
           <DropdownMenuItem onSelect={handleSend} disabled={!canSend || sendEmail.isPending}>
             <Send className="size-4" /> {sendEmail.isPending ? "Sending…" : "Send to Client"}
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Set status</DropdownMenuLabel>
+          {manualStatusOptions.map((opt) => (
+            <DropdownMenuItem
+              key={opt.value}
+              onSelect={() => handleStatusChange(opt.value)}
+              disabled={!canChangeStatus || updateStatus.isPending || invoice.status === opt.value}
+            >
+              {invoice.status === opt.value ? `✓ ${opt.label}` : opt.label}
+            </DropdownMenuItem>
+          ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={(e) => {
