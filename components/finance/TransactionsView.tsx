@@ -59,6 +59,18 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
   const lines = entry.lines || [];
   const revenueLine = lines.find((l) => l.account?.category === "revenue");
   const expenseLine = lines.find((l) => l.account?.category === "expense");
+  // Invoice payments (mark_invoice_paid_v1) never touch a revenue account —
+  // revenue was already recognized when the invoice was raised. The entry
+  // instead debits a bank/cash account and credits Accounts Receivable to
+  // clear it. On a cash basis that credit-to-AR leg IS the "money in" event,
+  // so treat it as income too or it silently falls into "other" and never
+  // counts toward Money In.
+  const arClearingLine = lines.find(
+    (l) => l.account?.category === "asset" && l.account?.name === "Accounts Receivable" && (l.credit || 0) > 0
+  );
+  const depositLine = lines.find(
+    (l) => l.account?.category === "asset" && l.account?.name !== "Accounts Receivable" && (l.debit || 0) > 0
+  );
 
   let type: TxType = "other";
   let amount = 0;
@@ -72,6 +84,10 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
     type = "expense";
     amount = expenseLine.debit || expenseLine.credit || 0;
     category = expenseLine.account?.name || "Expense";
+  } else if (arClearingLine) {
+    type = "income";
+    amount = depositLine?.debit || arClearingLine.credit || 0;
+    category = "Invoice Payment";
   } else if (lines.length > 0) {
     amount = lines.reduce((sum, l) => sum + (l.debit || 0), 0);
     category = lines[0].account?.name || "General";
