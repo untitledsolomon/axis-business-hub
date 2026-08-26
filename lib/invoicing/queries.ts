@@ -131,6 +131,21 @@ export async function voidInvoice(params: { org_id: string; invoice_id: string; 
   return data as Invoice;
 }
 
+export async function reverseInvoicePayment(params: { org_id: string; invoice_id: string; reason?: string }) {
+  const supabase = getSupabaseClient();
+  // Corrects a wrongly-marked-paid invoice (wrong account, wrong amount) —
+  // voids the payment journal entry and reverts status to 'sent' so
+  // mark_invoice_paid_v1 can be called again correctly.
+  const { data, error } = await supabase.rpc("reverse_invoice_payment_v1", {
+    p_org_id: params.org_id,
+    p_invoice_id: params.invoice_id,
+    p_reason: params.reason ?? null,
+  });
+
+  if (error) throw error;
+  return data as Invoice;
+}
+
 export async function updateInvoiceStatus(params: { org_id: string; invoice_id: string; status: string }) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.rpc("update_invoice_status_v1", {

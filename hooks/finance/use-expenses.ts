@@ -52,9 +52,16 @@ export function useUpdateExpense(orgId: string) {
 }
 
 export function useDeleteExpense(orgId: string) {
+  const queryClient = useQueryClient();
   return useCrudMutation({
-    mutationFn: (vars: { id: string }) => deleteExpense(vars.id),
-    invalidateKeys: () => [["expenses", orgId]],
+    mutationFn: (vars: { id: string }) => deleteExpense({ org_id: orgId, expense_id: vars.id }),
+    invalidateKeys: () => {
+      // deleteExpense now voids the linked journal entry (see
+      // delete_expense_v1), so the ledger needs to refresh alongside the
+      // expenses list — same pattern as useMarkInvoicePaid.
+      queryClient.invalidateQueries({ queryKey: ["journal-entries", orgId] });
+      return [["expenses", orgId]];
+    },
     successMessage: "Expense deleted",
     fallbackErrorMessage: "Failed to delete expense",
   });
@@ -62,7 +69,12 @@ export function useDeleteExpense(orgId: string) {
 
 /** Client-side helper for the running total shown atop ExpensesList. */
 export function sumExpenses(expenses: Expense[] | undefined) {
-  return (expenses ?? []).reduce((sum, e) => sum + e.amount, 0);
+  // A voided linked journal entry means the ledger no longer counts this
+  // expense — the total shown here needs to match that or it silently
+  // overstates spend relative to the actual books.
+  return (expenses ?? [])
+    .filter((e) => e.journal_entry?.status !== "void")
+    .reduce((sum, e) => sum + e.amount, 0);
 }
 
 export function useExpensesQueryClient() {

@@ -261,6 +261,9 @@ export function ExpensesList() {
                         <Link href={`/finance/expenses/${expense.id}`} className="hover:text-primary hover:underline">
                           {expense.description}
                         </Link>
+                        {expense.journal_entry?.status === "void" && (
+                          <Badge variant="destructive" className="ml-2 align-middle">Voided</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="capitalize">
@@ -335,8 +338,8 @@ export function ExpensesList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the expense record. The linked journal entry will remain on the ledger
-              for audit purposes — void it separately from the General Ledger if needed.
+              This removes the expense record and voids its linked journal entry (kept on the
+              ledger, marked void, for audit purposes). This can&apos;t be undone from here.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

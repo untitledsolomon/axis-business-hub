@@ -30,10 +30,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { MarkPaidDialog } from "@/components/invoicing/MarkPaidDialog";
-import { useVoidInvoice, useSendInvoiceEmail, useUpdateInvoiceStatus, generateInvoicePdf } from "@/hooks/invoicing/use-invoices";
+import { useVoidInvoice, useSendInvoiceEmail, useUpdateInvoiceStatus, useReverseInvoicePayment, generateInvoicePdf } from "@/hooks/invoicing/use-invoices";
 import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { Invoice } from "@/lib/types";
-import { MoreHorizontal, FileDown, Send, CheckCircle, Eye, XCircle } from "lucide-react";
+import { MoreHorizontal, FileDown, Send, CheckCircle, Eye, XCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import posthog from "posthog-js";
 
@@ -53,8 +53,11 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
   const voidInvoice = useVoidInvoice(orgId);
   const sendEmail = useSendInvoiceEmail(orgId);
   const updateStatus = useUpdateInvoiceStatus(orgId);
+  const reversePayment = useReverseInvoicePayment(orgId);
   const openMarkPaid = useDeferredModalOpen(setIsMarkPaidOpen);
   const openVoidConfirm = useDeferredModalOpen(setIsVoidConfirmOpen);
+  const [isReverseConfirmOpen, setIsReverseConfirmOpen] = useState(false);
+  const openReverseConfirm = useDeferredModalOpen(setIsReverseConfirmOpen);
 
   const isPaid = invoice.status === "paid";
   const isVoided = invoice.status === "voided";
@@ -128,6 +131,14 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
     setIsVoidConfirmOpen(false);
   }
 
+  async function handleReversePayment(event?: Event) {
+    // Same auto-close race as handleVoid above — see that comment.
+    event?.preventDefault();
+    await reversePayment.mutateAsync({ invoice_id: invoice.id });
+    posthog.capture("invoice_payment_reversed", { invoice_status: invoice.status });
+    setIsReverseConfirmOpen(false);
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -183,6 +194,17 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
           >
             <CheckCircle className="size-4" /> Mark as Paid
           </DropdownMenuItem>
+          {isPaid && (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault(); // see Mark as Paid above for why
+                openReverseConfirm();
+              }}
+              disabled={reversePayment.isPending}
+            >
+              <RotateCcw className="size-4" /> Reverse Payment
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             className="text-destructive"
             onSelect={(e) => {
@@ -225,6 +247,29 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
               disabled={voidInvoice.isPending}
             >
               {voidInvoice.isPending ? "Voiding…" : "Void Invoice"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isReverseConfirmOpen} onOpenChange={setIsReverseConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverse payment on {invoice.invoice_number}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Use this if the payment was recorded against the wrong account, wrong amount, or in
+              error. This voids the payment journal entry and moves the invoice back to
+              &quot;Sent&quot; so you can mark it paid again correctly. The invoice itself stays
+              issued — this only undoes the payment, not the invoice.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => handleReversePayment(e.nativeEvent)}
+              disabled={reversePayment.isPending}
+            >
+              {reversePayment.isPending ? "Reversing…" : "Reverse Payment"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -14,7 +14,8 @@ export async function getExpenses(orgId: string, filters?: ExpenseFilters) {
     .select(`
       *,
       expense_account:accounts!expenses_expense_account_id_fkey(id, name, code),
-      paid_from_account:accounts!expenses_paid_from_account_id_fkey(id, name, code)
+      paid_from_account:accounts!expenses_paid_from_account_id_fkey(id, name, code),
+      journal_entry:journal_entries!expenses_journal_entry_id_fkey(id, status)
     `)
     .eq("org_id", orgId)
     .order("expense_date", { ascending: false });
@@ -94,8 +95,14 @@ export async function updateExpense(
   return data as Expense;
 }
 
-export async function deleteExpense(expenseId: string) {
+export async function deleteExpense(params: { org_id: string; expense_id: string }) {
   const supabase = createClient();
-  const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
+  // Voids the linked journal entry (soft, audit trail preserved) before
+  // removing the row — a plain table delete left the journal entry posted
+  // forever with no way to trace it back to the expense that created it.
+  const { error } = await supabase.rpc("delete_expense_v1", {
+    p_org_id: params.org_id,
+    p_expense_id: params.expense_id,
+  });
   if (error) throw error;
 }

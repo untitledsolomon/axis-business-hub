@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -179,6 +180,9 @@ export function DailySalesList() {
                         <Link href={`/finance/daily-sales/${sale.id}`} className="hover:text-primary hover:underline">
                           {sale.description}
                         </Link>
+                        {sale.journal_entry?.status === "void" && (
+                          <Badge variant="destructive" className="ml-2 align-middle">Voided</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm capitalize text-muted-foreground">
                         {sale.payment_method.replace("_", " ")}
@@ -245,8 +249,9 @@ export function DailySalesList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this sale?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the sale record. The linked journal entry will remain on the ledger for
-              audit purposes — void it separately from the General Ledger if needed.
+              This removes the sale record and voids its linked journal entry (kept on the ledger,
+              marked void, for audit purposes). If this was an item sale, the stock quantity sold
+              is restored. This can&apos;t be undone from here.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -277,6 +277,7 @@ export interface Expense {
   updated_at: string;
   expense_account?: { id: string; name: string; code?: string };
   paid_from_account?: { id: string; name: string; code?: string };
+  journal_entry?: { id: string; status: string };
 }
 
 export interface DailySale {
@@ -302,4 +303,5 @@ export interface DailySale {
   discount_pct?: number;
   item_movement_id?: string;
   item?: { id: string; name: string; sku?: string };
+  journal_entry?: { id: string; status: string };
 }

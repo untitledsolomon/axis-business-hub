@@ -8,6 +8,7 @@ import {
   getNextInvoiceNumber,
   markInvoicePaid,
   voidInvoice,
+  reverseInvoicePayment,
   updateInvoiceStatus,
   generateInvoicePdf,
   sendInvoiceEmail,
@@ -105,10 +106,28 @@ export function useVoidInvoice(orgId: string) {
     mutationFn: (vars) => voidInvoice({ org_id: orgId, ...vars }),
     invalidateKeys: (variables) => {
       queryClient.invalidateQueries({ queryKey: ["invoices", orgId, variables.invoice_id] });
+      // void_invoice_v1 now also voids the invoice's accrual journal entry
+      // (if one was posted), so the ledger needs to refresh too.
+      queryClient.invalidateQueries({ queryKey: ["journal-entries", orgId] });
       return [["invoices", orgId]];
     },
     successMessage: "Invoice voided",
     fallbackErrorMessage: "Failed to void invoice",
+  });
+}
+
+export function useReverseInvoicePayment(orgId: string) {
+  const queryClient = useQueryClient();
+  return useCrudMutation<{ invoice_id: string; reason?: string }, Invoice>({
+    mutationFn: (vars) => reverseInvoicePayment({ org_id: orgId, ...vars }),
+    invalidateKeys: (variables) => {
+      queryClient.invalidateQueries({ queryKey: ["invoices", orgId, variables.invoice_id] });
+      queryClient.invalidateQueries({ queryKey: ["journal-entries", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts", orgId] });
+      return [["invoices", orgId]];
+    },
+    successMessage: "Payment reversed",
+    fallbackErrorMessage: "Failed to reverse payment",
   });
 }
 

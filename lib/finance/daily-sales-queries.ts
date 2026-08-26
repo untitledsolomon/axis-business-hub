@@ -14,7 +14,8 @@ export async function getDailySales(orgId: string, filters?: DailySaleFilters) {
       *,
       revenue_account:accounts!daily_sales_revenue_account_id_fkey(id, name, code),
       received_into_account:accounts!daily_sales_received_into_account_id_fkey(id, name, code),
-      item:items(id, name, sku)
+      item:items(id, name, sku),
+      journal_entry:journal_entries!daily_sales_journal_entry_id_fkey(id, status)
     `)
     .eq("org_id", orgId)
     .order("sale_date", { ascending: false });
@@ -113,8 +114,13 @@ export async function updateDailySale(
   return data as DailySale;
 }
 
-export async function deleteDailySale(saleId: string) {
+export async function deleteDailySale(params: { org_id: string; sale_id: string }) {
   const supabase = createClient();
-  const { error } = await supabase.from("daily_sales").delete().eq("id", saleId);
+  // Voids the linked journal entry (soft, audit trail preserved) before
+  // removing the row — same fix as deleteExpense, see delete_daily_sale_v1.
+  const { error } = await supabase.rpc("delete_daily_sale_v1", {
+    p_org_id: params.org_id,
+    p_sale_id: params.sale_id,
+  });
   if (error) throw error;
 }

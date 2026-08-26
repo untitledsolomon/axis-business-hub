@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getDailySales,
   getDailySale,
@@ -63,14 +63,22 @@ export function useUpdateDailySale(orgId: string) {
 }
 
 export function useDeleteDailySale(orgId: string) {
+  const queryClient = useQueryClient();
   return useCrudMutation({
-    mutationFn: (vars: { id: string }) => deleteDailySale(vars.id),
-    invalidateKeys: () => [["daily-sales", orgId]],
+    mutationFn: (vars: { id: string }) => deleteDailySale({ org_id: orgId, sale_id: vars.id }),
+    invalidateKeys: () => {
+      queryClient.invalidateQueries({ queryKey: ["journal-entries", orgId] });
+      return [["daily-sales", orgId]];
+    },
     successMessage: "Sale deleted",
     fallbackErrorMessage: "Failed to delete sale",
   });
 }
 
 export function sumDailySales(sales: DailySale[] | undefined) {
-  return (sales ?? []).reduce((sum, s) => sum + s.amount, 0);
+  // Same fix as sumExpenses — a voided linked journal entry means the
+  // ledger no longer counts this sale.
+  return (sales ?? [])
+    .filter((s) => s.journal_entry?.status !== "void")
+    .reduce((sum, s) => sum + s.amount, 0);
 }
