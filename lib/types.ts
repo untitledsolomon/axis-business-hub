@@ -305,3 +305,79 @@ export interface DailySale {
   item?: { id: string; name: string; sku?: string };
   journal_entry?: { id: string; status: string };
 }
+
+// ---------------------------------------------------------------------
+// Reporting & Analytics (report RPCs in 20260826000004_reporting_functions.sql)
+// ---------------------------------------------------------------------
+
+export interface TrialBalanceRow {
+  account_id: string;
+  account_code: string;
+  account_name: string;
+  account_category: AccountCategory;
+  sub_type?: string;
+  total_debit: number; // cents
+  total_credit: number; // cents
+  balance: number; // cents, signed per account's normal balance side
+}
+
+export interface ProfitAndLossRow {
+  account_id: string;
+  account_code: string;
+  account_name: string;
+  account_category: AccountCategory;
+  sub_type?: string;
+  amount: number; // cents, positive for both revenue and expense lines
+}
+
+export interface BalanceSheetRow {
+  account_id: string | null; // null for the synthetic Retained Earnings row
+  account_code: string;
+  account_name: string;
+  account_category: AccountCategory;
+  sub_type?: string;
+  balance: number; // cents
+}
+
+export interface AccountLedgerRow {
+  entry_date: string;
+  journal_entry_id: string;
+  reference?: string;
+  description?: string;
+  debit: number; // cents
+  credit: number; // cents
+  running_balance: number; // cents
+}
+
+export interface RevenueTrendRow {
+  month: string; // first day of month, ISO date
+  revenue: number; // cents
+  expenses: number; // cents
+  net: number; // cents
+}
+
+export type ARAgingBucket = 'current' | '1-30' | '31-60' | '61-90' | '90+';
+
+export interface ARAgingRow {
+  invoice_id: string;
+  invoice_number: string;
+  client_id: string;
+  client_name: string;
+  due_date: string;
+  days_overdue: number;
+  bucket: ARAgingBucket;
+  amount_due: number; // cents
+}
+
+export interface ExpenseBreakdownRow {
+  category: string;
+  total: number; // cents
+}
+
+export interface TopClientRow {
+  client_id: string;
+  client_name: string;
+  invoice_count: number;
+  total_invoiced: number; // cents
+  total_paid: number; // cents
+}

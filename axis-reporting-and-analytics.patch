@@ -1,0 +1,1695 @@
+diff --git a/app/(dashboard)/finance/analytics/page.tsx b/app/(dashboard)/finance/analytics/page.tsx
+new file mode 100644
+index 0000000..133d571
+--- /dev/null
++++ b/app/(dashboard)/finance/analytics/page.tsx
+@@ -0,0 +1,11 @@
++import { Metadata } from "next";
++import { AnalyticsView } from "@/components/finance/AnalyticsView";
++
++export const metadata: Metadata = {
++  title: "Analytics | Axis",
++  description: "Revenue trends, receivables aging, and client analytics.",
++};
++
++export default function AnalyticsPage() {
++  return <AnalyticsView />;
++}
+diff --git a/app/(dashboard)/finance/reports/page.tsx b/app/(dashboard)/finance/reports/page.tsx
+new file mode 100644
+index 0000000..0889fe3
+--- /dev/null
++++ b/app/(dashboard)/finance/reports/page.tsx
+@@ -0,0 +1,11 @@
++import { Metadata } from "next";
++import { ReportsView } from "@/components/finance/ReportsView";
++
++export const metadata: Metadata = {
++  title: "Reports | Axis",
++  description: "Trial balance, profit & loss, and balance sheet reports.",
++};
++
++export default function ReportsPage() {
++  return <ReportsView />;
++}
+diff --git a/components/app/app-shell.tsx b/components/app/app-shell.tsx
+index 5103054..8b91c00 100644
+--- a/components/app/app-shell.tsx
++++ b/components/app/app-shell.tsx
+@@ -4,12 +4,14 @@ import { useState, type ReactNode } from "react";
+ import Link from "next/link";
+ import { usePathname, useRouter } from "next/navigation";
+ import {
++  BarChart3,
+   Bell,
+   BookOpen,
+   Building2,
+   ChevronDown,
+   ChevronsUpDown,
+   CreditCard,
++  FileSpreadsheet,
+   FileText,
+   HelpCircle,
+   LayoutDashboard,
+@@ -66,6 +68,8 @@ const navGroups: { title: string; items: NavItem[] }[] = [
+     items: [
+       { label: "Chart of Accounts", to: "/finance/accounts", icon: Wallet },
+       { label: "General Ledger", to: "/finance/ledger", icon: BookOpen },
++      { label: "Reports", to: "/finance/reports", icon: FileSpreadsheet },
++      { label: "Analytics", to: "/finance/analytics", icon: BarChart3 },
+       { label: "Banking", to: "/finance/banking", icon: CreditCard },
+       { label: "Expenses", to: "/finance/expenses", icon: TrendingDown },
+       { label: "Quick Sales", to: "/finance/daily-sales", icon: ShoppingBag },
+diff --git a/components/app/command-palette.tsx b/components/app/command-palette.tsx
+index b48f3fb..2579b77 100644
+--- a/components/app/command-palette.tsx
++++ b/components/app/command-palette.tsx
+@@ -17,9 +17,11 @@ import {
+   CommandSeparator,
+ } from "@/components/ui/command";
+ import {
++  BarChart3,
+   BookOpen,
+   Building2,
+   CreditCard,
++  FileSpreadsheet,
+   FileText,
+   LayoutDashboard,
+   Percent,
+@@ -39,6 +41,8 @@ const links = [
+   { label: "Inventory", to: "/inventory", icon: ShoppingBag },
+   { label: "Chart of Accounts", to: "/finance/accounts", icon: Wallet },
+   { label: "General Ledger", to: "/finance/ledger", icon: BookOpen },
++  { label: "Reports", to: "/finance/reports", icon: FileSpreadsheet },
++  { label: "Analytics", to: "/finance/analytics", icon: BarChart3 },
+   { label: "Banking", to: "/finance/banking", icon: CreditCard },
+   { label: "Employees", to: "/employees", icon: Users },
+   { label: "Tax Rates", to: "/settings/tax-rates", icon: Percent },
+diff --git a/components/finance/AnalyticsView.tsx b/components/finance/AnalyticsView.tsx
+new file mode 100644
+index 0000000..b894e5b
+--- /dev/null
++++ b/components/finance/AnalyticsView.tsx
+@@ -0,0 +1,314 @@
++"use client";
++
++import { useMemo, useState } from "react";
++import { useOrg } from "@/hooks/use-org";
++import {
++  useRevenueTrend,
++  useARAging,
++  useExpenseBreakdown,
++  useTopClients,
++} from "@/hooks/finance/use-reports";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from "@/components/ui/table";
++import { Input } from "@/components/ui/input";
++import { Skeleton } from "@/components/ui/skeleton";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { SummaryBar } from "@/components/shared/SummaryBar";
++import {
++  ResponsiveContainer,
++  LineChart,
++  Line,
++  XAxis,
++  YAxis,
++  CartesianGrid,
++  Tooltip,
++  BarChart,
++  Bar,
++  PieChart,
++  Pie,
++  Cell,
++  Legend,
++} from "recharts";
++
++const fmt = (cents: number) =>
++  (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
++
++const fmtShort = (cents: number) => {
++  const v = cents / 100;
++  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
++  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
++  return v.toFixed(0);
++};
++
++const monthLabel = (iso: string) =>
++  new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", year: "2-digit" });
++
++function todayISO() {
++  return new Date().toISOString().slice(0, 10);
++}
++
++function monthsAgoISO(n: number) {
++  const d = new Date();
++  d.setMonth(d.getMonth() - n);
++  d.setDate(1);
++  return d.toISOString().slice(0, 10);
++}
++
++const PIE_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6", "#ec4899"];
++
++const AGING_BUCKET_ORDER = ["current", "1-30", "31-60", "61-90", "90+"] as const;
++const AGING_BUCKET_LABEL: Record<string, string> = {
++  current: "Current",
++  "1-30": "1–30 days",
++  "31-60": "31–60 days",
++  "61-90": "61–90 days",
++  "90+": "90+ days",
++};
++const AGING_BUCKET_CLASS: Record<string, string> = {
++  current: "bg-success-soft text-success",
++  "1-30": "bg-muted text-muted-foreground",
++  "31-60": "bg-warning-soft text-warning-foreground",
++  "61-90": "bg-warning-soft text-warning-foreground",
++  "90+": "bg-destructive-soft text-destructive",
++};
++
++export function AnalyticsView() {
++  const { currentOrg } = useOrg();
++  const orgId = currentOrg?.id || "";
++
++  const [startDate, setStartDate] = useState(monthsAgoISO(5)); // trailing 6 months incl. current
++  const [endDate, setEndDate] = useState(todayISO());
++  const asOfDate = todayISO();
++
++  const { data: trend, isLoading: trendLoading } = useRevenueTrend(orgId, startDate, endDate);
++  const { data: aging, isLoading: agingLoading } = useARAging(orgId, asOfDate);
++  const { data: expenseBreakdown, isLoading: expenseLoading } = useExpenseBreakdown(orgId, startDate, endDate);
++  const { data: topClients, isLoading: clientsLoading } = useTopClients(orgId, startDate, endDate, 5);
++
++  const trendChartData = useMemo(
++    () =>
++      (trend ?? []).map((r) => ({
++        month: monthLabel(r.month),
++        Revenue: r.revenue / 100,
++        Expenses: r.expenses / 100,
++        Net: r.net / 100,
++      })),
++    [trend]
++  );
++
++  const totalOutstanding = useMemo(
++    () => (aging ?? []).reduce((s, r) => s + r.amount_due, 0),
++    [aging]
++  );
++  const overdueOutstanding = useMemo(
++    () => (aging ?? []).filter((r) => r.bucket !== "current").reduce((s, r) => s + r.amount_due, 0),
++    [aging]
++  );
++
++  const agingByBucket = useMemo(() => {
++    const map = new Map<string, number>();
++    for (const bucket of AGING_BUCKET_ORDER) map.set(bucket, 0);
++    for (const row of aging ?? []) map.set(row.bucket, (map.get(row.bucket) ?? 0) + row.amount_due);
++    return AGING_BUCKET_ORDER.map((bucket) => ({ bucket, amount: (map.get(bucket) ?? 0) / 100 }));
++  }, [aging]);
++
++  const expenseChartData = useMemo(
++    () => (expenseBreakdown ?? []).map((r) => ({ name: r.category, value: r.total / 100 })),
++    [expenseBreakdown]
++  );
++
++  const periodTotals = useMemo(() => {
++    const revenue = (trend ?? []).reduce((s, r) => s + r.revenue, 0);
++    const expenses = (trend ?? []).reduce((s, r) => s + r.expenses, 0);
++    return { revenue, expenses, net: revenue - expenses };
++  }, [trend]);
++
++  return (
++    <div className="space-y-4">
++      <PageHeader
++        title="Analytics"
++        description="Business trends across revenue, expenses, receivables, and clients."
++      />
++
++      <div className="flex flex-wrap items-end gap-2">
++        <div>
++          <label className="mb-1 block text-xs text-muted-foreground">From</label>
++          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" />
++        </div>
++        <div>
++          <label className="mb-1 block text-xs text-muted-foreground">To</label>
++          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" />
++        </div>
++      </div>
++
++      <SummaryBar
++        isLoading={trendLoading}
++        stats={[
++          { label: "Revenue (period)", value: fmt(periodTotals.revenue) },
++          { label: "Expenses (period)", value: fmt(periodTotals.expenses) },
++          {
++            label: "Net (period)",
++            value: fmt(periodTotals.net),
++            tone: periodTotals.net >= 0 ? "success" : "destructive",
++          },
++          {
++            label: "Outstanding AR",
++            value: fmt(totalOutstanding),
++            tone: overdueOutstanding > 0 ? "warning" : "default",
++          },
++        ]}
++      />
++
++      {/* Revenue trend */}
++      <div className="panel p-4">
++        <h3 className="mb-3 text-sm font-semibold text-foreground">Revenue vs Expenses</h3>
++        {trendLoading ? (
++          <Skeleton className="h-72 w-full" />
++        ) : !trendChartData.length ? (
++          <p className="py-16 text-center text-sm text-muted-foreground">No posted transactions in this period.</p>
++        ) : (
++          <ResponsiveContainer width="100%" height={280}>
++            <LineChart data={trendChartData}>
++              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
++              <XAxis dataKey="month" fontSize={12} />
++              <YAxis fontSize={12} tickFormatter={(v) => fmtShort(v * 100)} />
++              <Tooltip formatter={(v: number) => (v as number).toLocaleString(undefined, { minimumFractionDigits: 2 })} />
++              <Legend />
++              <Line type="monotone" dataKey="Revenue" stroke="#22c55e" strokeWidth={2} dot={false} />
++              <Line type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2} dot={false} />
++              <Line type="monotone" dataKey="Net" stroke="#6366f1" strokeWidth={2} dot={false} />
++            </LineChart>
++          </ResponsiveContainer>
++        )}
++      </div>
++
++      <div className="grid gap-4 md:grid-cols-2">
++        {/* AR Aging */}
++        <div className="panel p-4">
++          <h3 className="mb-3 text-sm font-semibold text-foreground">Accounts Receivable Aging</h3>
++          {agingLoading ? (
++            <Skeleton className="h-56 w-full" />
++          ) : !agingByBucket.some((b) => b.amount > 0) ? (
++            <p className="py-12 text-center text-sm text-muted-foreground">No open invoices.</p>
++          ) : (
++            <ResponsiveContainer width="100%" height={220}>
++              <BarChart data={agingByBucket}>
++                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
++                <XAxis dataKey="bucket" fontSize={12} />
++                <YAxis fontSize={12} tickFormatter={(v) => fmtShort(v * 100)} />
++                <Tooltip formatter={(v: number) => (v as number).toLocaleString(undefined, { minimumFractionDigits: 2 })} />
++                <Bar dataKey="amount" fill="#f59e0b" radius={[4, 4, 0, 0]} />
++              </BarChart>
++            </ResponsiveContainer>
++          )}
++        </div>
++
++        {/* Expense breakdown */}
++        <div className="panel p-4">
++          <h3 className="mb-3 text-sm font-semibold text-foreground">Expense Breakdown</h3>
++          {expenseLoading ? (
++            <Skeleton className="h-56 w-full" />
++          ) : !expenseChartData.length ? (
++            <p className="py-12 text-center text-sm text-muted-foreground">No expenses in this period.</p>
++          ) : (
++            <ResponsiveContainer width="100%" height={220}>
++              <PieChart>
++                <Pie data={expenseChartData} dataKey="value" nameKey="name" outerRadius={80} label>
++                  {expenseChartData.map((_, i) => (
++                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
++                  ))}
++                </Pie>
++                <Tooltip formatter={(v: number) => (v as number).toLocaleString(undefined, { minimumFractionDigits: 2 })} />
++                <Legend />
++              </PieChart>
++            </ResponsiveContainer>
++          )}
++        </div>
++      </div>
++
++      <div className="grid gap-4 md:grid-cols-2">
++        {/* Top clients */}
++        <div className="panel">
++          <div className="border-b px-4 py-3">
++            <h3 className="text-sm font-semibold text-foreground">Top Clients</h3>
++          </div>
++          {clientsLoading ? (
++            <div className="p-4">
++              <Skeleton className="h-40 w-full" />
++            </div>
++          ) : !topClients?.length ? (
++            <p className="py-12 text-center text-sm text-muted-foreground">No invoices in this period.</p>
++          ) : (
++            <Table>
++              <TableHeader>
++                <TableRow>
++                  <TableHead>Client</TableHead>
++                  <TableHead className="text-right">Invoices</TableHead>
++                  <TableHead className="text-right">Total Invoiced</TableHead>
++                  <TableHead className="text-right">Paid</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                {topClients.map((c) => (
++                  <TableRow key={c.client_id}>
++                    <TableCell className="text-sm">{c.client_name}</TableCell>
++                    <TableCell className="numeric text-right text-sm">{c.invoice_count}</TableCell>
++                    <TableCell className="numeric text-right text-sm">{fmt(c.total_invoiced)}</TableCell>
++                    <TableCell className="numeric text-right text-sm">{fmt(c.total_paid)}</TableCell>
++                  </TableRow>
++                ))}
++              </TableBody>
++            </Table>
++          )}
++        </div>
++
++        {/* AR aging detail */}
++        <div className="panel">
++          <div className="border-b px-4 py-3">
++            <h3 className="text-sm font-semibold text-foreground">Open Invoices</h3>
++          </div>
++          {agingLoading ? (
++            <div className="p-4">
++              <Skeleton className="h-40 w-full" />
++            </div>
++          ) : !aging?.length ? (
++            <p className="py-12 text-center text-sm text-muted-foreground">No open invoices.</p>
++          ) : (
++            <Table>
++              <TableHeader>
++                <TableRow>
++                  <TableHead>Invoice</TableHead>
++                  <TableHead>Client</TableHead>
++                  <TableHead>Status</TableHead>
++                  <TableHead className="text-right">Amount Due</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                {aging.slice(0, 8).map((r) => (
++                  <TableRow key={r.invoice_id}>
++                    <TableCell className="text-sm">{r.invoice_number}</TableCell>
++                    <TableCell className="text-sm">{r.client_name}</TableCell>
++                    <TableCell>
++                      <span
++                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${AGING_BUCKET_CLASS[r.bucket]}`}
++                      >
++                        {AGING_BUCKET_LABEL[r.bucket]}
++                      </span>
++                    </TableCell>
++                    <TableCell className="numeric text-right text-sm">{fmt(r.amount_due)}</TableCell>
++                  </TableRow>
++                ))}
++              </TableBody>
++            </Table>
++          )}
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/components/finance/ReportsView.tsx b/components/finance/ReportsView.tsx
+new file mode 100644
+index 0000000..6defc59
+--- /dev/null
++++ b/components/finance/ReportsView.tsx
+@@ -0,0 +1,445 @@
++"use client";
++
++import { useMemo, useState } from "react";
++import { useOrg } from "@/hooks/use-org";
++import {
++  useTrialBalance,
++  useProfitAndLoss,
++  useBalanceSheet,
++} from "@/hooks/finance/use-reports";
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from "@/components/ui/table";
++import { Input } from "@/components/ui/input";
++import { Skeleton } from "@/components/ui/skeleton";
++import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
++import { Button } from "@/components/ui/button";
++import { Download, Scale, TrendingUp, Landmark } from "lucide-react";
++import { PageHeader } from "@/components/shared/PageHeader";
++import { SummaryBar } from "@/components/shared/SummaryBar";
++import type { BalanceSheetRow, ProfitAndLossRow, TrialBalanceRow } from "@/lib/types";
++
++const fmt = (cents: number) =>
++  (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
++
++function todayISO() {
++  return new Date().toISOString().slice(0, 10);
++}
++
++function firstOfMonthISO() {
++  const d = new Date();
++  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
++}
++
++function toCSV(headers: string[], rows: (string | number)[][]) {
++  const escape = (v: string | number) => {
++    const s = String(v);
++    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
++  };
++  return [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
++}
++
++function downloadCSV(filename: string, csv: string) {
++  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
++  const url = URL.createObjectURL(blob);
++  const a = document.createElement("a");
++  a.href = url;
++  a.download = filename;
++  a.click();
++  URL.revokeObjectURL(url);
++}
++
++export function ReportsView() {
++  const { currentOrg } = useOrg();
++  const orgId = currentOrg?.id || "";
++
++  return (
++    <div className="space-y-4">
++      <PageHeader
++        title="Reports"
++        description="Trial balance, profit & loss, and balance sheet — computed directly from posted journal entries."
++      />
++      <Tabs defaultValue="pnl">
++        <TabsList>
++          <TabsTrigger value="pnl">
++            <TrendingUp className="mr-1.5 size-3.5" /> Profit &amp; Loss
++          </TabsTrigger>
++          <TabsTrigger value="balance-sheet">
++            <Landmark className="mr-1.5 size-3.5" /> Balance Sheet
++          </TabsTrigger>
++          <TabsTrigger value="trial-balance">
++            <Scale className="mr-1.5 size-3.5" /> Trial Balance
++          </TabsTrigger>
++        </TabsList>
++        <TabsContent value="pnl">
++          <ProfitAndLossTab orgId={orgId} />
++        </TabsContent>
++        <TabsContent value="balance-sheet">
++          <BalanceSheetTab orgId={orgId} />
++        </TabsContent>
++        <TabsContent value="trial-balance">
++          <TrialBalanceTab orgId={orgId} />
++        </TabsContent>
++      </Tabs>
++    </div>
++  );
++}
++
++// ---------------------------------------------------------------------
++// Profit & Loss
++// ---------------------------------------------------------------------
++
++function ProfitAndLossTab({ orgId }: { orgId: string }) {
++  const [startDate, setStartDate] = useState(firstOfMonthISO());
++  const [endDate, setEndDate] = useState(todayISO());
++  const { data: rows, isLoading } = useProfitAndLoss(orgId, startDate, endDate);
++
++  const grouped = useMemo(() => {
++    const revenue = (rows ?? []).filter((r) => r.account_category === "revenue");
++    const expense = (rows ?? []).filter((r) => r.account_category === "expense");
++    const totalRevenue = revenue.reduce((s, r) => s + r.amount, 0);
++    const totalExpense = expense.reduce((s, r) => s + r.amount, 0);
++    return { revenue, expense, totalRevenue, totalExpense, net: totalRevenue - totalExpense };
++  }, [rows]);
++
++  const exportCSV = () => {
++    const headers = ["Section", "Code", "Account", "Amount"];
++    const dataRows: (string | number)[][] = [
++      ...grouped.revenue.map((r) => ["Revenue", r.account_code, r.account_name, (r.amount / 100).toFixed(2)]),
++      ["Revenue", "", "Total Revenue", (grouped.totalRevenue / 100).toFixed(2)],
++      ...grouped.expense.map((r) => ["Expense", r.account_code, r.account_name, (r.amount / 100).toFixed(2)]),
++      ["Expense", "", "Total Expenses", (grouped.totalExpense / 100).toFixed(2)],
++      ["Net", "", "Net Income", (grouped.net / 100).toFixed(2)],
++    ];
++    downloadCSV(`profit-and-loss_${startDate}_to_${endDate}.csv`, toCSV(headers, dataRows));
++  };
++
++  return (
++    <div className="space-y-4 pt-3">
++      <div className="flex flex-wrap items-end justify-between gap-3">
++        <div className="flex items-end gap-2">
++          <div>
++            <label className="mb-1 block text-xs text-muted-foreground">From</label>
++            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" />
++          </div>
++          <div>
++            <label className="mb-1 block text-xs text-muted-foreground">To</label>
++            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" />
++          </div>
++        </div>
++        <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows?.length}>
++          <Download className="mr-1.5 size-3.5" /> Export CSV
++        </Button>
++      </div>
++
++      <SummaryBar
++        isLoading={isLoading}
++        stats={[
++          { label: "Total Revenue", value: fmt(grouped.totalRevenue) },
++          { label: "Total Expenses", value: fmt(grouped.totalExpense) },
++          {
++            label: "Net Income",
++            value: fmt(grouped.net),
++            tone: grouped.net >= 0 ? "success" : "destructive",
++          },
++        ]}
++      />
++
++      {isLoading ? (
++        <Skeleton className="h-64 w-full" />
++      ) : !rows?.length ? (
++        <p className="py-8 text-center text-sm text-muted-foreground">
++          No posted transactions in this period.
++        </p>
++      ) : (
++        <div className="panel">
++          <Table>
++            <TableHeader>
++              <TableRow>
++                <TableHead>Account</TableHead>
++                <TableHead className="text-right">Amount</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              <PnLSection title="Revenue" rows={grouped.revenue} total={grouped.totalRevenue} />
++              <PnLSection title="Expenses" rows={grouped.expense} total={grouped.totalExpense} />
++              <TableRow className="border-t-2 font-semibold">
++                <TableCell>Net Income</TableCell>
++                <TableCell className={`numeric text-right ${grouped.net >= 0 ? "text-success" : "text-destructive"}`}>
++                  {fmt(grouped.net)}
++                </TableCell>
++              </TableRow>
++            </TableBody>
++          </Table>
++        </div>
++      )}
++    </div>
++  );
++}
++
++function PnLSection({ title, rows, total }: { title: string; rows: ProfitAndLossRow[]; total: number }) {
++  return (
++    <>
++      <TableRow className="bg-muted/40">
++        <TableCell colSpan={2} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
++          {title}
++        </TableCell>
++      </TableRow>
++      {rows.map((r) => (
++        <TableRow key={r.account_id}>
++          <TableCell className="pl-6 text-sm">
++            <span className="text-muted-foreground">{r.account_code}</span> {r.account_name}
++          </TableCell>
++          <TableCell className="numeric text-right text-sm">{fmt(r.amount)}</TableCell>
++        </TableRow>
++      ))}
++      <TableRow className="font-medium">
++        <TableCell className="pl-6 text-sm">Total {title}</TableCell>
++        <TableCell className="numeric text-right text-sm">{fmt(total)}</TableCell>
++      </TableRow>
++    </>
++  );
++}
++
++// ---------------------------------------------------------------------
++// Balance Sheet
++// ---------------------------------------------------------------------
++
++function BalanceSheetTab({ orgId }: { orgId: string }) {
++  const [asOfDate, setAsOfDate] = useState(todayISO());
++  const { data: rows, isLoading } = useBalanceSheet(orgId, asOfDate);
++
++  const grouped = useMemo(() => {
++    const assets = (rows ?? []).filter((r) => r.account_category === "asset");
++    const liabilities = (rows ?? []).filter((r) => r.account_category === "liability");
++    const equity = (rows ?? []).filter((r) => r.account_category === "equity");
++    const totalAssets = assets.reduce((s, r) => s + r.balance, 0);
++    const totalLiabilities = liabilities.reduce((s, r) => s + r.balance, 0);
++    const totalEquity = equity.reduce((s, r) => s + r.balance, 0);
++    return { assets, liabilities, equity, totalAssets, totalLiabilities, totalEquity };
++  }, [rows]);
++
++  const balances = grouped.totalAssets === grouped.totalLiabilities + grouped.totalEquity;
++
++  const exportCSV = () => {
++    const headers = ["Section", "Code", "Account", "Balance"];
++    const dataRows: (string | number)[][] = [
++      ...grouped.assets.map((r) => ["Assets", r.account_code, r.account_name, (r.balance / 100).toFixed(2)]),
++      ["Assets", "", "Total Assets", (grouped.totalAssets / 100).toFixed(2)],
++      ...grouped.liabilities.map((r) => ["Liabilities", r.account_code, r.account_name, (r.balance / 100).toFixed(2)]),
++      ["Liabilities", "", "Total Liabilities", (grouped.totalLiabilities / 100).toFixed(2)],
++      ...grouped.equity.map((r) => ["Equity", r.account_code, r.account_name, (r.balance / 100).toFixed(2)]),
++      ["Equity", "", "Total Equity", (grouped.totalEquity / 100).toFixed(2)],
++    ];
++    downloadCSV(`balance-sheet_${asOfDate}.csv`, toCSV(headers, dataRows));
++  };
++
++  return (
++    <div className="space-y-4 pt-3">
++      <div className="flex flex-wrap items-end justify-between gap-3">
++        <div>
++          <label className="mb-1 block text-xs text-muted-foreground">As of</label>
++          <Input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className="w-40" />
++        </div>
++        <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows?.length}>
++          <Download className="mr-1.5 size-3.5" /> Export CSV
++        </Button>
++      </div>
++
++      <SummaryBar
++        isLoading={isLoading}
++        stats={[
++          { label: "Total Assets", value: fmt(grouped.totalAssets) },
++          { label: "Total Liabilities", value: fmt(grouped.totalLiabilities) },
++          { label: "Total Equity", value: fmt(grouped.totalEquity) },
++          {
++            label: "Balances",
++            value: balances ? "Yes" : "No — check ledger",
++            tone: balances ? "success" : "destructive",
++          },
++        ]}
++      />
++
++      {isLoading ? (
++        <Skeleton className="h-64 w-full" />
++      ) : (
++        <div className="grid gap-4 md:grid-cols-2">
++          <div className="panel">
++            <Table>
++              <TableHeader>
++                <TableRow>
++                  <TableHead>Assets</TableHead>
++                  <TableHead className="text-right">Balance</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                <BalanceSheetRows rows={grouped.assets} />
++                <TableRow className="border-t-2 font-semibold">
++                  <TableCell>Total Assets</TableCell>
++                  <TableCell className="numeric text-right">{fmt(grouped.totalAssets)}</TableCell>
++                </TableRow>
++              </TableBody>
++            </Table>
++          </div>
++          <div className="panel">
++            <Table>
++              <TableHeader>
++                <TableRow>
++                  <TableHead>Liabilities &amp; Equity</TableHead>
++                  <TableHead className="text-right">Balance</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                <TableRow className="bg-muted/40">
++                  <TableCell colSpan={2} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
++                    Liabilities
++                  </TableCell>
++                </TableRow>
++                <BalanceSheetRows rows={grouped.liabilities} />
++                <TableRow className="font-medium">
++                  <TableCell className="pl-6 text-sm">Total Liabilities</TableCell>
++                  <TableCell className="numeric text-right text-sm">{fmt(grouped.totalLiabilities)}</TableCell>
++                </TableRow>
++                <TableRow className="bg-muted/40">
++                  <TableCell colSpan={2} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
++                    Equity
++                  </TableCell>
++                </TableRow>
++                <BalanceSheetRows rows={grouped.equity} />
++                <TableRow className="font-medium">
++                  <TableCell className="pl-6 text-sm">Total Equity</TableCell>
++                  <TableCell className="numeric text-right text-sm">{fmt(grouped.totalEquity)}</TableCell>
++                </TableRow>
++                <TableRow className="border-t-2 font-semibold">
++                  <TableCell>Total Liabilities &amp; Equity</TableCell>
++                  <TableCell className="numeric text-right">
++                    {fmt(grouped.totalLiabilities + grouped.totalEquity)}
++                  </TableCell>
++                </TableRow>
++              </TableBody>
++            </Table>
++          </div>
++        </div>
++      )}
++    </div>
++  );
++}
++
++function BalanceSheetRows({ rows }: { rows: BalanceSheetRow[] }) {
++  return (
++    <>
++      {rows.map((r) => (
++        <TableRow key={r.account_id ?? r.account_code}>
++          <TableCell className="pl-6 text-sm">
++            <span className="text-muted-foreground">{r.account_code}</span> {r.account_name}
++          </TableCell>
++          <TableCell className="numeric text-right text-sm">{fmt(r.balance)}</TableCell>
++        </TableRow>
++      ))}
++    </>
++  );
++}
++
++// ---------------------------------------------------------------------
++// Trial Balance
++// ---------------------------------------------------------------------
++
++function TrialBalanceTab({ orgId }: { orgId: string }) {
++  const [asOfDate, setAsOfDate] = useState(todayISO());
++  const { data: rows, isLoading } = useTrialBalance(orgId, asOfDate);
++
++  const totals = useMemo(() => {
++    const debit = (rows ?? []).reduce((s, r) => s + r.total_debit, 0);
++    const credit = (rows ?? []).reduce((s, r) => s + r.total_credit, 0);
++    return { debit, credit };
++  }, [rows]);
++
++  const balances = totals.debit === totals.credit;
++
++  const exportCSV = () => {
++    const headers = ["Code", "Account", "Category", "Debit", "Credit"];
++    const dataRows: (string | number)[][] = (rows ?? [])
++      .filter((r) => r.total_debit !== 0 || r.total_credit !== 0)
++      .map((r: TrialBalanceRow) => [
++        r.account_code,
++        r.account_name,
++        r.account_category,
++        (r.total_debit / 100).toFixed(2),
++        (r.total_credit / 100).toFixed(2),
++      ]);
++    dataRows.push(["", "", "Total", (totals.debit / 100).toFixed(2), (totals.credit / 100).toFixed(2)]);
++    downloadCSV(`trial-balance_${asOfDate}.csv`, toCSV(headers, dataRows));
++  };
++
++  return (
++    <div className="space-y-4 pt-3">
++      <div className="flex flex-wrap items-end justify-between gap-3">
++        <div>
++          <label className="mb-1 block text-xs text-muted-foreground">As of</label>
++          <Input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className="w-40" />
++        </div>
++        <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows?.length}>
++          <Download className="mr-1.5 size-3.5" /> Export CSV
++        </Button>
++      </div>
++
++      <SummaryBar
++        isLoading={isLoading}
++        stats={[
++          { label: "Total Debits", value: fmt(totals.debit) },
++          { label: "Total Credits", value: fmt(totals.credit) },
++          {
++            label: "Balances",
++            value: balances ? "Yes" : "No — check ledger",
++            tone: balances ? "success" : "destructive",
++          },
++        ]}
++      />
++
++      {isLoading ? (
++        <Skeleton className="h-64 w-full" />
++      ) : (
++        <div className="panel">
++          <Table>
++            <TableHeader>
++              <TableRow>
++                <TableHead>Code</TableHead>
++                <TableHead>Account</TableHead>
++                <TableHead>Category</TableHead>
++                <TableHead className="text-right">Debit</TableHead>
++                <TableHead className="text-right">Credit</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {(rows ?? [])
++                .filter((r) => r.total_debit !== 0 || r.total_credit !== 0)
++                .map((r) => (
++                  <TableRow key={r.account_id}>
++                    <TableCell className="text-sm text-muted-foreground">{r.account_code}</TableCell>
++                    <TableCell className="text-sm">{r.account_name}</TableCell>
++                    <TableCell className="text-sm capitalize text-muted-foreground">{r.account_category}</TableCell>
++                    <TableCell className="numeric text-right text-sm">
++                      {r.total_debit ? fmt(r.total_debit) : ""}
++                    </TableCell>
++                    <TableCell className="numeric text-right text-sm">
++                      {r.total_credit ? fmt(r.total_credit) : ""}
++                    </TableCell>
++                  </TableRow>
++                ))}
++              <TableRow className="border-t-2 font-semibold">
++                <TableCell colSpan={3}>Total</TableCell>
++                <TableCell className="numeric text-right">{fmt(totals.debit)}</TableCell>
++                <TableCell className="numeric text-right">{fmt(totals.credit)}</TableCell>
++              </TableRow>
++            </TableBody>
++          </Table>
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/hooks/finance/use-reports.ts b/hooks/finance/use-reports.ts
+new file mode 100644
+index 0000000..ab366c2
+--- /dev/null
++++ b/hooks/finance/use-reports.ts
+@@ -0,0 +1,101 @@
++import { useQuery } from "@tanstack/react-query";
++import {
++  getTrialBalance,
++  getProfitAndLoss,
++  getBalanceSheet,
++  getAccountLedger,
++  getRevenueTrend,
++  getARAging,
++  getExpenseBreakdown,
++  getTopClients,
++} from "@/lib/finance/reports-queries";
++import { useOrg } from "@/hooks/use-org";
++
++// ---- Core accounting reports ----
++
++export function useTrialBalance(orgId: string, asOfDate: string) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["trial-balance", orgId, asOfDate],
++    queryFn: () => getTrialBalance(orgId, asOfDate),
++    enabled: typeof window !== "undefined" && !!orgId && !!asOfDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
++
++export function useProfitAndLoss(orgId: string, startDate: string, endDate: string) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["profit-and-loss", orgId, startDate, endDate],
++    queryFn: () => getProfitAndLoss(orgId, startDate, endDate),
++    enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
++
++export function useBalanceSheet(orgId: string, asOfDate: string) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["balance-sheet", orgId, asOfDate],
++    queryFn: () => getBalanceSheet(orgId, asOfDate),
++    enabled: typeof window !== "undefined" && !!orgId && !!asOfDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
++
++export function useAccountLedger(
++  orgId: string,
++  accountId: string,
++  startDate: string,
++  endDate: string
++) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["account-ledger", orgId, accountId, startDate, endDate],
++    queryFn: () => getAccountLedger(orgId, accountId, startDate, endDate),
++    enabled: typeof window !== "undefined" && !!orgId && !!accountId && !!startDate && !!endDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
++
++// ---- Business analytics ----
++
++export function useRevenueTrend(orgId: string, startDate: string, endDate: string) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["revenue-trend", orgId, startDate, endDate],
++    queryFn: () => getRevenueTrend(orgId, startDate, endDate),
++    enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
++
++export function useARAging(orgId: string, asOfDate: string) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["ar-aging", orgId, asOfDate],
++    queryFn: () => getARAging(orgId, asOfDate),
++    enabled: typeof window !== "undefined" && !!orgId && !!asOfDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
++
++export function useExpenseBreakdown(orgId: string, startDate: string, endDate: string) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["expense-breakdown", orgId, startDate, endDate],
++    queryFn: () => getExpenseBreakdown(orgId, startDate, endDate),
++    enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
++
++export function useTopClients(orgId: string, startDate: string, endDate: string, limit?: number) {
++  const { isLoading: orgLoading } = useOrg();
++  const query = useQuery({
++    queryKey: ["top-clients", orgId, startDate, endDate, limit],
++    queryFn: () => getTopClients(orgId, startDate, endDate, limit),
++    enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate,
++  });
++  return { ...query, isLoading: orgLoading || query.isPending };
++}
+diff --git a/lib/finance/reports-queries.ts b/lib/finance/reports-queries.ts
+new file mode 100644
+index 0000000..9574a9d
+--- /dev/null
++++ b/lib/finance/reports-queries.ts
+@@ -0,0 +1,120 @@
++import { createClient } from "@/lib/supabase/client";
++import {
++  TrialBalanceRow,
++  ProfitAndLossRow,
++  BalanceSheetRow,
++  AccountLedgerRow,
++  RevenueTrendRow,
++  ARAgingRow,
++  ExpenseBreakdownRow,
++  TopClientRow,
++} from "@/lib/types";
++
++// ---- Core accounting reports ----
++
++export async function getTrialBalance(orgId: string, asOfDate: string) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_trial_balance_v1", {
++    p_org_id: orgId,
++    p_as_of_date: asOfDate,
++  });
++
++  if (error) throw error;
++  return data as TrialBalanceRow[];
++}
++
++export async function getProfitAndLoss(orgId: string, startDate: string, endDate: string) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_profit_and_loss_v1", {
++    p_org_id: orgId,
++    p_start_date: startDate,
++    p_end_date: endDate,
++  });
++
++  if (error) throw error;
++  return data as ProfitAndLossRow[];
++}
++
++export async function getBalanceSheet(orgId: string, asOfDate: string) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_balance_sheet_v1", {
++    p_org_id: orgId,
++    p_as_of_date: asOfDate,
++  });
++
++  if (error) throw error;
++  return data as BalanceSheetRow[];
++}
++
++export async function getAccountLedger(
++  orgId: string,
++  accountId: string,
++  startDate: string,
++  endDate: string
++) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_account_ledger_v1", {
++    p_org_id: orgId,
++    p_account_id: accountId,
++    p_start_date: startDate,
++    p_end_date: endDate,
++  });
++
++  if (error) throw error;
++  return data as AccountLedgerRow[];
++}
++
++// ---- Business analytics ----
++
++export async function getRevenueTrend(orgId: string, startDate: string, endDate: string) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_revenue_trend_v1", {
++    p_org_id: orgId,
++    p_start_date: startDate,
++    p_end_date: endDate,
++  });
++
++  if (error) throw error;
++  return data as RevenueTrendRow[];
++}
++
++export async function getARAging(orgId: string, asOfDate: string) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_ar_aging_v1", {
++    p_org_id: orgId,
++    p_as_of_date: asOfDate,
++  });
++
++  if (error) throw error;
++  return data as ARAgingRow[];
++}
++
++export async function getExpenseBreakdown(orgId: string, startDate: string, endDate: string) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_expense_breakdown_v1", {
++    p_org_id: orgId,
++    p_start_date: startDate,
++    p_end_date: endDate,
++  });
++
++  if (error) throw error;
++  return data as ExpenseBreakdownRow[];
++}
++
++export async function getTopClients(
++  orgId: string,
++  startDate: string,
++  endDate: string,
++  limit: number = 10
++) {
++  const supabase = createClient();
++  const { data, error } = await supabase.rpc("get_top_clients_v1", {
++    p_org_id: orgId,
++    p_start_date: startDate,
++    p_end_date: endDate,
++    p_limit: limit,
++  });
++
++  if (error) throw error;
++  return data as TopClientRow[];
++}
+diff --git a/lib/types.ts b/lib/types.ts
+index 11b5e87..6547bc3 100644
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -305,3 +305,79 @@ export interface DailySale {
+   item?: { id: string; name: string; sku?: string };
+   journal_entry?: { id: string; status: string };
+ }
++
++// ---------------------------------------------------------------------
++// Reporting & Analytics (report RPCs in 20260826000004_reporting_functions.sql)
++// ---------------------------------------------------------------------
++
++export interface TrialBalanceRow {
++  account_id: string;
++  account_code: string;
++  account_name: string;
++  account_category: AccountCategory;
++  sub_type?: string;
++  total_debit: number; // cents
++  total_credit: number; // cents
++  balance: number; // cents, signed per account's normal balance side
++}
++
++export interface ProfitAndLossRow {
++  account_id: string;
++  account_code: string;
++  account_name: string;
++  account_category: AccountCategory;
++  sub_type?: string;
++  amount: number; // cents, positive for both revenue and expense lines
++}
++
++export interface BalanceSheetRow {
++  account_id: string | null; // null for the synthetic Retained Earnings row
++  account_code: string;
++  account_name: string;
++  account_category: AccountCategory;
++  sub_type?: string;
++  balance: number; // cents
++}
++
++export interface AccountLedgerRow {
++  entry_date: string;
++  journal_entry_id: string;
++  reference?: string;
++  description?: string;
++  debit: number; // cents
++  credit: number; // cents
++  running_balance: number; // cents
++}
++
++export interface RevenueTrendRow {
++  month: string; // first day of month, ISO date
++  revenue: number; // cents
++  expenses: number; // cents
++  net: number; // cents
++}
++
++export type ARAgingBucket = 'current' | '1-30' | '31-60' | '61-90' | '90+';
++
++export interface ARAgingRow {
++  invoice_id: string;
++  invoice_number: string;
++  client_id: string;
++  client_name: string;
++  due_date: string;
++  days_overdue: number;
++  bucket: ARAgingBucket;
++  amount_due: number; // cents
++}
++
++export interface ExpenseBreakdownRow {
++  category: string;
++  total: number; // cents
++}
++
++export interface TopClientRow {
++  client_id: string;
++  client_name: string;
++  invoice_count: number;
++  total_invoiced: number; // cents
++  total_paid: number; // cents
++}
+diff --git a/supabase/migrations/20260826000004_reporting_functions.sql b/supabase/migrations/20260826000004_reporting_functions.sql
+new file mode 100644
+index 0000000..49b4c71
+--- /dev/null
++++ b/supabase/migrations/20260826000004_reporting_functions.sql
+@@ -0,0 +1,514 @@
++-- Reporting & Analytics Functions
++-- Created: 2026-08-26
++--
++-- Axis has had a real double-entry GL (accounts + journal_entries +
++-- journal_entry_lines) since finance_foundation, but nothing has ever
++-- queried it as reports. This migration adds read-only RPCs for the
++-- core accounting reports and a handful of business-analytics views,
++-- all computed directly from posted journal entries so they can never
++-- drift from the ledger.
++--
++-- Every function follows the existing _v1 RPC convention: SECURITY
++-- DEFINER, org-membership auth check, org_id as first param. All of
++-- them only ever look at journal_entries.status = 'posted' — draft
++-- entries aren't real yet and void entries were reversed, so this is
++-- the same filter the rest of the app already trusts.
++
++-- ============================================================
++-- 1. TRIAL BALANCE
++-- Per-account debit/credit totals as of a date. Foundation for
++-- everything else and a sanity check in its own right (debits should
++-- equal credits across the whole org).
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_trial_balance_v1(
++    p_org_id UUID,
++    p_as_of_date DATE DEFAULT CURRENT_DATE
++) RETURNS TABLE (
++    account_id UUID,
++    account_code TEXT,
++    account_name TEXT,
++    account_category account_category,
++    sub_type TEXT,
++    total_debit BIGINT,
++    total_credit BIGINT,
++    balance BIGINT -- debit-normal accounts positive when debit > credit, credit-normal accounts positive when credit > debit
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    RETURN QUERY
++    SELECT
++        a.id,
++        a.code,
++        a.name,
++        a.category,
++        a.sub_type,
++        COALESCE(SUM(l.debit), 0)::BIGINT,
++        COALESCE(SUM(l.credit), 0)::BIGINT,
++        CASE
++            WHEN a.category IN ('asset', 'expense')
++                THEN COALESCE(SUM(l.debit), 0) - COALESCE(SUM(l.credit), 0)
++            ELSE COALESCE(SUM(l.credit), 0) - COALESCE(SUM(l.debit), 0)
++        END::BIGINT
++    FROM accounts a
++    LEFT JOIN journal_entry_lines l ON l.account_id = a.id
++    LEFT JOIN journal_entries je ON je.id = l.journal_entry_id
++        AND je.status = 'posted'
++        AND je.entry_date <= p_as_of_date
++    WHERE a.org_id = p_org_id
++    GROUP BY a.id, a.code, a.name, a.category, a.sub_type
++    ORDER BY a.code;
++END;
++$$;
++
++-- ============================================================
++-- 2. PROFIT & LOSS (Income Statement)
++-- Revenue minus expenses for a period, grouped by sub_type for
++-- subtotal lines, with a grand total net income/loss.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_profit_and_loss_v1(
++    p_org_id UUID,
++    p_start_date DATE,
++    p_end_date DATE
++) RETURNS TABLE (
++    account_id UUID,
++    account_code TEXT,
++    account_name TEXT,
++    account_category account_category,
++    sub_type TEXT,
++    amount BIGINT -- revenue positive when credit > debit, expense positive when debit > credit
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    IF p_start_date > p_end_date THEN
++        RAISE EXCEPTION 'start_date must be on or before end_date';
++    END IF;
++
++    RETURN QUERY
++    SELECT
++        a.id,
++        a.code,
++        a.name,
++        a.category,
++        a.sub_type,
++        CASE
++            WHEN a.category = 'revenue' THEN COALESCE(SUM(l.credit), 0) - COALESCE(SUM(l.debit), 0)
++            ELSE COALESCE(SUM(l.debit), 0) - COALESCE(SUM(l.credit), 0)
++        END::BIGINT
++    FROM accounts a
++    JOIN journal_entry_lines l ON l.account_id = a.id
++    JOIN journal_entries je ON je.id = l.journal_entry_id
++        AND je.status = 'posted'
++        AND je.entry_date BETWEEN p_start_date AND p_end_date
++    WHERE a.org_id = p_org_id
++        AND a.category IN ('revenue', 'expense')
++    GROUP BY a.id, a.code, a.name, a.category, a.sub_type
++    HAVING COALESCE(SUM(l.debit), 0) <> 0 OR COALESCE(SUM(l.credit), 0) <> 0
++    ORDER BY a.category DESC, a.code; -- revenue before expense
++END;
++$$;
++
++-- ============================================================
++-- 3. BALANCE SHEET
++-- Assets / liabilities / equity as of a date. Equity includes
++-- retained earnings = cumulative net income up to that date (not
++-- posted as a real closing entry — computed on the fly), so the
++-- sheet balances even though Axis doesn't run a year-end close.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_balance_sheet_v1(
++    p_org_id UUID,
++    p_as_of_date DATE DEFAULT CURRENT_DATE
++) RETURNS TABLE (
++    account_id UUID,
++    account_code TEXT,
++    account_name TEXT,
++    account_category account_category,
++    sub_type TEXT,
++    balance BIGINT
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++DECLARE
++    v_retained_earnings BIGINT;
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    -- Cumulative net income (all-time up to as_of_date) folded into equity.
++    SELECT COALESCE(SUM(
++        CASE
++            WHEN a.category = 'revenue' THEN l.credit - l.debit
++            ELSE l.debit - l.credit -- expense
++        END
++    ), 0) INTO v_retained_earnings
++    FROM accounts a
++    JOIN journal_entry_lines l ON l.account_id = a.id
++    JOIN journal_entries je ON je.id = l.journal_entry_id
++        AND je.status = 'posted'
++        AND je.entry_date <= p_as_of_date
++    WHERE a.org_id = p_org_id
++        AND a.category IN ('revenue', 'expense');
++
++    RETURN QUERY
++    SELECT
++        a.id,
++        a.code,
++        a.name,
++        a.category,
++        a.sub_type,
++        (COALESCE(SUM(l.debit), 0) - COALESCE(SUM(l.credit), 0))::BIGINT
++    FROM accounts a
++    LEFT JOIN journal_entry_lines l ON l.account_id = a.id
++    LEFT JOIN journal_entries je ON je.id = l.journal_entry_id
++        AND je.status = 'posted'
++        AND je.entry_date <= p_as_of_date
++    WHERE a.org_id = p_org_id
++        AND a.category = 'asset'
++    GROUP BY a.id, a.code, a.name, a.category, a.sub_type
++
++    UNION ALL
++
++    SELECT
++        a.id,
++        a.code,
++        a.name,
++        a.category,
++        a.sub_type,
++        (COALESCE(SUM(l.credit), 0) - COALESCE(SUM(l.debit), 0))::BIGINT
++    FROM accounts a
++    LEFT JOIN journal_entry_lines l ON l.account_id = a.id
++    LEFT JOIN journal_entries je ON je.id = l.journal_entry_id
++        AND je.status = 'posted'
++        AND je.entry_date <= p_as_of_date
++    WHERE a.org_id = p_org_id
++        AND a.category = 'liability'
++    GROUP BY a.id, a.code, a.name, a.category, a.sub_type
++
++    UNION ALL
++
++    SELECT
++        a.id,
++        a.code,
++        a.name,
++        a.category,
++        a.sub_type,
++        (COALESCE(SUM(l.credit), 0) - COALESCE(SUM(l.debit), 0))::BIGINT
++    FROM accounts a
++    LEFT JOIN journal_entry_lines l ON l.account_id = a.id
++    LEFT JOIN journal_entries je ON je.id = l.journal_entry_id
++        AND je.status = 'posted'
++        AND je.entry_date <= p_as_of_date
++    WHERE a.org_id = p_org_id
++        AND a.category = 'equity'
++    GROUP BY a.id, a.code, a.name, a.category, a.sub_type
++
++    UNION ALL
++
++    -- Synthetic retained-earnings row so equity ties out without a real closing entry.
++    SELECT
++        NULL::UUID,
++        'RE',
++        'Retained Earnings (Current)',
++        'equity'::account_category,
++        'Equity',
++        v_retained_earnings
++
++    ORDER BY account_category, account_code;
++END;
++$$;
++
++-- ============================================================
++-- 4. ACCOUNT LEDGER DETAIL (running balance)
++-- Drill-down from any report line into the posted entries behind it.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_account_ledger_v1(
++    p_org_id UUID,
++    p_account_id UUID,
++    p_start_date DATE,
++    p_end_date DATE
++) RETURNS TABLE (
++    entry_date DATE,
++    journal_entry_id UUID,
++    reference TEXT,
++    description TEXT,
++    debit BIGINT,
++    credit BIGINT,
++    running_balance BIGINT
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++DECLARE
++    v_category account_category;
++    v_opening_balance BIGINT;
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    SELECT category INTO v_category FROM accounts WHERE id = p_account_id AND org_id = p_org_id;
++    IF v_category IS NULL THEN
++        RAISE EXCEPTION 'Account not found in this organisation';
++    END IF;
++
++    SELECT COALESCE(SUM(
++        CASE WHEN v_category IN ('asset', 'expense') THEN l.debit - l.credit ELSE l.credit - l.debit END
++    ), 0) INTO v_opening_balance
++    FROM journal_entry_lines l
++    JOIN journal_entries je ON je.id = l.journal_entry_id AND je.status = 'posted'
++    WHERE l.account_id = p_account_id AND je.entry_date < p_start_date;
++
++    RETURN QUERY
++    WITH lines AS (
++        SELECT
++            je.entry_date,
++            je.id AS journal_entry_id,
++            je.reference,
++            COALESCE(l.description, je.description) AS description,
++            l.debit,
++            l.credit,
++            je.created_at
++        FROM journal_entry_lines l
++        JOIN journal_entries je ON je.id = l.journal_entry_id AND je.status = 'posted'
++        WHERE l.account_id = p_account_id
++            AND je.entry_date BETWEEN p_start_date AND p_end_date
++    )
++    SELECT
++        lines.entry_date,
++        lines.journal_entry_id,
++        lines.reference,
++        lines.description,
++        lines.debit,
++        lines.credit,
++        (v_opening_balance + SUM(
++            CASE WHEN v_category IN ('asset', 'expense') THEN lines.debit - lines.credit ELSE lines.credit - lines.debit END
++        ) OVER (ORDER BY lines.entry_date, lines.created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW))::BIGINT
++    FROM lines
++    ORDER BY lines.entry_date, lines.created_at;
++END;
++$$;
++
++-- ============================================================
++-- 5. REVENUE TREND (business analytics)
++-- Monthly revenue and expense totals for charting.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_revenue_trend_v1(
++    p_org_id UUID,
++    p_start_date DATE,
++    p_end_date DATE
++) RETURNS TABLE (
++    month DATE,
++    revenue BIGINT,
++    expenses BIGINT,
++    net BIGINT
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    RETURN QUERY
++    WITH monthly AS (
++        SELECT
++            DATE_TRUNC('month', je.entry_date)::DATE AS month,
++            COALESCE(SUM(CASE WHEN a.category = 'revenue' THEN l.credit - l.debit ELSE 0 END), 0)::BIGINT AS revenue,
++            COALESCE(SUM(CASE WHEN a.category = 'expense' THEN l.debit - l.credit ELSE 0 END), 0)::BIGINT AS expenses
++        FROM journal_entries je
++        JOIN journal_entry_lines l ON l.journal_entry_id = je.id
++        JOIN accounts a ON a.id = l.account_id
++        WHERE je.org_id = p_org_id
++            AND je.status = 'posted'
++            AND je.entry_date BETWEEN p_start_date AND p_end_date
++            AND a.category IN ('revenue', 'expense')
++        GROUP BY DATE_TRUNC('month', je.entry_date)
++    )
++    SELECT monthly.month, monthly.revenue, monthly.expenses, (monthly.revenue - monthly.expenses)::BIGINT AS net
++    FROM monthly
++    ORDER BY monthly.month;
++END;
++$$;
++
++-- ============================================================
++-- 6. AR AGING (business analytics)
++-- Open invoice balances bucketed by days overdue. Uses invoices
++-- directly rather than the GL, since that's the source of truth for
++-- what a client owes. NOTE: mark_invoice_paid_v1 only supports
++-- full-amount payment today — there is no partial-payment RPC yet, so
++-- an invoice's amount due is simply its grand_total while unpaid. If
++-- a partial-payment RPC is added later, this should switch to netting
++-- against the AR sub-ledger (or a real amount_paid column) instead.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_ar_aging_v1(
++    p_org_id UUID,
++    p_as_of_date DATE DEFAULT CURRENT_DATE
++) RETURNS TABLE (
++    invoice_id UUID,
++    invoice_number TEXT,
++    client_id UUID,
++    client_name TEXT,
++    due_date DATE,
++    days_overdue INT,
++    bucket TEXT,
++    amount_due BIGINT
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    RETURN QUERY
++    SELECT
++        i.id,
++        i.invoice_number,
++        i.client_id,
++        c.name,
++        i.due_date,
++        GREATEST(0, p_as_of_date - i.due_date)::INT AS days_overdue,
++        CASE
++            WHEN p_as_of_date <= i.due_date THEN 'current'
++            WHEN p_as_of_date - i.due_date <= 30 THEN '1-30'
++            WHEN p_as_of_date - i.due_date <= 60 THEN '31-60'
++            WHEN p_as_of_date - i.due_date <= 90 THEN '61-90'
++            ELSE '90+'
++        END AS bucket,
++        i.grand_total::BIGINT AS amount_due
++    FROM invoices i
++    JOIN clients c ON c.id = i.client_id
++    WHERE i.org_id = p_org_id
++        AND i.status IN ('sent', 'viewed', 'partial', 'overdue')
++        AND i.issue_date <= p_as_of_date
++    ORDER BY days_overdue DESC;
++END;
++$$;
++
++-- ============================================================
++-- 7. EXPENSE BREAKDOWN (business analytics)
++-- Expenses grouped by category for a period, for a pie/bar chart.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_expense_breakdown_v1(
++    p_org_id UUID,
++    p_start_date DATE,
++    p_end_date DATE
++) RETURNS TABLE (
++    category TEXT,
++    total BIGINT
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    RETURN QUERY
++    SELECT e.category, SUM(e.amount)::BIGINT
++    FROM expenses e
++    WHERE e.org_id = p_org_id
++        AND e.expense_date BETWEEN p_start_date AND p_end_date
++    GROUP BY e.category
++    ORDER BY SUM(e.amount) DESC;
++END;
++$$;
++
++-- ============================================================
++-- 8. TOP CLIENTS (business analytics)
++-- Ranked by total invoiced (grand_total) over a period, excluding
++-- voided/draft invoices.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION get_top_clients_v1(
++    p_org_id UUID,
++    p_start_date DATE,
++    p_end_date DATE,
++    p_limit INT DEFAULT 10
++) RETURNS TABLE (
++    client_id UUID,
++    client_name TEXT,
++    invoice_count BIGINT,
++    total_invoiced BIGINT,
++    total_paid BIGINT -- sum of grand_total for invoices marked 'paid' (no partial-payment amounts exist yet — see AR aging note above)
++)
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public
++AS $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM organisation_members
++        WHERE org_id = p_org_id AND user_id = auth.uid()
++    ) THEN
++        RAISE EXCEPTION 'Not authorized to view reports for this organisation';
++    END IF;
++
++    RETURN QUERY
++    SELECT
++        c.id,
++        c.name,
++        COUNT(i.id),
++        COALESCE(SUM(i.grand_total), 0)::BIGINT,
++        COALESCE(SUM(i.grand_total) FILTER (WHERE i.status = 'paid'), 0)::BIGINT
++    FROM clients c
++    JOIN invoices i ON i.client_id = c.id
++    WHERE c.org_id = p_org_id
++        AND i.status NOT IN ('draft', 'voided')
++        AND i.issue_date BETWEEN p_start_date AND p_end_date
++    GROUP BY c.id, c.name
++    ORDER BY SUM(i.grand_total) DESC
++    LIMIT p_limit;
++END;
++$$;

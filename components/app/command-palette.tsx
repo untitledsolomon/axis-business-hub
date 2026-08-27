@@ -17,9 +17,11 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import {
+  BarChart3,
   BookOpen,
   Building2,
   CreditCard,
+  FileSpreadsheet,
   FileText,
   LayoutDashboard,
   Percent,
@@ -39,6 +41,8 @@ const links = [
   { label: "Inventory", to: "/inventory", icon: ShoppingBag },
   { label: "Chart of Accounts", to: "/finance/accounts", icon: Wallet },
   { label: "General Ledger", to: "/finance/ledger", icon: BookOpen },
+  { label: "Reports", to: "/finance/reports", icon: FileSpreadsheet },
+  { label: "Analytics", to: "/finance/analytics", icon: BarChart3 },
   { label: "Banking", to: "/finance/banking", icon: CreditCard },
   { label: "Employees", to: "/employees", icon: Users },
   { label: "Tax Rates", to: "/settings/tax-rates", icon: Percent },

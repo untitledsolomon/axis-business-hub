@@ -4,12 +4,14 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  BarChart3,
   Bell,
   BookOpen,
   Building2,
   ChevronDown,
   ChevronsUpDown,
   CreditCard,
+  FileSpreadsheet,
   FileText,
   HelpCircle,
   LayoutDashboard,
@@ -66,6 +68,8 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Chart of Accounts", to: "/finance/accounts", icon: Wallet },
       { label: "General Ledger", to: "/finance/ledger", icon: BookOpen },
+      { label: "Reports", to: "/finance/reports", icon: FileSpreadsheet },
+      { label: "Analytics", to: "/finance/analytics", icon: BarChart3 },
       { label: "Banking", to: "/finance/banking", icon: CreditCard },
       { label: "Expenses", to: "/finance/expenses", icon: TrendingDown },
       { label: "Quick Sales", to: "/finance/daily-sales", icon: ShoppingBag },
