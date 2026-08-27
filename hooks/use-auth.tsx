@@ -4,9 +4,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";  
 import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";  
 import posthog from "posthog-js";  
-import { Purchases } from "@revenuecat/purchases-js";
-
-const RC_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_API_KEY!;
 
 interface AuthContextType {  
  user: User | null;  
@@ -40,9 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  : undefined,  
  });
 
- // Initialize RevenueCat with the same user ID as PostHog/Supabase,  
- // so subscriptions are linked to the correct account across platforms.  
- Purchases.configure(RC_API_KEY, authenticatedUser.id);
+ // Note: unlike RevenueCat, Paddle has no client-side "configure with  
+ // user ID" step — the user ID is instead passed as custom_data when  
+ // opening checkout (see lib/paddle.ts openCheckout), and the webhook  
+ // uses it to link the resulting Paddle subscription back to this  
+ // Supabase user.  
 
  identifiedUserId.current = authenticatedUser.id;  
  };

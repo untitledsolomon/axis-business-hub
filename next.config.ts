@@ -19,18 +19,15 @@ const posthogAssetsOrigin = posthogOrigin
       .replace("://eu.posthog.com", "://eu-assets.i.posthog.com")
   : "";
 
-// CSP directives take space-separated origins (no path component), so the
-// connect-src entry is just the api.revenuecat.com origin, not a path. The
-// paywall widget also loads its own script bundle and injects <style> tags
-// from RevenueCat's asset CDN, so those need script-src/style-src entries
-// too, or the widget renders blank (assets blocked, no visible error beyond
-// the console).
-const revenueCatApiOrigin = 'https://api.revenuecat.com';
-const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
-// RevenueCat's SDK also pings a separate telemetry/event endpoint (distinct
-// from the API origin above) -- without it every trackEvent() call is
-// blocked by CSP and silently retries with backoff forever.
-const revenueCatEventsOrigin = 'https://e.revenue.cat';
+// CSP directives take space-separated origins (no path component). Paddle's
+// overlay checkout (Paddle.js) loads its iframe/script bundle from
+// buy.paddle.com and posts events back to checkout-service.paddle.com;
+// without both, Checkout.open() renders blank (assets blocked, no visible
+// error beyond the console) -- the same failure mode the old RevenueCat
+// paywall had before its CSP entries were added.
+const paddleCheckoutOrigin = 'https://buy.paddle.com';
+const paddleCheckoutServiceOrigin = 'https://checkout-service.paddle.com';
+const paddleCdnOrigin = 'https://cdn.paddle.com';
 const posthogToolbarOrigin = 'https://internal-j.posthog.com';
 // The toolbar's login/auth flow (triggered when a user authenticates the
 // PostHog toolbar in-app) exchanges an OAuth token against posthog.com's
@@ -50,12 +47,13 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${revenueCatApiOrigin} ${revenueCatEventsOrigin};
-                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
-                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin};
+                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
+                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
                     worker-src 'self' blob:;
-                    style-src 'self' 'unsafe-inline' ${revenueCatAssetsOrigin} ${posthogAssetsOrigin};
-                    style-src-elem 'self' 'unsafe-inline' ${revenueCatAssetsOrigin} ${posthogAssetsOrigin};
+                    style-src 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
+                    style-src-elem 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
+                    frame-src 'self' ${paddleCheckoutOrigin};
                     img-src 'self' data: ${supabaseOrigin};
                     font-src 'self';
                     object-src 'none';

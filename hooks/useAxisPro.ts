@@ -1,45 +1,91 @@
-// hooks/useAxisPro.ts  
+// hooks/useAxisPro.ts
 'use client';
 
-import { useState, useEffect } from 'react';  
-import { getCustomerInfo, hasAxisPro } from '@/lib/revenuecat';  
-import type { CustomerInfo } from '@revenuecat/purchases-js';
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { AxisPlanId } from '@/lib/paddle-plans';
 
-interface UseAxisProResult {  
- isProUser: boolean;  
- customerInfo: CustomerInfo | null;  
- isLoading: boolean;  
- error: Error | null;  
- refresh: () => Promise<void>;  
+export interface AxisSubscription {
+  planId: AxisPlanId | 'unknown';
+  status: 'trialing' | 'active' | 'past_due' | 'paused' | 'canceled';
+  currentPeriodEnd: string | null;
+  trialEndsAt: string | null;
 }
 
-export function useAxisPro(): UseAxisProResult {  
- const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);  
- const [isLoading, setIsLoading] = useState(true);  
- const [error, setError] = useState<Error | null>(null);
+interface UseAxisProResult {
+  isProUser: boolean;
+  subscription: AxisSubscription | null;
+  isLoading: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+}
 
- const fetchCustomerInfo = async () => {  
- setIsLoading(true);  
- setError(null);  
- try {  
- const info = await getCustomerInfo();  
- setCustomerInfo(info);  
- } catch (err) {  
- setError(err instanceof Error ? err : new Error('Failed to load subscription info'));  
- } finally {  
- setIsLoading(false);  
- }  
- };
+const ENTITLED_STATUSES = new Set(['trialing', 'active']);
 
- useEffect(() => {  
- fetchCustomerInfo();  
- }, []);
+/**
+ * Replaces the old RevenueCat-backed hook of the same name. Entitlement is
+ * no longer read from a client SDK's CustomerInfo — Paddle.js doesn't
+ * expose one — it's read from the `subscriptions` table, which the
+ * /api/paddle/webhook route keeps in sync with Paddle's subscription
+ * events. Same public shape (isProUser, isLoading, error, refresh) so call
+ * sites elsewhere in the app don't need to change.
+ */
+export function useAxisPro(): UseAxisProResult {
+  const [subscription, setSubscription] = useState<AxisSubscription | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
- return {  
- isProUser: customerInfo ? hasAxisPro(customerInfo) : false,  
- customerInfo,  
- isLoading,  
- error,  
- refresh: fetchCustomerInfo,  
- };  
-}  
+  const fetchSubscription = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSubscription(null);
+        return;
+      }
+
+      const { data, error: queryError } = await supabase
+        .from('subscriptions')
+        .select('plan_id, status, current_period_end, trial_ends_at')
+        .eq('user_id', user.id)
+        .in('status', ['trialing', 'active', 'past_due', 'paused'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (queryError) throw queryError;
+
+      setSubscription(
+        data
+          ? {
+              planId: (data.plan_id as AxisPlanId) ?? 'unknown',
+              status: data.status,
+              currentPeriodEnd: data.current_period_end,
+              trialEndsAt: data.trial_ends_at,
+            }
+          : null
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load subscription info'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubscription();
+  }, [fetchSubscription]);
+
+  return {
+    isProUser: subscription ? ENTITLED_STATUSES.has(subscription.status) : false,
+    subscription,
+    isLoading,
+    error,
+    refresh: fetchSubscription,
+  };
+}
