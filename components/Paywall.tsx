@@ -3,6 +3,7 @@
 
 import { useRef, useState } from 'react';  
 import { getPurchases, hasAxisPro, isUserCancelledError } from '@/lib/revenuecat';
+import type { PurchasesError } from '@revenuecat/purchases-js';
 
 interface PaywallProps {  
  onSuccess?: () => void;  
@@ -34,8 +35,8 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
  }  
  } catch (err: unknown) {  
  if (err && typeof err === 'object' && 'errorCode' in err) {  
- const rcError = err as { errorCode: string; message: string };  
- if (isUserCancelledError(rcError as any)) {  
+ const rcError = err as PurchasesError;  
+ if (isUserCancelledError(rcError)) {  
  onCancel?.();  
  return;  
  }  

@@ -80,7 +80,6 @@ export default function DashboardPage() {
   const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue");
   const lowStockItems = items.filter((item) => item.status !== "archived" && item.current_quantity <= item.reorder_level);
   const onLeaveCount = employees.filter((employee) => employee.status === "on_leave").length;
-  const paidThisPeriodTotal = paidInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
   const overdueTotal = overdueInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
 
   const revenueLabel = timeframe === "this_month" ? "Revenue This Month" : `Revenue (${TIMEFRAME_LABELS[timeframe]})`;

@@ -1,4 +1,4 @@
-import { Purchases, type CustomerInfo, type PurchasesError } from '@revenuecat/purchases-js';
+import { Purchases, ErrorCode, type CustomerInfo, type PurchasesError } from '@revenuecat/purchases-js';
 
 const API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_API_KEY!;
 
@@ -57,5 +57,5 @@ export async function getOfferings() {
 // ---------------------------------------------------------------------------
 
 export function isUserCancelledError(error: PurchasesError): boolean {  
- return error.errorCode === 'USER_CANCELLED';  
+ return error.errorCode === ErrorCode.UserCancelledError;  
 }  
