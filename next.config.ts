@@ -27,6 +27,10 @@ const posthogAssetsOrigin = posthogOrigin
 // the console).
 const revenueCatApiOrigin = 'https://api.revenuecat.com';
 const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
+// RevenueCat's SDK also pings a separate telemetry/event endpoint (distinct
+// from the API origin above) -- without it every trackEvent() call is
+// blocked by CSP and silently retries with backoff forever.
+const revenueCatEventsOrigin = 'https://e.revenue.cat';
 const posthogToolbarOrigin = 'https://internal-j.posthog.com';
 
 const nextConfig: NextConfig = {
@@ -39,7 +43,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${revenueCatApiOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatApiOrigin} ${revenueCatEventsOrigin};
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
                     script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
                     worker-src 'self' blob:;
