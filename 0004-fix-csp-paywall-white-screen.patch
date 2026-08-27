@@ -1,0 +1,78 @@
+From 116fc6764595b8921ddc2c94cf02a299cc4fc078 Mon Sep 17 00:00:00 2001
+From: Axis Build Fix <build@axis.local>
+Date: Thu, 27 Aug 2026 08:27:57 +0000
+Subject: [PATCH] Fix CSP blocking RevenueCat paywall (white screen) and
+ PostHog assets
+
+Root cause of the white-screen paywall: 'revenueCatOrigins' was a JS
+array interpolated directly into the connect-src template string, so
+it rendered as a single comma-joined token
+(https://api.revenuecat.com,https://api.revenuecat.com/v1) instead of
+two space-separated origins. Browsers reject a CSP directive with
+invalid characters like that, which is the exact console error seen:
+'The Content-Security-Policy directive name ... contains one or more
+invalid characters.' It also included a /v1 path, which CSP source
+expressions don't accept (origins only, no paths).
+
+Also missing entirely: script-src / style-src entries for RevenueCat's
+paywall widget, which loads its own bundle and injects <style> tags
+into the target container at runtime -- without those origins
+whitelisted the widget has nothing to render.
+
+Separately (pre-existing, not caused by the RevenueCat work): every
+script-src entry was missing a matching script-src-elem /
+style-src-elem. Chromium-based browsers only fall back from
+script-src-elem to script-src when script-src-elem is entirely absent,
+but subtle CSP evaluation differences meant PostHog's asset scripts
+(session recorder, surveys, toolbar, web-vitals) were being silently
+blocked in production this whole time -- visible in the console as
+repeated 'Loading the script ... violates CSP' for
+us-assets.i.posthog.com. Added script-src-elem and style-src-elem
+mirroring the existing directives so both RevenueCat and PostHog
+assets load correctly.
+---
+ next.config.ts | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/next.config.ts b/next.config.ts
+index 5364d1c..574d172 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -19,10 +19,14 @@ const posthogAssetsOrigin = posthogOrigin
+       .replace("://eu.posthog.com", "://eu-assets.i.posthog.com")
+   : "";
+ 
+-const revenueCatOrigins = [  
+- 'https://api.revenuecat.com',  
+- 'https://api.revenuecat.com/v1',  
+-];
++// CSP directives take space-separated origins (no path component), so the
++// connect-src entry is just the api.revenuecat.com origin, not a path. The
++// paywall widget also loads its own script bundle and injects <style> tags
++// from RevenueCat's asset CDN, so those need script-src/style-src entries
++// too, or the widget renders blank (assets blocked, no visible error beyond
++// the console).
++const revenueCatApiOrigin = 'https://api.revenuecat.com';
++const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
+ 
+ const nextConfig: NextConfig = {
+   async headers() {
+@@ -34,10 +38,12 @@ const nextConfig: NextConfig = {
+             key: "Content-Security-Policy",
+             value: `
+                     default-src 'self';
+-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${revenueCatOrigins};
+-                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin};
++                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${revenueCatApiOrigin};
++                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${revenueCatAssetsOrigin};
++                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${revenueCatAssetsOrigin};
+                     worker-src 'self' blob:;
+-                    style-src 'self' 'unsafe-inline';
++                    style-src 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};
++                    style-src-elem 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};
+                     img-src 'self' data: ${supabaseOrigin};
+                     font-src 'self';
+                     object-src 'none';
+-- 
+2.43.0
+

@@ -27,6 +27,7 @@ const posthogAssetsOrigin = posthogOrigin
 // the console).
 const revenueCatApiOrigin = 'https://api.revenuecat.com';
 const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
+const posthogToolbarOrigin = 'https://internal-j.posthog.com';
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -39,8 +40,8 @@ const nextConfig: NextConfig = {
             value: `
                     default-src 'self';
                     connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${revenueCatApiOrigin};
-                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${revenueCatAssetsOrigin};
-                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${revenueCatAssetsOrigin};
+                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
+                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};
                     style-src-elem 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};

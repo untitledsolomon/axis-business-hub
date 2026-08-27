@@ -1,0 +1,95 @@
+From 997cd56eb0d8fbd91f75cd92d330055897fadd5f Mon Sep 17 00:00:00 2001
+From: Axis Build Fix <build@axis.local>
+Date: Thu, 27 Aug 2026 08:15:58 +0000
+Subject: [PATCH] Fix build: type-safe RevenueCat error check, drop unused var
+
+- lib/revenuecat.ts: isUserCancelledError compared errorCode against
+  the string 'USER_CANCELLED' instead of ErrorCode.UserCancelledError,
+  which TypeScript correctly rejected once the 'as any' cast at the
+  Paywall call site was removed. This was a real latent bug: the
+  cancel-detection would never have matched at runtime either.
+- components/Paywall.tsx: removed the 'as any' cast masking the above;
+  now casts to the proper PurchasesError type.
+- app/(dashboard)/page.tsx: removed unused paidThisPeriodTotal (dead
+  code, not rendered anywhere).
+- .env.example: added missing NEXT_PUBLIC_REVENUECAT_API_KEY.
+
+RevenueCat's Web Billing SDK (@revenuecat/purchases-js) is already
+correctly wired: Purchases.configure() runs in hooks/use-auth.tsx
+alongside PostHog identify, keyed on the Supabase user id. No
+integration changes needed there -- it's the right tool for a
+web-only SaaS paywall and was already implemented correctly.
+---
+ .env.example             | 3 +++
+ app/(dashboard)/page.tsx | 1 -
+ components/Paywall.tsx   | 5 +++--
+ lib/revenuecat.ts        | 4 ++--
+ 4 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/.env.example b/.env.example
+index 7e6bc1e..88ef8d9 100644
+--- a/.env.example
++++ b/.env.example
+@@ -4,3 +4,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+ # PostHog Configuration
+ NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=your-posthog-project-token
+ NEXT_PUBLIC_POSTHOG_HOST=https://your-posthog-host
++
++# RevenueCat Configuration (Web Billing SDK public API key, starts with "rcb_")
++NEXT_PUBLIC_REVENUECAT_API_KEY=your-revenuecat-web-billing-api-key
+diff --git a/app/(dashboard)/page.tsx b/app/(dashboard)/page.tsx
+index 0958e96..bb35f08 100644
+--- a/app/(dashboard)/page.tsx
++++ b/app/(dashboard)/page.tsx
+@@ -80,7 +80,6 @@ export default function DashboardPage() {
+   const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue");
+   const lowStockItems = items.filter((item) => item.status !== "archived" && item.current_quantity <= item.reorder_level);
+   const onLeaveCount = employees.filter((employee) => employee.status === "on_leave").length;
+-  const paidThisPeriodTotal = paidInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
+   const overdueTotal = overdueInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
+ 
+   const revenueLabel = timeframe === "this_month" ? "Revenue This Month" : `Revenue (${TIMEFRAME_LABELS[timeframe]})`;
+diff --git a/components/Paywall.tsx b/components/Paywall.tsx
+index 91bf19f..a71d304 100644
+--- a/components/Paywall.tsx
++++ b/components/Paywall.tsx
+@@ -3,6 +3,7 @@
+ 
+ import { useRef, useState } from 'react';  
+ import { getPurchases, hasAxisPro, isUserCancelledError } from '@/lib/revenuecat';
++import type { PurchasesError } from '@revenuecat/purchases-js';
+ 
+ interface PaywallProps {  
+  onSuccess?: () => void;  
+@@ -34,8 +35,8 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
+  }  
+  } catch (err: unknown) {  
+  if (err && typeof err === 'object' && 'errorCode' in err) {  
+- const rcError = err as { errorCode: string; message: string };  
+- if (isUserCancelledError(rcError as any)) {  
++ const rcError = err as PurchasesError;  
++ if (isUserCancelledError(rcError)) {  
+  onCancel?.();  
+  return;  
+  }  
+diff --git a/lib/revenuecat.ts b/lib/revenuecat.ts
+index 57c5516..7357f45 100644
+--- a/lib/revenuecat.ts
++++ b/lib/revenuecat.ts
+@@ -1,4 +1,4 @@
+-import { Purchases, type CustomerInfo, type PurchasesError } from '@revenuecat/purchases-js';
++import { Purchases, ErrorCode, type CustomerInfo, type PurchasesError } from '@revenuecat/purchases-js';
+ 
+ const API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_API_KEY!;
+ 
+@@ -57,5 +57,5 @@ export async function getOfferings() {
+ // ---------------------------------------------------------------------------
+ 
+ export function isUserCancelledError(error: PurchasesError): boolean {  
+- return error.errorCode === 'USER_CANCELLED';  
++ return error.errorCode === ErrorCode.UserCancelledError;  
+ }  
+\ No newline at end of file
+-- 
+2.43.0
+
