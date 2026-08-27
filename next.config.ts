@@ -32,6 +32,13 @@ const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
 // blocked by CSP and silently retries with backoff forever.
 const revenueCatEventsOrigin = 'https://e.revenue.cat';
 const posthogToolbarOrigin = 'https://internal-j.posthog.com';
+// The toolbar's login/auth flow (triggered when a user authenticates the
+// PostHog toolbar in-app) exchanges an OAuth token against posthog.com's
+// main app host -- distinct from both the ingest host (i.posthog.com,
+// posthogOrigin above) and the toolbar-internal host (internal-j.posthog.com,
+// posthogToolbarOrigin above). Without it, toolbar auth completes client-side
+// then fails silently when the token exchange itself is blocked by CSP.
+const posthogAppOrigin = 'https://us.posthog.com';
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -43,7 +50,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatApiOrigin} ${revenueCatEventsOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${revenueCatApiOrigin} ${revenueCatEventsOrigin};
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
                     script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
                     worker-src 'self' blob:;

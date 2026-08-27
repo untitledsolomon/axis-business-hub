@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useOrg } from "@/hooks/use-org";
 import { useClients } from "@/hooks/clients/use-clients";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
@@ -63,8 +63,16 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
 
   const isLoading = orgLoading || clients.isPending || invoices.isPending || journal.isPending;
 
+  // Captured once per mount (not re-read on every render) so the server-render
+  // pass and the client-render pass agree on the same instant. Reading
+  // `new Date()` fresh inside the useMemo below meant the server and client
+  // could compute slightly different "now" values, which shifts which
+  // invoices/journal entries fall into the current-vs-previous period and
+  // produces mismatched summary totals in the server vs client HTML (React
+  // error #418), the same class of bug fixed for RecentActivity.timeAgo().
+  const [now] = useState(() => new Date());
+
   const summary = useMemo(() => {
-    const now = new Date();
     const { start, prevStart, prevEnd } = getRangeBounds(timeframe, now);
 
     const inCurrent = (d: Date) => d >= start && d <= now;
