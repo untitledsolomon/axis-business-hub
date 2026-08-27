@@ -19,10 +19,14 @@ const posthogAssetsOrigin = posthogOrigin
       .replace("://eu.posthog.com", "://eu-assets.i.posthog.com")
   : "";
 
-const revenueCatOrigins = [  
- 'https://api.revenuecat.com',  
- 'https://api.revenuecat.com/v1',  
-];
+// CSP directives take space-separated origins (no path component), so the
+// connect-src entry is just the api.revenuecat.com origin, not a path. The
+// paywall widget also loads its own script bundle and injects <style> tags
+// from RevenueCat's asset CDN, so those need script-src/style-src entries
+// too, or the widget renders blank (assets blocked, no visible error beyond
+// the console).
+const revenueCatApiOrigin = 'https://api.revenuecat.com';
+const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -34,10 +38,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${revenueCatOrigins};
-                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${revenueCatApiOrigin};
+                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${revenueCatAssetsOrigin};
+                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${revenueCatAssetsOrigin};
                     worker-src 'self' blob:;
-                    style-src 'self' 'unsafe-inline';
+                    style-src 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};
+                    style-src-elem 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};
                     img-src 'self' data: ${supabaseOrigin};
                     font-src 'self';
                     object-src 'none';
