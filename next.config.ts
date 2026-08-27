@@ -43,8 +43,8 @@ const nextConfig: NextConfig = {
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
                     script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
                     worker-src 'self' blob:;
-                    style-src 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};
-                    style-src-elem 'self' 'unsafe-inline' ${revenueCatAssetsOrigin};
+                    style-src 'self' 'unsafe-inline' ${revenueCatAssetsOrigin} ${posthogAssetsOrigin};
+                    style-src-elem 'self' 'unsafe-inline' ${revenueCatAssetsOrigin} ${posthogAssetsOrigin};
                     img-src 'self' data: ${supabaseOrigin};
                     font-src 'self';
                     object-src 'none';
