@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +21,12 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const searchParams = useSearchParams();
+  const [verificationPending, setVerificationPending] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    setVerificationPending(new URLSearchParams(window.location.search).get("verification") === "pending");
+  }, []);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -71,7 +74,7 @@ export function LoginForm() {
             Welcome back
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {searchParams.get("verification") === "pending"
+            {verificationPending
               ? "Check your email, then use the verification link to continue to onboarding."
               : "Sign in to manage your business."}
           </p>
