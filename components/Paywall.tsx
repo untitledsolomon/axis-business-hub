@@ -20,7 +20,7 @@ interface PaywallProps {
  * opens Paddle's overlay checkout once a price is chosen.
  */
 export function Paywall({ onSuccess, onCancel }: PaywallProps) {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const { currentOrg } = useOrg();
   const [interval, setInterval] = useState<BillingInterval>('month');
   const [isLoading, setIsLoading] = useState<AxisPlanId | null>(null);
@@ -45,7 +45,11 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
   }, []);
 
   const handleSelectPlan = async (planId: AxisPlanId) => {
-    if (!user || !currentOrg) {
+    if (isAuthLoading || !currentOrg) {
+      setError('Your account is still loading. Please try again shortly.');
+      return;
+    }
+    if (!user) {
       setError('You must be signed in to subscribe.');
       return;
     }
@@ -106,7 +110,7 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
             <h3 className="font-semibold text-lg">{plan.name}</h3>
             <button
               onClick={() => handleSelectPlan(plan.id)}
-              disabled={isLoading !== null}
+              disabled={isLoading !== null || isAuthLoading || !currentOrg}
               className="btn-primary mt-4 w-full"
             >
               {isLoading === plan.id ? 'Opening checkout…' : `Start 7-day free trial`}

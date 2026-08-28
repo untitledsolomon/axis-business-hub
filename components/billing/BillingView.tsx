@@ -5,6 +5,7 @@ import { useAxisPro } from "@/hooks/useAxisPro";
 import { useOrg } from "@/hooks/use-org";
 import { AXIS_PLANS } from "@/lib/paddle-plans";
 import { useState } from "react";
+import Link from "next/link";
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value)) : "Not set";
@@ -57,7 +58,7 @@ export function BillingView() {
   };
 
   if (isOrgLoading || isLoading) return <div className="py-12 text-sm text-muted-foreground">Loading billing…</div>;
-  if (!currentOrg) return <div className="py-12 text-sm text-muted-foreground">Create or select an organisation to manage billing.</div>;
+  if (!currentOrg) return <div className="py-12"><p className="text-sm text-muted-foreground">Create or select an organisation to manage billing.</p><Link className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href="/onboarding">Go to onboarding</Link></div>;
 
   return (
     <div className="space-y-8">

@@ -18,11 +18,15 @@ const signupSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+function getAuthCallbackUrl() {
+  const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  return `${configuredOrigin || window.location.origin}/auth/callback?next=/onboarding`;
+}
+
 type SignUpValues = z.infer<typeof signupSchema>;
 
 export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const [confirmationSent, setConfirmationSent] = useState(false);
   const supabase = createClient();
 
   const form = useForm<SignUpValues>({
@@ -44,7 +48,7 @@ export function SignUpForm() {
         data: {
           full_name: values.fullName,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+        emailRedirectTo: getAuthCallbackUrl(),
       },
     });
 
@@ -59,9 +63,8 @@ export function SignUpForm() {
     // When confirmation is enabled, the callback creates the session and
     // sends the verified user to onboarding.
     if (!data.session) {
-      setConfirmationSent(true);
       toast.message("Check your email to verify your account.");
-      setIsLoading(false);
+      window.location.href = "/login?verification=pending";
       return;
     }
 
@@ -83,9 +86,7 @@ export function SignUpForm() {
             Create an account
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {confirmationSent
-              ? "Check your email. The verification link will take you to onboarding."
-              : "Sign up and start managing your business."}
+            Sign up and start managing your business.
           </p>
 
           <Form {...form}>

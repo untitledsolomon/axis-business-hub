@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const form = useForm<LoginValues>({
@@ -69,7 +71,9 @@ export function LoginForm() {
             Welcome back
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to manage your business.
+            {searchParams.get("verification") === "pending"
+              ? "Check your email, then use the verification link to continue to onboarding."
+              : "Sign in to manage your business."}
           </p>
 
           <Form {...form}>
