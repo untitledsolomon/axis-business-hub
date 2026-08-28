@@ -14,18 +14,19 @@ function serviceClient() {
   );
 }
 
-async function assertMember(orgId: string) {
+async function assertMember(orgId: string, requireAdmin = false) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Authentication required", status: 401 };
 
   const { data: member } = await supabase
     .from("organisation_members")
-    .select("org_id")
+    .select("org_id, role")
     .eq("org_id", orgId)
     .eq("user_id", user.id)
     .maybeSingle();
   if (!member) return { error: "Organisation access denied", status: 403 };
+  if (requireAdmin && !["owner", "admin"].includes(member.role)) return { error: "Only organisation owners and admins can manage templates", status: 403 };
   return { user };
 }
 
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
   if (!/\.html?$/i.test(file.name)) return NextResponse.json({ error: "Only .html and .htm files are allowed" }, { status: 400 });
   if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Template files must be 500KB or smaller" }, { status: 400 });
 
-  const access = await assertMember(orgId);
+  const access = await assertMember(orgId, true);
   if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
 
   const html = await file.text();
@@ -70,4 +71,14 @@ export async function POST(request: Request) {
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ path, fileName: file.name, uploadedAt: new Date().toISOString() });
+}
+
+export async function DELETE(request: Request) {
+  const orgId = new URL(request.url).searchParams.get("orgId");
+  if (!orgId) return NextResponse.json({ error: "orgId is required" }, { status: 400 });
+  const access = await assertMember(orgId, true);
+  if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
+  const { error } = await serviceClient().storage.from(BUCKET).remove([`${orgId}/template.html`]);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

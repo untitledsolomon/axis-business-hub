@@ -64,8 +64,8 @@ function roleLabel(role: string) {
 export function TeamSettingsView() {
   const { currentOrg } = useOrg();
   const orgId = currentOrg?.id ?? "";
-  const { data: members, isLoading } = useTeamMembers(orgId);
-  const { data: invitations, isLoading: invitesLoading } = usePendingInvitations(orgId);
+  const { data: members, isLoading, isError: membersError, refetch: refetchMembers } = useTeamMembers(orgId);
+  const { data: invitations, isLoading: invitesLoading, isError: invitesError, refetch: refetchInvitations } = usePendingInvitations(orgId);
   const revokeInvitation = useRevokeInvitation(orgId);
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -116,6 +116,11 @@ export function TeamSettingsView() {
                 <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
+          ) : membersError ? (
+            <div className="p-6 text-center">
+              <p className="text-sm text-destructive">Team members could not be loaded.</p>
+              <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void refetchMembers()}>Try again</Button>
+            </div>
           ) : !members || members.length === 0 ? (
             <p className="p-6 text-center text-sm text-muted-foreground">No team members found.</p>
           ) : (
@@ -149,7 +154,7 @@ export function TeamSettingsView() {
           )}
         </div>
 
-        {(invitesLoading || (invitations && invitations.length > 0)) && (
+        {(invitesLoading || invitesError || (invitations && invitations.length > 0)) && (
           <div className="panel overflow-hidden">
             <div className="border-b border-border p-4">
               <p className="font-display text-sm font-semibold text-foreground">Pending Invites</p>
@@ -157,6 +162,11 @@ export function TeamSettingsView() {
             {invitesLoading ? (
               <div className="space-y-3 p-6">
                 <div className="h-10 animate-pulse rounded-lg bg-muted" />
+              </div>
+            ) : invitesError ? (
+              <div className="p-6 text-center">
+                <p className="text-sm text-destructive">Pending invitations could not be loaded.</p>
+                <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void refetchInvitations()}>Try again</Button>
               </div>
             ) : (
               <div className="divide-y divide-border">

@@ -12,6 +12,8 @@ export interface AxisSubscription {
   currentPeriodEnd: string | null;
   trialEndsAt: string | null;
   cancelAtPeriodEnd: boolean;
+  paddlePriceId: string | null;
+  billingInterval: 'month' | 'year' | null;
 }
 
 interface UseAxisProResult {
@@ -59,7 +61,7 @@ export function useAxisPro(): UseAxisProResult {
 
       const { data, error: queryError } = await supabase
         .from('subscriptions')
-        .select('plan_id, status, current_period_end, trial_ends_at, cancel_at_period_end')
+        .select('plan_id, status, current_period_end, trial_ends_at, cancel_at_period_end, paddle_price_id')
         .eq('org_id', currentOrg.id)
         .in('status', ['trialing', 'active', 'past_due', 'paused'])
         .order('updated_at', { ascending: false })
@@ -76,6 +78,8 @@ export function useAxisPro(): UseAxisProResult {
               currentPeriodEnd: data.current_period_end,
               trialEndsAt: data.trial_ends_at,
               cancelAtPeriodEnd: data.cancel_at_period_end ?? false,
+              paddlePriceId: data.paddle_price_id,
+              billingInterval: data.paddle_price_id?.includes('year') ? 'year' : data.paddle_price_id ? 'month' : null,
             }
           : null
       );

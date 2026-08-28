@@ -20,7 +20,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     <div>
       <div className="flex gap-1 overflow-x-auto border-b border-border mb-3">
         {tabs.map((tab) => {
-          const active = pathname === tab.href;
+          const active = tab.href === "/settings" ? pathname === tab.href : pathname.startsWith(tab.href);
           return (
             <Link
               key={tab.href}

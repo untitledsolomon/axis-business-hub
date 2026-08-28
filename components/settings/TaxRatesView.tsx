@@ -47,7 +47,7 @@ import { TaxRate } from "@/lib/types";
 export function TaxRatesView() {
   const { currentOrg } = useOrg();
   const orgId = currentOrg?.id ?? "";
-  const { data: taxRates, isLoading } = useTaxRates(orgId);
+  const { data: taxRates, isLoading, isError, refetch } = useTaxRates(orgId);
   const updateTaxRate = useUpdateTaxRate(orgId);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -108,6 +108,13 @@ export function TaxRatesView() {
                   <TableRow>
                     <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
                       Loading tax rates...
+                    </TableCell>
+                  </TableRow>
+                ) : isError ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center">
+                      <p className="text-sm text-destructive">Tax rates could not be loaded.</p>
+                      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void refetch()}>Try again</Button>
                     </TableCell>
                   </TableRow>
                 ) : !taxRates || taxRates.length === 0 ? (

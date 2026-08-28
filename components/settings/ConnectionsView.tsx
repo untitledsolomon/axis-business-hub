@@ -90,8 +90,8 @@ export function ConnectionsView() {
                   <p className="font-medium text-foreground">{integration.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{integration.description}</p>
                 </div>
-                <Button variant="outline" size="sm" disabled className="mt-1 w-fit">
-                  {integration.status === "connected" ? "Manage" : "Notify Me"}
+                <Button variant="outline" size="sm" disabled={integration.status !== "connected"} className="mt-1 w-fit">
+                  {integration.status === "connected" ? "Manage" : integration.status === "available" ? "Connect" : "Coming soon"}
                 </Button>
               </div>
             );
