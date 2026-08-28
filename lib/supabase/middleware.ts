@@ -28,40 +28,32 @@ export async function updateSession(request: NextRequest) {
   )
 
   // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake can make it very difficult to
+  // the auth check below. A simple mistake can make it very difficult to
   // debug issues with users being logged out abnormally.
 
   // getUser() makes a live network call to Supabase Auth on every request
-  // this middleware runs on. Without a timeout, a slow/hanging Auth response
-  // can block the request all the way to Vercel's edge middleware limit,
-  // producing a 504 MIDDLEWARE_INVOCATION_TIMEOUT for every route. Race it
-  // against a hard timeout so we fail fast instead of hanging.
-  const AUTH_TIMEOUT_MS = 5000
-
-  let user = null
-  let authTimedOut = false
-
-  try {
-    const result = await Promise.race([
-      supabase.auth.getUser(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('auth.getUser() timed out')), AUTH_TIMEOUT_MS)
-      ),
-    ])
-    user = result.data.user
-  } catch (err) {
-    authTimedOut = true
-    console.error('[middleware] auth.getUser() failed or timed out:', err)
-  }
+  // this middleware runs on. Under edge-to-Supabase latency, that call can
+  // be slow enough to trip a timeout guard, and failing closed on timeout
+  // was redirecting valid, logged-in sessions to /login on every request —
+  // producing a login loop even though the session was healthy.
+  //
+  // getSession() avoids the network round trip: it reads and validates the
+  // JWT already present in the request cookies locally, so it can't time
+  // out the same way. That's sufficient for a redirect gate here. Routes or
+  // actions that need server-verified freshness (e.g. checking the account
+  // hasn't been revoked mid-session) should call supabase.auth.getUser()
+  // directly at that point, not rely on this middleware check.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   if (
-    (!user || authTimedOut) &&
+    !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/auth')
   ) {
-    // No user (or the auth check itself failed/timed out): fail closed and
-    // send to login rather than risk letting an unauthenticated request
-    // through to financial data.
+    // No valid session: send to login.
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
