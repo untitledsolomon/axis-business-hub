@@ -22,13 +22,21 @@ export async function POST(request: Request) {
 
   const token = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const { error } = await supabase.from("paddle_checkout_sessions").insert({
-    token_hash: tokenHash,
-    org_id: body.orgId,
-    user_id: user.id,
-    expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+  const { error } = await supabase.rpc("create_paddle_checkout_session", {
+    p_token_hash: tokenHash,
+    p_org_id: body.orgId,
+    p_user_id: user.id,
+    p_expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
   });
 
-  if (error) return NextResponse.json({ error: "Could not create checkout session" }, { status: 500 });
+  if (error) {
+    console.error("Could not create Paddle checkout session", {
+      code: error.code,
+      message: error.message,
+      orgId: body.orgId,
+      userId: user.id,
+    });
+    return NextResponse.json({ error: "Could not create checkout session" }, { status: 500 });
+  }
   return NextResponse.json({ token });
 }
