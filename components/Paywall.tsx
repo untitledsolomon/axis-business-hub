@@ -32,7 +32,9 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
     subscribeToCheckoutEvents((event) => {
       if (event.name === 'checkout.error' || event.name === 'checkout.payment.error') {
         setIsLoading(null);
-        setError(`${event.code}: ${event.detail}`);
+        setError(event.detail === 'transaction_default_checkout_url_not_set'
+          ? 'Paddle checkout is not fully configured. Set a default checkout URL in Paddle Dashboard, then redeploy or retry.'
+          : `${event.code}: ${event.detail}`);
         console.error('Paddle checkout error', {
           code: event.code,
           detail: event.detail,
