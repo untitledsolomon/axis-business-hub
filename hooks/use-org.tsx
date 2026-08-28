@@ -8,6 +8,16 @@ interface Organisation {
   name: string;
   slug: string;
   base_currency: string;
+  onboarding_step: number;
+  onboarding_completed_at: string | null;
+  settings: Record<string, unknown> | null;
+  logo_url: string | null;
+  tagline: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  contact_email: string | null;
+  phone1: string | null;
+  phone2: string | null;
 }
 
 interface OrganisationMemberResponse {
@@ -16,6 +26,16 @@ interface OrganisationMemberResponse {
     name: string;
     slug: string;
     base_currency: string;
+    onboarding_step: number;
+    onboarding_completed_at: string | null;
+    settings: Record<string, unknown> | null;
+    logo_url: string | null;
+    tagline: string | null;
+    address_line1: string | null;
+    address_line2: string | null;
+    contact_email: string | null;
+    phone1: string | null;
+    phone2: string | null;
   } | null;
 }
 
@@ -48,7 +68,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       const { data, error } = await supabase
         .from('organisation_members')
-        .select('organisations(id, name, slug, base_currency)')
+        .select('organisations(id, name, slug, base_currency, onboarding_step, onboarding_completed_at, settings, logo_url, tagline, address_line1, address_line2, contact_email, phone1, phone2)')
         .eq('user_id', user.id);
 
       if (data && !error) {

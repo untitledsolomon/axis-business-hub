@@ -1,9 +1,9 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { OnboardingForm } from "@/components/auth/onboarding-form";
 
 export const metadata: Metadata = {
   title: "Onboarding",
-  description: "Set up your first organisation to get started with AXIS.",
+  description: "Set up your organisation for Axis.",
 };
 
 export default function OnboardingPage() {

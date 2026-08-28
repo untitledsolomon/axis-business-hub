@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import posthog from "posthog-js";
 import { useOrg } from "@/hooks/use-org";
 import { toMinorUnits } from "@/lib/currency";
@@ -67,6 +68,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
   const { data: nextNumber } = useNextInvoiceNumber(orgId);
   const createInvoice = useCreateInvoice();
   const [mounted, setMounted] = useState(false);
+  const [setupPrompt, setSetupPrompt] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -152,6 +154,16 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      const missingFields = [
+        !currentOrg?.contact_email && "invoice contact email",
+        !currentOrg?.address_line1 && "business address",
+        !baseCurrency && "base currency",
+      ].filter(Boolean) as string[];
+      if (missingFields.length > 0) {
+        setSetupPrompt(`Complete your ${missingFields.join(", ")} before creating an invoice.`);
+        return;
+      }
+      setSetupPrompt(null);
       const currency = values.currency;
 
       const invoiceItems = values.items.map(item => {
@@ -214,6 +226,12 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {setupPrompt && (
+          <div role="alert" className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-foreground">
+            <p>{setupPrompt}</p>
+            <Link href="/settings" className="mt-1 inline-block font-semibold underline-offset-4 hover:underline">Open organisation settings</Link>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <FormField
             control={form.control}

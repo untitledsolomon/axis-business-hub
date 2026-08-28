@@ -104,6 +104,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { currentOrg, organisations, setOrg } = useOrg();
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const orgOnboarding = currentOrg?.settings?.onboarding as Record<string, unknown> | undefined;
+  const focus = Array.isArray(orgOnboarding?.focus)
+    ? (orgOnboarding.focus as string[])
+    : [];
+  const pinnedItems = navGroups.flatMap((group) => group.items).filter((item) => focus.some((value) => item.label.toLowerCase().includes(value.split("/")[0].toLowerCase().split(" ")[0]))).slice(0, 3);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = initialsOf(displayName);
@@ -145,6 +150,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <ScrollArea className="flex-1 px-3">
         <nav className="space-y-6 pb-6">
+          {pinnedItems.length > 0 && <div><p className="px-3 pb-2 font-mono text-[0.65rem] font-medium uppercase tracking-wider text-teal">Pinned for you</p><ul className="space-y-0.5">{pinnedItems.map((item) => <li key={`pinned-${item.to}`}><Link href={item.to} onClick={onNavigate} className="group flex items-center gap-3 rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-medium text-foreground"><item.icon className="size-4 shrink-0 text-primary" /><span className="flex-1 truncate">{item.label}</span></Link></li>)}</ul></div>}
           {navGroups.map((group) => (
             <div key={group.title}>
               <p className="px-3 pb-2 font-mono text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground/70">

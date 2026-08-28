@@ -24,6 +24,7 @@ import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useOrg } from "@/hooks/use-org";
 import { formatMoney, convertMinorUnits } from "@/lib/currency";
 import { Users, FileText, TrendingUp, Wallet, AlertTriangle, PackageCheck, BriefcaseBusiness } from "lucide-react";
+import { X } from "lucide-react";
 
 // recharts measures the container on the client and builds SVG ids from a
 // module counter, so its output cannot match server-rendered HTML. Load the
@@ -62,6 +63,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { currentOrg } = useOrg();
   const [timeframe, setTimeframe] = useState<DashboardTimeframe>("this_month");
+  const [setupDismissed, setSetupDismissed] = useState(false);
   const summary = useDashboardSummary(timeframe);
   const { data: invoices = [] } = useInvoices(currentOrg?.id ?? "");
   const { data: employees = [] } = useEmployees(currentOrg?.id ?? "");
@@ -110,6 +112,8 @@ export default function DashboardPage() {
           </Select>
         }
       />
+
+      {currentOrg && !currentOrg.onboarding_completed_at && !setupDismissed && <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-teal/30 bg-teal-soft px-4 py-3 text-sm"><div><p className="font-semibold text-teal-foreground">Finish setting up {currentOrg.name}</p><p className="mt-1 text-muted-foreground">Add the details that make invoices and reports yours.</p></div><div className="flex items-center gap-2"><Link href="/onboarding" className="font-semibold text-teal underline-offset-4 hover:underline">Continue setup</Link><button type="button" aria-label="Dismiss setup reminder" onClick={() => setSetupDismissed(true)} className="rounded-md p-1 text-muted-foreground hover:bg-background"><X className="size-4" /></button></div></div>}
 
       <div className="space-y-4 ">
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">

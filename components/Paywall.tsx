@@ -106,11 +106,16 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {AXIS_PLANS.map((plan) => (
-          <div key={plan.id} className="plan-card border rounded-lg p-4">
+            <div key={plan.id} className="plan-card border rounded-lg p-4">
             <h3 className="font-semibold text-lg">{plan.name}</h3>
+              {!plan.priceIds[interval] && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  This plan is not configured for {interval} billing.
+                </p>
+              )}
             <button
               onClick={() => handleSelectPlan(plan.id)}
-              disabled={isLoading !== null || isAuthLoading || !currentOrg}
+                disabled={isLoading !== null || isAuthLoading || !currentOrg || !plan.priceIds[interval]}
               className="btn-primary mt-4 w-full"
             >
               {isLoading === plan.id ? 'Opening checkout…' : `Start 7-day free trial`}
