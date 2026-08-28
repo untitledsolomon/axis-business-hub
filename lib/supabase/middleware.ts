@@ -31,16 +31,37 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake can make it very difficult to
   // debug issues with users being logged out abnormally.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getUser() makes a live network call to Supabase Auth on every request
+  // this middleware runs on. Without a timeout, a slow/hanging Auth response
+  // can block the request all the way to Vercel's edge middleware limit,
+  // producing a 504 MIDDLEWARE_INVOCATION_TIMEOUT for every route. Race it
+  // against a hard timeout so we fail fast instead of hanging.
+  const AUTH_TIMEOUT_MS = 5000
+
+  let user = null
+  let authTimedOut = false
+
+  try {
+    const result = await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('auth.getUser() timed out')), AUTH_TIMEOUT_MS)
+      ),
+    ])
+    user = result.data.user
+  } catch (err) {
+    authTimedOut = true
+    console.error('[middleware] auth.getUser() failed or timed out:', err)
+  }
 
   if (
-    !user &&
+    (!user || authTimedOut) &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/auth')
   ) {
-    // no user, potentially respond by redirecting the user to the login page
+    // No user (or the auth check itself failed/timed out): fail closed and
+    // send to login rather than risk letting an unauthenticated request
+    // through to financial data.
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
