@@ -30,6 +30,16 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
 
   useEffect(() => {
     subscribeToCheckoutEvents((event) => {
+      if (event.name === 'checkout.error' || event.name === 'checkout.payment.error') {
+        setIsLoading(null);
+        setError(`${event.code}: ${event.detail}`);
+        console.error('Paddle checkout error', {
+          code: event.code,
+          detail: event.detail,
+          type: event.type,
+        });
+        return;
+      }
       if (event.name === 'checkout.completed') {
         setIsLoading(null);
         onSuccess?.();
@@ -59,7 +69,7 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
     const plan = AXIS_PLANS.find((p) => p.id === planId);
     const priceId = plan?.priceIds[interval];
     if (!priceId) {
-      setError('This plan is not available right now. Please try again shortly.');
+      setError(`This plan has no ${interval} Paddle price configured for the production deployment.`);
       return;
     }
 

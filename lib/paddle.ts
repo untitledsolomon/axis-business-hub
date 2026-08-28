@@ -10,7 +10,7 @@
 
 import { initializePaddle, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
 
-const CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN!;
+const CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "";
 const ENVIRONMENT =
   (process.env.NEXT_PUBLIC_PADDLE_ENV as "sandbox" | "production" | undefined) ??
   "production";
@@ -23,6 +23,9 @@ let initPromise: Promise<Paddle | undefined> | null = null;
  * calls return the same in-flight/resolved instance.
  */
 export function initPaddle(): Promise<Paddle | undefined> {
+  if (!CLIENT_TOKEN) {
+    return Promise.reject(new Error("Paddle client token is not configured for this deployment."));
+  }
   if (paddleInstance) {
     return Promise.resolve(paddleInstance);
   }
@@ -58,6 +61,9 @@ export async function openCheckout({
   onSuccess,
   onClose,
 }: OpenCheckoutOptions): Promise<void> {
+  if (!/^pri_[a-z0-9]+$/i.test(priceId)) {
+    throw new Error(`Invalid Paddle price ID for the ${ENVIRONMENT} environment.`);
+  }
   const paddle = await initPaddle();
   if (!paddle) {
     throw new Error("Paddle failed to initialize");
@@ -90,6 +96,9 @@ type CheckoutEventHandler = (event: PaddleEventData) => void;
 export async function subscribeToCheckoutEvents(
   handler: CheckoutEventHandler
 ): Promise<void> {
+  if (!CLIENT_TOKEN) {
+    throw new Error("Paddle client token is not configured for this deployment.");
+  }
   await initializePaddle({
     token: CLIENT_TOKEN,
     environment: ENVIRONMENT,
