@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +22,7 @@ type SignUpValues = z.infer<typeof signupSchema>;
 
 export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const [confirmationSent, setConfirmationSent] = useState(false);
   const supabase = createClient();
 
   const form = useForm<SignUpValues>({
@@ -45,6 +44,7 @@ export function SignUpForm() {
         data: {
           full_name: values.fullName,
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
       },
     });
 
@@ -56,11 +56,11 @@ export function SignUpForm() {
 
     toast.success("Account created!");
 
-    // If email confirmation is required, Supabase returns a user but no
-    // active session yet — send them to check email instead of onboarding.
+    // When confirmation is enabled, the callback creates the session and
+    // sends the verified user to onboarding.
     if (!data.session) {
-      toast.message("Check your email to verify your account, then sign in.");
-      router.push("/login");
+      setConfirmationSent(true);
+      toast.message("Check your email to verify your account.");
       setIsLoading(false);
       return;
     }
@@ -83,7 +83,9 @@ export function SignUpForm() {
             Create an account
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign up and start managing your business.
+            {confirmationSent
+              ? "Check your email. The verification link will take you to onboarding."
+              : "Sign up and start managing your business."}
           </p>
 
           <Form {...form}>

@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Building2, Percent, Plug, Users2 } from "lucide-react";
+import { Building2, CreditCard, Percent, Plug, Users2 } from "lucide-react";
 
 const tabs = [
   { title: "Organisation", href: "/settings", icon: Building2 },
+  { title: "Billing", href: "/settings/billing", icon: CreditCard },
   { title: "Tax Rates", href: "/settings/tax-rates", icon: Percent },
   { title: "Connections", href: "/settings/connections", icon: Plug },
   { title: "Team", href: "/settings/team", icon: Users2 },

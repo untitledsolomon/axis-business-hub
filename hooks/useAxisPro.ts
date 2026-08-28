@@ -4,12 +4,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { AxisPlanId } from '@/lib/paddle-plans';
+import { useOrg } from '@/hooks/use-org';
 
 export interface AxisSubscription {
   planId: AxisPlanId | 'unknown';
   status: 'trialing' | 'active' | 'past_due' | 'paused' | 'canceled';
   currentPeriodEnd: string | null;
   trialEndsAt: string | null;
+  cancelAtPeriodEnd: boolean;
 }
 
 interface UseAxisProResult {
@@ -31,6 +33,7 @@ const ENTITLED_STATUSES = new Set(['trialing', 'active']);
  * sites elsewhere in the app don't need to change.
  */
 export function useAxisPro(): UseAxisProResult {
+  const { currentOrg, isLoading: isOrgLoading } = useOrg();
   const [subscription, setSubscription] = useState<AxisSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -49,10 +52,15 @@ export function useAxisPro(): UseAxisProResult {
         return;
       }
 
+      if (!currentOrg) {
+        setSubscription(null);
+        return;
+      }
+
       const { data, error: queryError } = await supabase
         .from('subscriptions')
-        .select('plan_id, status, current_period_end, trial_ends_at')
-        .eq('user_id', user.id)
+        .select('plan_id, status, current_period_end, trial_ends_at, cancel_at_period_end')
+        .eq('org_id', currentOrg.id)
         .in('status', ['trialing', 'active', 'past_due', 'paused'])
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -67,6 +75,7 @@ export function useAxisPro(): UseAxisProResult {
               status: data.status,
               currentPeriodEnd: data.current_period_end,
               trialEndsAt: data.trial_ends_at,
+              cancelAtPeriodEnd: data.cancel_at_period_end ?? false,
             }
           : null
       );
@@ -75,11 +84,11 @@ export function useAxisPro(): UseAxisProResult {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentOrg]);
 
   useEffect(() => {
-    fetchSubscription();
-  }, [fetchSubscription]);
+    if (!isOrgLoading) fetchSubscription();
+  }, [fetchSubscription, isOrgLoading]);
 
   return {
     isProUser: subscription ? ENTITLED_STATUSES.has(subscription.status) : false,

@@ -88,6 +88,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "Others",
     items: [
       { label: "Settings", to: "/settings", icon: Settings },
+      { label: "Billing", to: "/settings/billing", icon: CreditCard },
       { label: "Connections", to: "/settings/connections", icon: Plug },
       { label: "Activity", to: "/activity", icon: Receipt },
     ],

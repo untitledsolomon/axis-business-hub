@@ -91,7 +91,7 @@ function JoinWithInviteForm() {
 
 export function OnboardingForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const { refreshOrgs } = useOrg();
   const router = useRouter();
   const supabase = createClient();
@@ -105,7 +105,12 @@ export function OnboardingForm() {
   });
 
   const onSubmit = async (values: OnboardingValues) => {
-    if (!user) return;
+    if (isAuthLoading) return;
+    if (!user) {
+      toast.error("Your session has expired. Please sign in again.");
+      router.push("/login");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -121,7 +126,7 @@ export function OnboardingForm() {
       posthog.capture("organisation_created");
       toast.success("Organisation created successfully!");
       await refreshOrgs();
-      router.push("/");
+      router.push("/settings/billing");
     }
     setIsLoading(false);
   };
@@ -184,8 +189,8 @@ export function OnboardingForm() {
                   />
                 </CardContent>
                 <CardFooter>
-                  <Button className="w-full" type="submit" disabled={isLoading}>
-                    {isLoading ? "Creating..." : "Create Organisation"}
+                  <Button className="w-full" type="submit" disabled={isLoading || isAuthLoading}>
+                    {isAuthLoading ? "Loading session..." : isLoading ? "Creating..." : "Create Organisation"}
                   </Button>
                 </CardFooter>
               </form>

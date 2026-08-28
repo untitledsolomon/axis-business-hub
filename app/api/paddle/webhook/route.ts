@@ -12,6 +12,7 @@
 //   subscription.trialing (covered by created/updated with status field)
 
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { Paddle, EventName } from "@paddle/paddle-node-sdk";
 import { getPlanByPriceId } from "@/lib/paddle-plans";
@@ -55,12 +56,24 @@ export async function POST(request: Request) {
     case EventName.SubscriptionTrialing: {
       const sub = event.data;
 
-      const userId = sub.customData?.axis_user_id as string | undefined;
-      if (!userId) {
+      const checkoutToken = sub.customData?.axis_checkout_token as string | undefined;
+      if (!checkoutToken) {
         console.error(
-          `Paddle subscription ${sub.id} has no axis_user_id in custom_data; skipping`
+          `Paddle subscription ${sub.id} has no checkout token in custom_data; skipping`
         );
-        break;
+        return NextResponse.json({ error: "Missing checkout correlation" }, { status: 400 });
+      }
+
+      const tokenHash = createHash("sha256").update(checkoutToken).digest("hex");
+      const { data: checkoutSession } = await supabase
+        .from("paddle_checkout_sessions")
+        .select("org_id, user_id, expires_at")
+        .eq("token_hash", tokenHash)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (!checkoutSession) {
+        console.error(`Paddle subscription ${sub.id} has an invalid checkout token`);
+        return NextResponse.json({ error: "Invalid checkout correlation" }, { status: 400 });
       }
 
       const priceId = sub.items?.[0]?.price?.id;
@@ -68,7 +81,8 @@ export async function POST(request: Request) {
 
       const { error } = await supabase.from("subscriptions").upsert(
         {
-          user_id: userId,
+          user_id: checkoutSession.user_id,
+          org_id: checkoutSession.org_id,
           paddle_subscription_id: sub.id,
           paddle_customer_id: sub.customerId,
           paddle_price_id: priceId ?? "",
@@ -78,6 +92,8 @@ export async function POST(request: Request) {
           current_period_end: sub.currentBillingPeriod?.endsAt ?? null,
           trial_ends_at:
             sub.status === "trialing" ? sub.currentBillingPeriod?.endsAt ?? null : null,
+          cancel_at_period_end: sub.scheduledChange?.action === "cancel",
+          cancel_at: sub.scheduledChange?.action === "cancel" ? sub.scheduledChange.effectiveAt : null,
         },
         { onConflict: "paddle_subscription_id" }
       );
@@ -95,6 +111,7 @@ export async function POST(request: Request) {
         .from("subscriptions")
         .update({
           status: "canceled",
+          cancel_at_period_end: false,
           canceled_at: new Date().toISOString(),
         })
         .eq("paddle_subscription_id", sub.id);

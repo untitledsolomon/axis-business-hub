@@ -40,9 +40,7 @@ export function initPaddle(): Promise<Paddle | undefined> {
 
 export interface OpenCheckoutOptions {
   priceId: string;
-  /** Supabase user ID — passed through as custom_data so the webhook can
-   * link the Paddle subscription back to the correct Axis account. */
-  userId: string;
+  checkoutToken: string;
   email?: string;
   onSuccess?: () => void;
   onClose?: () => void;
@@ -55,7 +53,7 @@ export interface OpenCheckoutOptions {
  */
 export async function openCheckout({
   priceId,
-  userId,
+  checkoutToken,
   email,
   onSuccess,
   onClose,
@@ -68,7 +66,7 @@ export async function openCheckout({
   paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
     customer: email ? { email } : undefined,
-    customData: { axis_user_id: userId },
+    customData: { axis_checkout_token: checkoutToken },
     settings: {
       successUrl: undefined, // keep as inline overlay; success handled via eventCallback below
     },

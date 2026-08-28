@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { openCheckout, subscribeToCheckoutEvents } from '@/lib/paddle';
 import { AXIS_PLANS, type AxisPlanId, type BillingInterval } from '@/lib/paddle-plans';
 import { useAuth } from '@/hooks/use-auth';
+import { useOrg } from '@/hooks/use-org';
 
 interface PaywallProps {
   onSuccess?: () => void;
@@ -20,6 +21,7 @@ interface PaywallProps {
  */
 export function Paywall({ onSuccess, onCancel }: PaywallProps) {
   const { user } = useAuth();
+  const { currentOrg } = useOrg();
   const [interval, setInterval] = useState<BillingInterval>('month');
   const [isLoading, setIsLoading] = useState<AxisPlanId | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
   }, []);
 
   const handleSelectPlan = async (planId: AxisPlanId) => {
-    if (!user) {
+    if (!user || !currentOrg) {
       setError('You must be signed in to subscribe.');
       return;
     }
@@ -59,9 +61,19 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
     setError(null);
 
     try {
+      const sessionResponse = await fetch('/api/billing/checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId: currentOrg.id }),
+      });
+      const session = await sessionResponse.json() as { token?: string; error?: string };
+      if (!sessionResponse.ok || !session.token) {
+        throw new Error(session.error ?? 'Could not start checkout.');
+      }
+
       await openCheckout({
         priceId,
-        userId: user.id,
+        checkoutToken: session.token,
         email: user.email,
       });
       // Success/close handled via subscribeToCheckoutEvents above.
