@@ -145,53 +145,53 @@ export function OnboardingForm() {
   };
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#d9f99d] text-[#18251d]">
+    <main className="min-h-screen overflow-hidden bg-primary-soft text-foreground">
       <div className="mx-auto grid min-h-screen max-w-7xl gap-10 px-6 py-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-12 lg:py-10">
         <section className="flex flex-col justify-between py-4 lg:py-8">
           <div>
             <div className="flex items-center gap-3 text-sm font-semibold tracking-[0.18em] uppercase">
-              <span className="grid size-9 place-items-center rounded-xl bg-[#18251d] text-[#d9f99d]">A</span>
+              <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground">A</span>
               AXIS
             </div>
             <div className="mt-16 max-w-lg lg:mt-24">
-              <p className="flex items-center gap-2 text-sm font-semibold text-[#4d7927]"><Sparkles className="size-4" /> Your workspace, taking shape</p>
+              <p className="flex items-center gap-2 text-sm font-semibold text-teal"><Sparkles className="size-4" /> Your workspace, taking shape</p>
               <h1 className="mt-5 text-5xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-6xl">Build the way your business works.</h1>
-              <p className="mt-6 max-w-md text-base leading-7 text-[#47613d]">Set up your workspace once, then bring your clients, invoices, people, and numbers into one calm place.</p>
+              <p className="mt-6 max-w-md text-base leading-7 text-muted-foreground">Set up your workspace once, then bring your clients, invoices, people, and numbers into one calm place.</p>
             </div>
           </div>
           <div className="mt-12 hidden max-w-sm space-y-4 lg:block">
             {["One home for daily operations", "A clear view of what needs attention", "Ready for your team when you are"].map((item) => (
-              <div key={item} className="flex items-center gap-3 text-sm font-medium text-[#47613d]"><span className="grid size-6 place-items-center rounded-full bg-white/70"><Check className="size-3.5" /></span>{item}</div>
+              <div key={item} className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><span className="grid size-6 place-items-center rounded-full bg-background"><Check className="size-3.5 text-teal" /></span>{item}</div>
             ))}
           </div>
         </section>
 
         <section className="relative flex items-center justify-center">
-          <div className="absolute -right-20 top-8 hidden h-44 w-44 rotate-12 rounded-[2.5rem] border-8 border-[#b7e66d] bg-[#efffcf] lg:block" />
-          <div className="absolute -bottom-12 -left-12 hidden h-36 w-36 -rotate-12 rounded-[2rem] bg-[#b7e66d] lg:block" />
-          <div className="relative w-full max-w-xl rounded-[2rem] border-[10px] border-[#18251d] bg-white p-5 shadow-[14px_16px_0_#86b94d] sm:p-8">
-            <div className="flex items-center justify-between border-b border-[#e3eadb] pb-5">
-              <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#74a63e]">Step 1 of 2</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Set up your workspace</h2></div>
-              <div className="flex gap-1.5"><span className="size-2.5 rounded-full bg-[#79b936]" /><span className="size-2.5 rounded-full bg-[#d9e6ca]" /></div>
+          <div className="absolute -right-20 top-8 hidden h-44 w-44 rotate-12 rounded-[2.5rem] border-8 border-teal/40 bg-teal-soft lg:block" />
+          <div className="absolute -bottom-12 -left-12 hidden h-36 w-36 -rotate-12 rounded-[2rem] bg-teal/30 lg:block" />
+          <div className="relative w-full max-w-xl rounded-[2rem] border border-border bg-card p-5 shadow-pop sm:p-8">
+            <div className="flex items-center justify-between border-b border-border pb-5">
+              <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">Step 1 of 2</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Set up your workspace</h2></div>
+              <div className="flex gap-1.5"><span className="size-2.5 rounded-full bg-teal" /><span className="size-2.5 rounded-full bg-muted" /></div>
             </div>
             <Tabs defaultValue="create" className="mt-7 w-full">
-              <TabsList className="grid h-auto grid-cols-2 gap-2 bg-[#f2f8e9] p-1.5">
-                <TabsTrigger value="create" className="gap-2 py-3 data-[state=active]:bg-[#18251d] data-[state=active]:text-white"><Building2 className="size-4" /> Create new</TabsTrigger>
-                <TabsTrigger value="join" className="gap-2 py-3 data-[state=active]:bg-[#18251d] data-[state=active]:text-white"><KeyRound className="size-4" /> Join invite</TabsTrigger>
+              <TabsList className="grid h-auto grid-cols-2 gap-2 bg-muted p-1.5">
+                <TabsTrigger value="create" className="gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Building2 className="size-4" /> Create new</TabsTrigger>
+                <TabsTrigger value="join" className="gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><KeyRound className="size-4" /> Join invite</TabsTrigger>
               </TabsList>
               <TabsContent value="create" className="mt-7">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                    <div><h3 className="text-lg font-semibold">What should we call it?</h3><p className="mt-1 text-sm text-[#70816a]">This is the shared home for your business.</p></div>
-                    <FormField control={form.control} name="name" render={({ field }) => <FormItem><FormLabel>Organisation name</FormLabel><FormControl><Input placeholder="Acme Studio" {...field} onChange={(e) => { field.onChange(e); handleNameChange(e); }} className="h-12 rounded-xl border-[#d7e3ca] bg-[#fbfdf8] px-4" /></FormControl><FormMessage /></FormItem>} />
-                    <FormField control={form.control} name="slug" render={({ field }) => <FormItem><FormLabel>Workspace address</FormLabel><FormControl><div className="flex items-center rounded-xl border border-[#d7e3ca] bg-[#fbfdf8] px-4"><span className="text-sm text-[#9aaa91]">axis /</span><Input placeholder="acme-studio" {...field} className="h-11 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0" /></div></FormControl><FormDescription>Use lowercase letters, numbers, and hyphens.</FormDescription><FormMessage /></FormItem>} />
-                    <Button className="h-12 w-full rounded-xl bg-[#8ed044] font-semibold text-[#18251d] hover:bg-[#7fbe38]" type="submit" disabled={isLoading || isAuthLoading}>{isAuthLoading ? "Loading session..." : isLoading ? "Creating workspace..." : <>Continue to billing <ArrowRight className="size-4" /></>}</Button>
+                    <div><h3 className="text-lg font-semibold">What should we call it?</h3><p className="mt-1 text-sm text-muted-foreground">This is the shared home for your business.</p></div>
+                    <FormField control={form.control} name="name" render={({ field }) => <FormItem><FormLabel>Organisation name</FormLabel><FormControl><Input placeholder="Acme Studio" {...field} onChange={(e) => { field.onChange(e); handleNameChange(e); }} className="h-12 rounded-xl border-border bg-background px-4" /></FormControl><FormMessage /></FormItem>} />
+                    <FormField control={form.control} name="slug" render={({ field }) => <FormItem><FormLabel>Workspace address</FormLabel><FormControl><div className="flex items-center rounded-xl border border-border bg-background px-4"><span className="text-sm text-muted-foreground">axis /</span><Input placeholder="acme-studio" {...field} className="h-11 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0" /></div></FormControl><FormDescription>Use lowercase letters, numbers, and hyphens.</FormDescription><FormMessage /></FormItem>} />
+                    <Button className="h-12 w-full font-semibold" type="submit" disabled={isLoading || isAuthLoading}>{isAuthLoading ? "Loading session..." : isLoading ? "Creating workspace..." : <>Continue to billing <ArrowRight className="size-4" /></>}</Button>
                   </form>
                 </Form>
               </TabsContent>
               <TabsContent value="join" className="mt-7"><JoinWithInviteForm /></TabsContent>
             </Tabs>
-            <p className="mt-7 text-center text-xs text-[#8a9b84]">You can invite your team after setup.</p>
+            <p className="mt-7 text-center text-xs text-muted-foreground">You can invite your team after setup.</p>
           </div>
         </section>
       </div>

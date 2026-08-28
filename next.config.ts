@@ -28,6 +28,8 @@ const posthogAssetsOrigin = posthogOrigin
 const paddleCheckoutOrigin = 'https://buy.paddle.com';
 const paddleCheckoutServiceOrigin = 'https://checkout-service.paddle.com';
 const paddleCdnOrigin = 'https://cdn.paddle.com';
+// Paddle's retention analytics companion script is served by ProfitWell.
+const profitWellOrigin = 'https://public.profitwell.com';
 const posthogToolbarOrigin = 'https://internal-j.posthog.com';
 // The toolbar's login/auth flow (triggered when a user authenticates the
 // PostHog toolbar in-app) exchanges an OAuth token against posthog.com's
@@ -47,9 +49,9 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${profitWellOrigin};
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
-                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
+                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${profitWellOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
                     style-src-elem 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};

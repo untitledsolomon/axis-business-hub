@@ -6,6 +6,8 @@ import { openCheckout, subscribeToCheckoutEvents } from '@/lib/paddle';
 import { AXIS_PLANS, type AxisPlanId, type BillingInterval } from '@/lib/paddle-plans';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrg } from '@/hooks/use-org';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface PaywallProps {
   onSuccess?: () => void;
@@ -88,43 +90,42 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
   };
 
   return (
-    <div className="paywall-wrapper">
-      <div className="flex items-center justify-center gap-2 mb-6">
-        <button
-          className={interval === 'month' ? 'btn-toggle-active' : 'btn-toggle'}
-          onClick={() => setInterval('month')}
-        >
+    <div className="space-y-6">
+      <div className="mx-auto flex w-fit items-center gap-1 rounded-lg border border-border bg-muted p-1">
+        <Button type="button" size="sm" variant={interval === 'month' ? 'default' : 'ghost'} onClick={() => setInterval('month')}>
           Monthly
-        </button>
-        <button
-          className={interval === 'year' ? 'btn-toggle-active' : 'btn-toggle'}
-          onClick={() => setInterval('year')}
-        >
+        </Button>
+        <Button type="button" size="sm" variant={interval === 'year' ? 'default' : 'ghost'} onClick={() => setInterval('year')}>
           Annual
-        </button>
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         {AXIS_PLANS.map((plan) => (
-            <div key={plan.id} className="plan-card border rounded-lg p-4">
-            <h3 className="font-semibold text-lg">{plan.name}</h3>
+          <Card key={plan.id} className="flex flex-col">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">{plan.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col">
+              <p className="text-sm text-muted-foreground">{interval === 'year' ? 'Annual billing' : 'Monthly billing'}</p>
               {!plan.priceIds[interval] && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   This plan is not configured for {interval} billing.
                 </p>
               )}
-            <button
-              onClick={() => handleSelectPlan(plan.id)}
+              <Button
+                onClick={() => handleSelectPlan(plan.id)}
                 disabled={isLoading !== null || isAuthLoading || !currentOrg || !plan.priceIds[interval]}
-              className="btn-primary mt-4 w-full"
-            >
-              {isLoading === plan.id ? 'Opening checkout…' : `Start 7-day free trial`}
-            </button>
-          </div>
+                className="mt-auto w-full"
+              >
+                {isLoading === plan.id ? 'Opening checkout...' : 'Start 7-day free trial'}
+              </Button>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {error && <p className="text-sm text-red-500 mt-4">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
