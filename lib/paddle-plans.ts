@@ -14,41 +14,38 @@ export interface AxisPlan {
   priceIds: Record<BillingInterval, string>;
 }
 
-function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    // Don't throw at module scope in the browser bundle for plans that
-    // aren't wired up yet in a given environment (e.g. local dev without
-    // all price IDs set) — surface a clear runtime error only when the
-    // plan is actually used.
-    return "";
-  }
-  return value;
-}
+// Keep each public variable reference static so Next.js can inline it into
+// the browser bundle during the production build.
+const starterMonthlyPriceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_STARTER_MONTHLY ?? "";
+const starterYearlyPriceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_STARTER_YEARLY ?? "";
+const proMonthlyPriceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY ?? "";
+const proYearlyPriceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_YEARLY ?? "";
+const advancedMonthlyPriceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_MONTHLY ?? "";
+const advancedYearlyPriceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_YEARLY ?? "";
 
 export const AXIS_PLANS: AxisPlan[] = [
   {
     id: "starter",
     name: "Starter",
     priceIds: {
-      month: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_STARTER_MONTHLY"),
-      year: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_STARTER_YEARLY"),
+      month: starterMonthlyPriceId,
+      year: starterYearlyPriceId,
     },
   },
   {
     id: "pro",
     name: "Pro",
     priceIds: {
-      month: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY"),
-      year: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_PRO_YEARLY"),
+      month: proMonthlyPriceId,
+      year: proYearlyPriceId,
     },
   },
   {
     id: "advanced",
     name: "Advanced",
     priceIds: {
-      month: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_MONTHLY"),
-      year: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_YEARLY"),
+      month: advancedMonthlyPriceId,
+      year: advancedYearlyPriceId,
     },
   },
 ];
