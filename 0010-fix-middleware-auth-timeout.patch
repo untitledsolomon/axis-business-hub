@@ -1,0 +1,69 @@
+From d8fd65813dee8a7bffd89582ec61516352e1941e Mon Sep 17 00:00:00 2001
+From: Claude <claude@regentplatform.com>
+Date: Fri, 28 Aug 2026 10:09:12 +0000
+Subject: [PATCH] fix(middleware): timeout auth.getUser() to prevent 504
+ MIDDLEWARE_INVOCATION_TIMEOUT
+
+Middleware called supabase.auth.getUser() unconditionally on every
+matched route with no timeout or abort. A slow/hanging Supabase Auth
+response could block the request all the way to Vercel's edge
+middleware limit, producing a 504 across / /transactions /invoices
+/clients etc.
+
+Race getUser() against a 5s timeout. On timeout or error, fail closed
+(redirect to /login) rather than risk letting an unauthenticated
+request through to financial data.
+---
+ lib/supabase/middleware.ts | 31 ++++++++++++++++++++++++++-----
+ 1 file changed, 26 insertions(+), 5 deletions(-)
+
+diff --git a/lib/supabase/middleware.ts b/lib/supabase/middleware.ts
+index eb07cb1..23eb5d4 100644
+--- a/lib/supabase/middleware.ts
++++ b/lib/supabase/middleware.ts
+@@ -31,16 +31,37 @@ export async function updateSession(request: NextRequest) {
+   // supabase.auth.getUser(). A simple mistake can make it very difficult to
+   // debug issues with users being logged out abnormally.
+ 
+-  const {
+-    data: { user },
+-  } = await supabase.auth.getUser()
++  // getUser() makes a live network call to Supabase Auth on every request
++  // this middleware runs on. Without a timeout, a slow/hanging Auth response
++  // can block the request all the way to Vercel's edge middleware limit,
++  // producing a 504 MIDDLEWARE_INVOCATION_TIMEOUT for every route. Race it
++  // against a hard timeout so we fail fast instead of hanging.
++  const AUTH_TIMEOUT_MS = 5000
++
++  let user = null
++  let authTimedOut = false
++
++  try {
++    const result = await Promise.race([
++      supabase.auth.getUser(),
++      new Promise<never>((_, reject) =>
++        setTimeout(() => reject(new Error('auth.getUser() timed out')), AUTH_TIMEOUT_MS)
++      ),
++    ])
++    user = result.data.user
++  } catch (err) {
++    authTimedOut = true
++    console.error('[middleware] auth.getUser() failed or timed out:', err)
++  }
+ 
+   if (
+-    !user &&
++    (!user || authTimedOut) &&
+     !request.nextUrl.pathname.startsWith('/login') &&
+     !request.nextUrl.pathname.startsWith('/auth')
+   ) {
+-    // no user, potentially respond by redirecting the user to the login page
++    // No user (or the auth check itself failed/timed out): fail closed and
++    // send to login rather than risk letting an unauthenticated request
++    // through to financial data.
+     const url = request.nextUrl.clone()
+     url.pathname = '/login'
+     return NextResponse.redirect(url)
+-- 
+2.43.0
+

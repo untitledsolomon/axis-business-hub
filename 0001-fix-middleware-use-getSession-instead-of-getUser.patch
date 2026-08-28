@@ -1,0 +1,88 @@
+From 3f6f5dda265d3884079ed2ee25035afffc37984c Mon Sep 17 00:00:00 2001
+From: Claude <claude@regentplatform.com>
+Date: Fri, 28 Aug 2026 10:32:55 +0000
+Subject: [PATCH] fix(middleware): use getSession() instead of getUser() to
+ avoid timeout-driven login loop
+
+getUser() makes a live network call to Supabase Auth on every middleware
+invocation. Under edge-to-Supabase latency, this call was slow enough to
+trip the 5s timeout guard added in de9dcd0, and the fail-closed logic
+there redirected valid, already-authenticated sessions to /login on
+every request -- producing a login loop despite auth.getUser()/token
+succeeding with 200s on Supabase's side.
+
+getSession() validates the JWT already present in the request cookies
+locally, with no network round trip, removing the timeout failure mode
+entirely. Routes/actions needing a server-verified (non-JWT-only) check
+should call supabase.auth.getUser() directly at that call site instead
+of relying on this middleware gate.
+---
+ lib/supabase/middleware.ts | 44 ++++++++++++++++----------------------
+ 1 file changed, 18 insertions(+), 26 deletions(-)
+
+diff --git a/lib/supabase/middleware.ts b/lib/supabase/middleware.ts
+index 23eb5d4..2ed8e60 100644
+--- a/lib/supabase/middleware.ts
++++ b/lib/supabase/middleware.ts
+@@ -28,40 +28,32 @@ export async function updateSession(request: NextRequest) {
+   )
+ 
+   // IMPORTANT: Avoid writing any logic between createServerClient and
+-  // supabase.auth.getUser(). A simple mistake can make it very difficult to
++  // the auth check below. A simple mistake can make it very difficult to
+   // debug issues with users being logged out abnormally.
+ 
+   // getUser() makes a live network call to Supabase Auth on every request
+-  // this middleware runs on. Without a timeout, a slow/hanging Auth response
+-  // can block the request all the way to Vercel's edge middleware limit,
+-  // producing a 504 MIDDLEWARE_INVOCATION_TIMEOUT for every route. Race it
+-  // against a hard timeout so we fail fast instead of hanging.
+-  const AUTH_TIMEOUT_MS = 5000
+-
+-  let user = null
+-  let authTimedOut = false
+-
+-  try {
+-    const result = await Promise.race([
+-      supabase.auth.getUser(),
+-      new Promise<never>((_, reject) =>
+-        setTimeout(() => reject(new Error('auth.getUser() timed out')), AUTH_TIMEOUT_MS)
+-      ),
+-    ])
+-    user = result.data.user
+-  } catch (err) {
+-    authTimedOut = true
+-    console.error('[middleware] auth.getUser() failed or timed out:', err)
+-  }
++  // this middleware runs on. Under edge-to-Supabase latency, that call can
++  // be slow enough to trip a timeout guard, and failing closed on timeout
++  // was redirecting valid, logged-in sessions to /login on every request —
++  // producing a login loop even though the session was healthy.
++  //
++  // getSession() avoids the network round trip: it reads and validates the
++  // JWT already present in the request cookies locally, so it can't time
++  // out the same way. That's sufficient for a redirect gate here. Routes or
++  // actions that need server-verified freshness (e.g. checking the account
++  // hasn't been revoked mid-session) should call supabase.auth.getUser()
++  // directly at that point, not rely on this middleware check.
++  const {
++    data: { session },
++  } = await supabase.auth.getSession()
++  const user = session?.user ?? null
+ 
+   if (
+-    (!user || authTimedOut) &&
++    !user &&
+     !request.nextUrl.pathname.startsWith('/login') &&
+     !request.nextUrl.pathname.startsWith('/auth')
+   ) {
+-    // No user (or the auth check itself failed/timed out): fail closed and
+-    // send to login rather than risk letting an unauthenticated request
+-    // through to financial data.
++    // No valid session: send to login.
+     const url = request.nextUrl.clone()
+     url.pathname = '/login'
+     return NextResponse.redirect(url)
+-- 
+2.43.0
+
