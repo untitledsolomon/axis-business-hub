@@ -32,6 +32,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatShortDate } from "@/lib/format-date";
+import { formatMoney, convertMinorUnits } from "@/lib/currency";
 import { toast } from "sonner";
 
 interface ClientDetailProps {
@@ -98,11 +99,17 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
     );
   }
 
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+
+  // An invoice's own currency can differ from client.currency (that field is
+  // just the client's default) — convert each invoice to the org's base
+  // currency using its own exchange_rate before summing, same as InvoicesList.
   const totals = (invoices ?? []).reduce(
     (acc, inv) => {
-      acc.total += inv.grand_total;
-      if (inv.status === "paid") acc.paid += inv.grand_total;
-      if (inv.status !== "paid" && inv.status !== "voided") acc.outstanding += inv.grand_total;
+      const amountBase = convertMinorUnits(inv.grand_total, inv.currency, baseCurrency, inv.exchange_rate || 1);
+      acc.total += amountBase;
+      if (inv.status === "paid") acc.paid += amountBase;
+      if (inv.status !== "paid" && inv.status !== "voided") acc.outstanding += amountBase;
       return acc;
     },
     { total: 0, paid: 0, outstanding: 0 }
@@ -131,8 +138,8 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
         </div>
 
         <section className="panel grid gap-4 p-5 sm:grid-cols-3">
-          <div><p className="text-xs text-muted-foreground">Lifetime invoiced</p><p className="numeric mt-1 text-xl font-semibold text-foreground">{client.currency} {(totals.total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
-          <div><p className="text-xs text-muted-foreground">Paid to date</p><p className="numeric mt-1 text-xl font-semibold text-success">{client.currency} {(totals.paid / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+          <div><p className="text-xs text-muted-foreground">Lifetime invoiced</p><p className="numeric mt-1 text-xl font-semibold text-foreground">{formatMoney(totals.total, baseCurrency)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Paid to date</p><p className="numeric mt-1 text-xl font-semibold text-success">{formatMoney(totals.paid, baseCurrency)}</p></div>
           <div><p className="text-xs text-muted-foreground">Invoices</p><p className="numeric mt-1 text-xl font-semibold text-foreground">{invoices?.length ?? 0}</p></div>
         </section>
 
@@ -152,19 +159,19 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
               <div>
                 <p className="text-xs text-muted-foreground">Total invoiced</p>
                 <p className="numeric font-semibold text-foreground">
-                  {client.currency} {(totals.total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {formatMoney(totals.total, baseCurrency)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Paid</p>
                 <p className="numeric font-semibold text-success">
-                  {client.currency} {(totals.paid / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {formatMoney(totals.paid, baseCurrency)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Outstanding</p>
                 <p className="numeric font-semibold text-warning-foreground">
-                  {client.currency} {(totals.outstanding / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {formatMoney(totals.outstanding, baseCurrency)}
                 </p>
               </div>
             </div>
@@ -204,7 +211,7 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
                           <StatusBadge status={invoice.status} />
                         </TableCell>
                         <TableCell className="numeric text-right font-medium">
-                          {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {formatMoney(invoice.grand_total, invoice.currency)}
                         </TableCell>
                       </TableRow>
                     ))

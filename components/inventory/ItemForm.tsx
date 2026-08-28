@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateItem, useUpdateItem } from "@/hooks/items/use-items";
+import { useOrg } from "@/hooks/use-org";
+import { toMajorUnits, toMinorUnits } from "@/lib/currency";
 import { Item } from "@/lib/types";
 
 const formSchema = z.object({
@@ -53,6 +55,8 @@ interface ItemFormProps {
 }
 
 export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const createItem = useCreateItem();
   const updateItem = useUpdateItem(orgId);
   const isEditing = !!item;
@@ -73,8 +77,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
       status: item?.status ?? "active",
       current_quantity: item?.current_quantity ?? 0,
       reorder_level: item?.reorder_level ?? 0,
-      cost_price: item ? item.cost_price / 100 : 0,
-      selling_price: item ? item.selling_price / 100 : 0,
+      cost_price: item ? toMajorUnits(item.cost_price, baseCurrency) : 0,
+      selling_price: item ? toMajorUnits(item.selling_price, baseCurrency) : 0,
       location: item?.location ?? "",
       can_sell: item?.can_sell ?? true,
       can_custody: item?.can_custody ?? false,
@@ -91,8 +95,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
       status: item?.status ?? "active",
       current_quantity: item?.current_quantity ?? 0,
       reorder_level: item?.reorder_level ?? 0,
-      cost_price: item ? item.cost_price / 100 : 0,
-      selling_price: item ? item.selling_price / 100 : 0,
+      cost_price: item ? toMajorUnits(item.cost_price, baseCurrency) : 0,
+      selling_price: item ? toMajorUnits(item.selling_price, baseCurrency) : 0,
       location: item?.location ?? "",
       can_sell: item?.can_sell ?? true,
       can_custody: item?.can_custody ?? false,
@@ -103,8 +107,8 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const cost_price_cents = Math.round(values.cost_price * 100);
-      const selling_price_cents = Math.round(values.selling_price * 100);
+      const cost_price_cents = toMinorUnits(values.cost_price, baseCurrency);
+      const selling_price_cents = toMinorUnits(values.selling_price, baseCurrency);
       if (isEditing && item) {
         await updateItem.mutateAsync({
           id: item.id,

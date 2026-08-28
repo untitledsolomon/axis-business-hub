@@ -23,6 +23,7 @@ import {
 import { useBankAccounts } from "@/hooks/finance/use-finance";
 import { useMarkInvoicePaid } from "@/hooks/invoicing/use-invoices";
 import { Invoice, BankAccount } from "@/lib/types";
+import { formatMoney } from "@/lib/currency";
 import posthog from "posthog-js";
 
 const formSchema = z.object({
@@ -68,8 +69,7 @@ export function MarkPaidDialog({ orgId, invoice, onSuccess }: MarkPaidDialogProp
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          This records {invoice.currency}{" "}
-          {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} as
+          This records {formatMoney(invoice.grand_total, invoice.currency)} as
           received and posts a journal entry — it isn&apos;t just a status flag, it affects your
           ledger and account balances.
         </p>

@@ -12,8 +12,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
-function money(cents: number, currency: string) {
-  return `${currency} ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+// Mirrors lib/currency.ts's minor-unit table — duplicated here because this
+// Deno edge function runs in a separate runtime/module resolution from the
+// Next.js app and can't import "@/lib/currency" directly. Keep these two
+// lists in sync if a new currency is added to INVOICE_CURRENCIES in
+// components/invoicing/InvoiceForm.tsx.
+const MINOR_UNIT_DIGITS: Record<string, number> = {
+  UGX: 0, RWF: 0, XOF: 0, XAF: 0, JPY: 0,
+  KES: 2, TZS: 2, SSP: 2, USD: 2, EUR: 2, GBP: 2,
+}
+
+function money(minorAmount: number, currency: string) {
+  const digits = MINOR_UNIT_DIGITS[currency?.toUpperCase()] ?? 2
+  const major = minorAmount / 10 ** digits
+  return `${currency} ${major.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`
 }
 
 function toBase64(bytes: Uint8Array): string {

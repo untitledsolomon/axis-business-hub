@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney } from "@/lib/currency";
 import { useDailySales } from "@/hooks/finance/use-daily-sales";
 import { useExpenses } from "@/hooks/finance/use-expenses";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
@@ -75,8 +76,8 @@ export function DailySummaryView() {
 
   const isLoading = salesLoading || expensesLoading || invoicesLoading;
 
-  const fmt = (cents: number) =>
-    `UGX ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
   if (!mounted) return null;
 

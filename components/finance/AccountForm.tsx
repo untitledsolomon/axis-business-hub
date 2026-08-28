@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateAccount } from "@/hooks/finance/use-finance";
+import { useOrg } from "@/hooks/use-org";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import posthog from "posthog-js";
@@ -40,6 +41,8 @@ interface AccountFormProps {
 }
 
 export function AccountForm({ orgId, onSuccess }: AccountFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const createAccount = useCreateAccount();
   const [mounted, setMounted] = useState(false);
 
@@ -66,7 +69,7 @@ export function AccountForm({ orgId, onSuccess }: AccountFormProps) {
       await createAccount.mutateAsync({
         ...values,
         org_id: orgId,
-        currency: "UGX",
+        currency: baseCurrency,
         is_active: true,
       });
       posthog.capture("account_created", { account_category: values.category });

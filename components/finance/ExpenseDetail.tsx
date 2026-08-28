@@ -28,6 +28,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { ExpenseForm } from "@/components/finance/ExpenseForm";
 import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { formatShortDate } from "@/lib/format-date";
+import { formatMoney, toMajorUnits } from "@/lib/currency";
 import { ArrowLeft, AlertTriangle, Receipt, Copy, Trash2, BookOpen } from "lucide-react";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -48,6 +49,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const orgId = currentOrg?.id || "";
 
   const { data: expense, isLoading, isError, refetch } = useExpense(orgId, expenseId);
@@ -162,7 +164,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="panel p-5 lg:col-span-3">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div><p className="text-xs text-muted-foreground">Amount</p><p className="numeric mt-1 text-2xl font-semibold text-foreground">UGX {(expense.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+            <div><p className="text-xs text-muted-foreground">Amount</p><p className="numeric mt-1 text-2xl font-semibold text-foreground">{formatMoney(expense.amount, baseCurrency)}</p></div>
             <div><p className="text-xs text-muted-foreground">Category</p><p className="mt-1 text-lg font-semibold capitalize text-foreground">{CATEGORY_LABELS[expense.category] || expense.category}</p></div>
             <div><p className="text-xs text-muted-foreground">Recorded</p><p className="numeric mt-1 text-lg font-semibold text-foreground">{formatShortDate(expense.expense_date)}</p></div>
           </div>
@@ -179,7 +181,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
             <div className="flex justify-between border-b border-border pb-3">
               <span className="text-muted-foreground">Amount</span>
               <span className="numeric font-semibold text-foreground">
-                UGX {(expense.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {formatMoney(expense.amount, baseCurrency)}
               </span>
             </div>
             <div className="flex justify-between border-b border-border pb-3">
@@ -229,7 +231,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
           <ExpenseForm
             orgId={orgId}
             defaultValues={{
-              amount: expense.amount / 100,
+              amount: toMajorUnits(expense.amount, baseCurrency),
               category: expense.category,
               description: expense.description,
               expense_date: new Date().toISOString().slice(0, 10),

@@ -21,11 +21,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateClient, useUpdateClient } from "@/hooks/clients/use-clients";
+import { useOrg } from "@/hooks/use-org";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
 import { Client } from "@/lib/types";
 import posthog from "posthog-js";
+
+// Matches INVOICE_CURRENCIES in components/invoicing/InvoiceForm.tsx — a
+// client's currency here is just their default; any invoice can still
+// override it individually.
+const CLIENT_CURRENCIES = ["UGX", "USD", "SSP", "KES", "TZS", "RWF", "EUR", "GBP"];
 
 const formSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -35,6 +41,7 @@ const formSchema = z.object({
   address: z.string().optional(),
   tax_id: z.string().optional(),
   type: z.enum(["individual", "company"]),
+  currency: z.string().min(1, "Currency is required"),
   payment_terms: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -46,6 +53,8 @@ interface ClientFormProps {
 }
 
 export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const createClient = useCreateClient();
   const updateClient = useUpdateClient(orgId);
   const isEditing = !!client;
@@ -65,10 +74,20 @@ export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
       address: client?.address ?? "",
       tax_id: client?.tax_id ?? "",
       type: client?.type ?? "company",
+      currency: client?.currency ?? baseCurrency,
       payment_terms: client?.payment_terms ?? "Net 30",
       notes: client?.notes ?? "",
     },
   });
+
+  // For a brand-new client, once org loads default currency to org base
+  // (covers the case where currentOrg wasn't ready when defaultValues ran).
+  useEffect(() => {
+    if (!isEditing && baseCurrency && !form.formState.dirtyFields.currency) {
+      form.setValue("currency", baseCurrency);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseCurrency, isEditing]);
 
   if (!mounted) return null;
 
@@ -82,9 +101,8 @@ export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
           ...values,
           org_id: orgId,
           status: "active",
-          currency: "UGX",
         });
-        posthog.capture("client_created", { client_type: values.type });
+        posthog.capture("client_created", { client_type: values.type, currency: values.currency });
         form.reset();
       }
       onSuccess?.();
@@ -139,6 +157,33 @@ export function ClientForm({ orgId, client, onSuccess }: ClientFormProps) {
                   <SelectContent>
                     <SelectItem value="company">Company</SelectItem>
                     <SelectItem value="individual">Individual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Default billing currency</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CLIENT_CURRENCIES.map((code) => (
+                      <SelectItem key={code} value={code}>
+                        {code}
+                        {code === baseCurrency ? " (org default)" : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />

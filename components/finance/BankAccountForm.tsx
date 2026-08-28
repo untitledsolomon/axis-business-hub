@@ -1,6 +1,7 @@
 "use client";
 
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAccounts, useCreateBankAccount } from "@/hooks/finance/use-finance";
+import { useOrg } from "@/hooks/use-org";
 import { toast } from "sonner";
 import { Account } from "@/lib/types";
 
@@ -38,6 +40,8 @@ interface BankAccountFormProps {
 }
 
 export function BankAccountForm({ orgId, onSuccess }: BankAccountFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const { data: accounts } = useAccounts(orgId);
   const createBankAccount = useCreateBankAccount();
 
@@ -48,9 +52,16 @@ export function BankAccountForm({ orgId, onSuccess }: BankAccountFormProps) {
       bank_name: "",
       account_number: "",
       account_id: "",
-      currency: "UGX",
+      currency: baseCurrency,
     },
   });
+
+  useEffect(() => {
+    if (baseCurrency && !form.formState.dirtyFields.currency) {
+      form.setValue("currency", baseCurrency);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseCurrency]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -151,7 +162,10 @@ export function BankAccountForm({ orgId, onSuccess }: BankAccountFormProps) {
                 <SelectContent>
                   <SelectItem value="UGX">UGX</SelectItem>
                   <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="SSP">SSP</SelectItem>
                   <SelectItem value="KES">KES</SelectItem>
+                  <SelectItem value="TZS">TZS</SelectItem>
+                  <SelectItem value="RWF">RWF</SelectItem>
                   <SelectItem value="EUR">EUR</SelectItem>
                   <SelectItem value="GBP">GBP</SelectItem>
                 </SelectContent>

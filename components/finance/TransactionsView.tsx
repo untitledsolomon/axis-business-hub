@@ -2,6 +2,7 @@
 
 import { useJournalEntries } from "@/hooks/finance/use-finance";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney } from "@/lib/currency";
 import {
   Table,
   TableBody,
@@ -142,8 +143,8 @@ export function TransactionsView() {
     return { inflow, outflow, net: inflow - outflow };
   }, [transactions]);
 
-  const fmt = (cents: number) =>
-    (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
   if (!mounted) return null;
 

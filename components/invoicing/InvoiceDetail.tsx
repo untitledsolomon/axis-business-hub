@@ -19,10 +19,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { InvoiceActions } from "@/components/invoicing/InvoiceActions";
 import { ArrowLeft, Receipt, AlertTriangle, Mail, Phone } from "lucide-react";
 import { formatShortDate } from "@/lib/format-date";
-
-function fmtMoney(cents: number, currency: string) {
-  return `${currency} ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-}
+import { formatMoney as fmtMoney } from "@/lib/currency";
 
 interface InvoiceDetailProps {
   invoiceId: string;

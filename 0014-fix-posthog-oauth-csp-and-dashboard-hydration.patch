@@ -1,0 +1,86 @@
+From e848423609cb96263b3de27193af1827aa9baf57 Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.com>
+Date: Thu, 27 Aug 2026 08:56:31 +0000
+Subject: [PATCH] fix: PostHog OAuth origin in CSP + hydration mismatch in
+ dashboard summary
+
+next.config.ts: add us.posthog.com (posthogAppOrigin) to connect-src.
+The toolbar's login flow exchanges an OAuth token against PostHog's
+main app host, distinct from the ingest host (i.posthog.com) and the
+toolbar-internal host (internal-j.posthog.com) already whitelisted --
+so authenticating the toolbar completed client-side then failed
+silently on the blocked token exchange.
+
+hooks/dashboard/use-dashboard-summary.ts: capture 'now' once via
+useState instead of reading new Date() fresh inside the useMemo on
+every render. The dashboard route is server-rendered on first load,
+so the server and client passes were computing 'now' at two different
+instants; since that value decides which invoices/journal entries
+fall into the current-vs-previous period, drift between the two
+passes produced different summary totals (and label text) in the
+server vs client HTML, i.e. a second, independent source of React
+error #418 introduced after the original dashboard hydration fix
+(935c33b) by the later reporting/analytics work.
+---
+ hooks/dashboard/use-dashboard-summary.ts | 12 ++++++++++--
+ next.config.ts                           |  9 ++++++++-
+ 2 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/hooks/dashboard/use-dashboard-summary.ts b/hooks/dashboard/use-dashboard-summary.ts
+index b8ac6fa..c15a9f0 100644
+--- a/hooks/dashboard/use-dashboard-summary.ts
++++ b/hooks/dashboard/use-dashboard-summary.ts
+@@ -1,4 +1,4 @@
+-import { useMemo } from "react";
++import { useMemo, useState } from "react";
+ import { useOrg } from "@/hooks/use-org";
+ import { useClients } from "@/hooks/clients/use-clients";
+ import { useInvoices } from "@/hooks/invoicing/use-invoices";
+@@ -63,8 +63,16 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
+ 
+   const isLoading = orgLoading || clients.isPending || invoices.isPending || journal.isPending;
+ 
++  // Captured once per mount (not re-read on every render) so the server-render
++  // pass and the client-render pass agree on the same instant. Reading
++  // `new Date()` fresh inside the useMemo below meant the server and client
++  // could compute slightly different "now" values, which shifts which
++  // invoices/journal entries fall into the current-vs-previous period and
++  // produces mismatched summary totals in the server vs client HTML (React
++  // error #418), the same class of bug fixed for RecentActivity.timeAgo().
++  const [now] = useState(() => new Date());
++
+   const summary = useMemo(() => {
+-    const now = new Date();
+     const { start, prevStart, prevEnd } = getRangeBounds(timeframe, now);
+ 
+     const inCurrent = (d: Date) => d >= start && d <= now;
+diff --git a/next.config.ts b/next.config.ts
+index a1fdc81..51b2a75 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -32,6 +32,13 @@ const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
+ // blocked by CSP and silently retries with backoff forever.
+ const revenueCatEventsOrigin = 'https://e.revenue.cat';
+ const posthogToolbarOrigin = 'https://internal-j.posthog.com';
++// The toolbar's login/auth flow (triggered when a user authenticates the
++// PostHog toolbar in-app) exchanges an OAuth token against posthog.com's
++// main app host -- distinct from both the ingest host (i.posthog.com,
++// posthogOrigin above) and the toolbar-internal host (internal-j.posthog.com,
++// posthogToolbarOrigin above). Without it, toolbar auth completes client-side
++// then fails silently when the token exchange itself is blocked by CSP.
++const posthogAppOrigin = 'https://us.posthog.com';
+ 
+ const nextConfig: NextConfig = {
+   async headers() {
+@@ -43,7 +50,7 @@ const nextConfig: NextConfig = {
+             key: "Content-Security-Policy",
+             value: `
+                     default-src 'self';
+-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatApiOrigin} ${revenueCatEventsOrigin};
++                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${revenueCatApiOrigin} ${revenueCatEventsOrigin};
+                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
+                     script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
+                     worker-src 'self' blob:;
+-- 
+2.43.0
+

@@ -24,6 +24,8 @@ import { useAccounts, useCreateJournalEntry } from "@/hooks/finance/use-finance"
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { Account } from "@/lib/types";
+import { useOrg } from "@/hooks/use-org";
+import { toMinorUnits } from "@/lib/currency";
 import { useEffect, useState } from "react";
 import posthog from "posthog-js";
 
@@ -47,6 +49,8 @@ interface JournalEntryFormProps {
 }
 
 export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const { data: accounts } = useAccounts(orgId);
   const createJournalEntry = useCreateJournalEntry();
   const [mounted, setMounted] = useState(false);
@@ -86,11 +90,11 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
     }
 
     try {
-      // Convert to cents for database
-      const linesInCents = values.lines.map(line => ({
+      // Journal entries always post in the org's base currency.
+      const linesInMinorUnits = values.lines.map(line => ({
         ...line,
-        debit: Math.round(line.debit * 100),
-        credit: Math.round(line.credit * 100),
+        debit: toMinorUnits(line.debit, baseCurrency),
+        credit: toMinorUnits(line.credit, baseCurrency),
       }));
 
       await createJournalEntry.mutateAsync({
@@ -101,12 +105,12 @@ export function JournalEntryForm({ orgId, onSuccess }: JournalEntryFormProps) {
           description: values.description,
           status: "posted",
         },
-        lines: linesInCents,
+        lines: linesInMinorUnits,
       });
 
       posthog.capture("journal_entry_posted", {
-        line_count: linesInCents.length,
-        total_debit: Math.round(totalDebit * 100),
+        line_count: linesInMinorUnits.length,
+        total_debit: toMinorUnits(totalDebit, baseCurrency),
       });
       toast.success("Journal entry created successfully");
       form.reset();

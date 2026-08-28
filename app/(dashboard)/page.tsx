@@ -22,6 +22,7 @@ import { useDashboardSummary, DashboardTimeframe, TIMEFRAME_LABELS } from "@/hoo
 import { useAuth } from "@/hooks/use-auth";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney, convertMinorUnits } from "@/lib/currency";
 import { Users, FileText, TrendingUp, Wallet, AlertTriangle, PackageCheck, BriefcaseBusiness } from "lucide-react";
 
 // recharts measures the container on the client and builds SVG ids from a
@@ -53,10 +54,6 @@ const InventoryAnalytics = dynamic(
   }
 );
 
-function fmtUGX(value: number) {
-  return `UGX ${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
 function fmtPct(value: number) {
   return `${Math.abs(value).toFixed(1)}%`;
 }
@@ -76,11 +73,19 @@ export default function DashboardPage() {
     user?.email?.split("@")[0] ||
     "there";
 
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
   const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue");
   const lowStockItems = items.filter((item) => item.status !== "archived" && item.current_quantity <= item.reorder_level);
   const onLeaveCount = employees.filter((employee) => employee.status === "on_leave").length;
-  const overdueTotal = overdueInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
+  // Invoices may be billed in a currency other than the org's base_currency (e.g. a
+  // South Sudan client invoiced in USD or SSP) — convert each to base currency using
+  // its own exchange_rate before summing, rather than summing raw grand_total across
+  // mixed currencies.
+  const overdueTotalMinor = overdueInvoices.reduce(
+    (sum, invoice) => sum + convertMinorUnits(invoice.grand_total, invoice.currency, baseCurrency, invoice.exchange_rate || 1),
+    0
+  );
 
   const revenueLabel = timeframe === "this_month" ? "Revenue This Month" : `Revenue (${TIMEFRAME_LABELS[timeframe]})`;
   const profitLabel = timeframe === "this_month" ? "Net Profit" : `Net Profit (${TIMEFRAME_LABELS[timeframe]})`;
@@ -110,7 +115,7 @@ export default function DashboardPage() {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title={revenueLabel}
-            value={fmtUGX(summary.revenueThisMonth)}
+            value={formatMoney(summary.revenueThisMonthMinor ?? 0, summary.baseCurrency ?? baseCurrency)}
             isLoading={summary.isLoading}
             icon={<Wallet className="size-4" />}
             tone="success"
@@ -134,11 +139,11 @@ export default function DashboardPage() {
             isLoading={summary.isLoading}
             icon={<FileText className="size-4" />}
             tone="warning"
-            subtitle={summary.isLoading ? undefined : `${fmtUGX(summary.outstandingTotal)} total`}
+            subtitle={summary.isLoading ? undefined : `${formatMoney(summary.outstandingTotalMinor ?? 0, summary.baseCurrency ?? baseCurrency)} total`}
           />
           <StatCard
             title={profitLabel}
-            value={fmtUGX(summary.netProfitThisMonth)}
+            value={formatMoney(summary.netProfitThisMonthMinor ?? 0, summary.baseCurrency ?? baseCurrency)}
             isLoading={summary.isLoading}
             icon={<TrendingUp className="size-4" />}
             tone="destructive"
@@ -161,7 +166,7 @@ export default function DashboardPage() {
             },
             {
               label: "Overdue",
-              value: `${overdueInvoices.length} (${fmtUGX(overdueTotal)})`,
+              value: `${overdueInvoices.length} (${formatMoney(overdueTotalMinor, baseCurrency)})`,
               icon: <AlertTriangle className="size-4" />,
               tone: overdueInvoices.length > 0 ? "destructive" : "default",
             },

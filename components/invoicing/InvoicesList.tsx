@@ -28,6 +28,7 @@ import { InvoiceForm } from "@/components/invoicing/InvoiceForm";
 import { InvoiceActions } from "@/components/invoicing/InvoiceActions";
 import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { formatMoney, convertMinorUnits } from "@/lib/currency";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect } from "react";
@@ -70,20 +71,27 @@ export function InvoicesList() {
     });
   }, [invoices, search, statusFilter, timeframe]);
 
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+
+  // Invoices can be billed in different currencies (e.g. a UGX invoice and a USD
+  // invoice for a South Sudan client) — convert each to the org's base currency
+  // using its own exchange_rate before summing, so totals aren't mixing currencies.
+  const toBase = (invoice: { grand_total: number; currency: string; exchange_rate: number }) =>
+    convertMinorUnits(invoice.grand_total, invoice.currency, baseCurrency, invoice.exchange_rate || 1);
+
   const totals = useMemo(() => {
     const list = (invoices ?? []).filter((invoice) => timeframe === "all_time" || isDateInTimeframe(invoice.issue_date, timeframe));
     return {
-      all: list.reduce((s, i) => s + i.grand_total, 0),
-      paid: list.filter((i) => i.status === "paid").reduce((s, i) => s + i.grand_total, 0),
+      all: list.reduce((s, i) => s + toBase(i), 0),
+      paid: list.filter((i) => i.status === "paid").reduce((s, i) => s + toBase(i), 0),
       outstanding: list
         .filter((i) => ["sent", "viewed", "partial", "overdue", "draft"].includes(i.status))
-        .reduce((s, i) => s + i.grand_total, 0),
+        .reduce((s, i) => s + toBase(i), 0),
       overdue: list.filter((i) => i.status === "overdue").length,
     };
-  }, [invoices, timeframe]);
+  }, [invoices, timeframe, baseCurrency]);
 
-  const fmt = (cents: number) =>
-    `UGX ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
   if (!mounted) return null;
 
@@ -222,7 +230,7 @@ export function InvoicesList() {
                       <StatusBadge status={invoice.status} />
                     </TableCell>
                     <TableCell className="numeric text-right font-medium">
-                      {invoice.currency} {(invoice.grand_total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {formatMoney(invoice.grand_total, invoice.currency)}
                     </TableCell>
                     <TableCell>
                       {currentOrg && <InvoiceActions orgId={currentOrg.id} invoice={invoice} />}

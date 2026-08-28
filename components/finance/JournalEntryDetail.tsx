@@ -20,10 +20,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { JournalEntryActions } from "@/components/finance/JournalEntryActions";
 import { ArrowLeft, Receipt, AlertTriangle } from "lucide-react";
 import { formatShortDate } from "@/lib/format-date";
-
-function fmtMoney(cents: number) {
-  return (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
-}
+import { formatMoney } from "@/lib/currency";
 
 interface JournalEntryDetailProps {
   entryId: string;
@@ -33,6 +30,8 @@ export function JournalEntryDetail({ entryId }: JournalEntryDetailProps) {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
   const orgId = currentOrg?.id || "";
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const fmtMoney = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
   const { data: entry, isLoading, isError, refetch } = useJournalEntry(orgId, entryId);
 

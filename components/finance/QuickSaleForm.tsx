@@ -29,6 +29,8 @@ import { useItems } from "@/hooks/items/use-items";
 import { toast } from "sonner";
 import posthog from "posthog-js";
 import { Account } from "@/lib/types";
+import { formatMoney, toMajorUnits, toMinorUnits } from "@/lib/currency";
+import { useOrg } from "@/hooks/use-org";
 
 const freeTextSchema = z.object({
   amount: z.coerce.number().positive("Amount must be greater than zero"),
@@ -58,11 +60,10 @@ interface QuickSaleFormProps {
   onSuccess?: () => void;
 }
 
-function fmtUGX(cents: number) {
-  return `UGX ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-}
-
 export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
   const [mode, setMode] = useState<"item" | "freeform">("item");
   const { data: accounts } = useAccounts(orgId);
   const { data: items = [] } = useItems(orgId);
@@ -105,19 +106,19 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
   const selectedItemId = itemForm.watch("item_id");
   const selectedItem = sellableItems.find((i) => i.id === selectedItemId);
   const quantity = itemForm.watch("quantity") || 0;
-  const unitSalePriceUGX = itemForm.watch("unit_sale_price") || 0;
-  const unitSalePriceCents = Math.round(unitSalePriceUGX * 100);
-  const listPriceCents = selectedItem?.selling_price ?? 0;
-  const discountPerUnit = Math.max(listPriceCents - unitSalePriceCents, 0);
+  const unitSalePriceMajor = itemForm.watch("unit_sale_price") || 0;
+  const unitSalePriceMinor = toMinorUnits(unitSalePriceMajor, baseCurrency);
+  const listPriceMinor = selectedItem?.selling_price ?? 0;
+  const discountPerUnit = Math.max(listPriceMinor - unitSalePriceMinor, 0);
   const totalDiscount = discountPerUnit * quantity;
-  const discountPct = listPriceCents > 0 ? (discountPerUnit / listPriceCents) * 100 : 0;
-  const total = unitSalePriceCents * quantity;
+  const discountPct = listPriceMinor > 0 ? (discountPerUnit / listPriceMinor) * 100 : 0;
+  const total = unitSalePriceMinor * quantity;
 
   function handleSelectItem(itemId: string) {
     itemForm.setValue("item_id", itemId);
     const item = sellableItems.find((i) => i.id === itemId);
     if (item) {
-      itemForm.setValue("unit_sale_price", item.selling_price / 100);
+      itemForm.setValue("unit_sale_price", toMajorUnits(item.selling_price, baseCurrency));
     }
   }
 
@@ -126,7 +127,7 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
       await createItemSale.mutateAsync({
         item_id: values.item_id,
         quantity: values.quantity,
-        unit_sale_price: Math.round(values.unit_sale_price * 100),
+        unit_sale_price: toMinorUnits(values.unit_sale_price, baseCurrency),
         sale_date: values.sale_date,
         payment_method: values.payment_method,
         revenue_account_id: values.revenue_account_id,
@@ -147,7 +148,7 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
       await createDailySale.mutateAsync({
         sale_date: values.sale_date,
         description: values.description,
-        amount: Math.round(values.amount * 100),
+        amount: toMinorUnits(values.amount, baseCurrency),
         payment_method: values.payment_method,
         revenue_account_id: values.revenue_account_id,
         received_into_account_id: values.received_into_account_id,
@@ -200,7 +201,7 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
 
             {selectedItem && (
               <p className="text-xs text-muted-foreground">
-                List price {fmtUGX(selectedItem.selling_price)} · {selectedItem.current_quantity} {selectedItem.unit}(s) available
+                List price {fmt(selectedItem.selling_price)} · {selectedItem.current_quantity} {selectedItem.unit}(s) available
               </p>
             )}
 
@@ -242,13 +243,13 @@ export function QuickSaleForm({ orgId, onSuccess }: QuickSaleFormProps) {
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Total</span>
-                  <span className="numeric font-mono font-semibold text-foreground">{fmtUGX(total)}</span>
+                  <span className="numeric font-mono font-semibold text-foreground">{fmt(total)}</span>
                 </div>
                 {totalDiscount > 0 && (
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-muted-foreground">Discount given</span>
                     <span className="numeric font-mono font-medium text-warning">
-                      {fmtUGX(totalDiscount)} ({discountPct.toFixed(1)}%)
+                      {fmt(totalDiscount)} ({discountPct.toFixed(1)}%)
                     </span>
                   </div>
                 )}

@@ -1,8 +1,7 @@
-export function money(cents: number, currency: string): string {
-  return `${currency} ${(Number(cents) / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+import { formatMoney } from "../../currency";
+
+export function money(minorAmount: number, currency: string): string {
+  return formatMoney(Number(minorAmount), currency);
 }
 
 export function escapeHtml(value: unknown): string {

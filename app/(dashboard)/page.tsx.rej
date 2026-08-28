@@ -1,0 +1,37 @@
+diff a/app/(dashboard)/page.tsx b/app/(dashboard)/page.tsx	(rejected hunks)
+@@ -23,12 +23,9 @@ import { useDashboardSummary, DashboardTimeframe, TIMEFRAME_LABELS } from "@/hoo
+ import { useAuth } from "@/hooks/use-auth";
+ import { useInvoices } from "@/hooks/invoicing/use-invoices";
+ import { useOrg } from "@/hooks/use-org";
++import { formatMoney, convertMinorUnits } from "@/lib/currency";
+ import { Users, FileText, TrendingUp, Wallet, AlertTriangle, PackageCheck, BriefcaseBusiness } from "lucide-react";
+ 
+-function fmtUGX(value: number) {
+-  return `UGX ${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+-}
+-
+ function fmtPct(value: number) {
+   return `${Math.abs(value).toFixed(1)}%`;
+ }
+@@ -48,12 +45,19 @@ export default function DashboardPage() {
+     user?.email?.split("@")[0] ||
+     "there";
+ 
++  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+   const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
+   const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue");
+   const lowStockItems = items.filter((item) => item.status !== "archived" && item.current_quantity <= item.reorder_level);
+   const onLeaveCount = employees.filter((employee) => employee.status === "on_leave").length;
+-  const paidThisPeriodTotal = paidInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
+-  const overdueTotal = overdueInvoices.reduce((sum, invoice) => sum + invoice.grand_total, 0) / 100;
++  // Invoices may be billed in a currency other than the org's base_currency (e.g. a
++  // South Sudan client invoiced in USD or SSP) — convert each to base currency using
++  // its own exchange_rate before summing, rather than summing raw grand_total across
++  // mixed currencies.
++  const overdueTotalMinor = overdueInvoices.reduce(
++    (sum, invoice) => sum + convertMinorUnits(invoice.grand_total, invoice.currency, baseCurrency, invoice.exchange_rate || 1),
++    0
++  );
+ 
+   const revenueLabel = timeframe === "this_month" ? "Revenue This Month" : `Revenue (${TIMEFRAME_LABELS[timeframe]})`;
+   const profitLabel = timeframe === "this_month" ? "Net Profit" : `Net Profit (${TIMEFRAME_LABELS[timeframe]})`;

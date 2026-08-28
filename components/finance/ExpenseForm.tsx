@@ -13,6 +13,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useOrg } from "@/hooks/use-org";
+import { toMinorUnits } from "@/lib/currency";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -58,6 +60,8 @@ interface ExpenseFormProps {
 }
 
 export function ExpenseForm({ orgId, defaultValues, onSuccess }: ExpenseFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const { data: accounts } = useAccounts(orgId);
   const createExpense = useCreateExpense(orgId);
 
@@ -85,7 +89,7 @@ export function ExpenseForm({ orgId, defaultValues, onSuccess }: ExpenseFormProp
         expense_date: values.expense_date,
         category: values.category,
         description: values.description,
-        amount: Math.round(values.amount * 100),
+        amount: toMinorUnits(values.amount, baseCurrency),
         recurrence: values.recurrence,
         payment_method: values.payment_method,
         expense_account_id: values.expense_account_id,

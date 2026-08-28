@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useBankAccounts, useJournalEntries } from "@/hooks/finance/use-finance";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney } from "@/lib/currency";
 import {
   Table,
   TableBody,
@@ -62,8 +63,15 @@ export function BankingView() {
     return (bankAccounts ?? []).reduce((s: number, a: BankAccount) => s + (balances.get(a.id) || 0), 0);
   }, [bankAccounts, balances, balancesLoading]);
 
-  const fmt = (cents: number) =>
-    (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  // Note: balances are summed from journal_entries, which always post in the
+  // org's base_currency (see mark_invoice_paid_v1 / update_invoice_status_v1) —
+  // so this total, and each individual account balance below, is a base-currency
+  // figure regardless of what `account.currency` says the account is nominally
+  // denominated in. A bank account genuinely held in a foreign currency would
+  // need its own FX-aware balance tracking, which the ledger doesn't do yet;
+  // that's a separate piece of work from the invoice-currency fix here.
+  const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
   if (!mounted) return null;
 
@@ -154,7 +162,7 @@ export function BankingView() {
                   {balancesLoading ? (
                     <Skeleton className="h-8 w-28" />
                   ) : (
-                    `${account.currency} ${fmt(balances.get(account.id) || 0)}`
+                    fmt(balances.get(account.id) || 0)
                   )}
                 </p>
                 <div className="mt-4 flex justify-end">

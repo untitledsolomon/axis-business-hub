@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney } from "@/lib/currency";
 import { useArchiveItem, useDeleteItem, useItem, useItemMovements } from "@/hooks/items/use-items";
 import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
 import { ItemForm } from "@/components/inventory/ItemForm";
@@ -113,8 +114,8 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     );
   }
 
-  const fmt = (cents: number) =>
-    (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
   async function handleDelete() {
     if (!item) return;
@@ -239,11 +240,11 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Cost price</p>
-              <p className="mt-2 text-lg font-semibold text-foreground">UGX {fmt(item.cost_price)}</p>
+              <p className="mt-2 text-lg font-semibold text-foreground">{fmt(item.cost_price)}</p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Selling price</p>
-              <p className="mt-2 text-lg font-semibold text-foreground">UGX {fmt(item.selling_price)}</p>
+              <p className="mt-2 text-lg font-semibold text-foreground">{fmt(item.selling_price)}</p>
             </div>
           </div>
         </section>

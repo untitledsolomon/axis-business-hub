@@ -55,6 +55,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney } from "@/lib/currency";
 import { useArchiveItem, useDeleteItem, useItems } from "@/hooks/items/use-items";
 import { ItemForm } from "@/components/inventory/ItemForm";
 import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
@@ -115,8 +116,8 @@ export function InventoryView() {
   const editingItem = items?.find((item) => item.id === editingItemId) ?? null;
   const deletingItem = items?.find((item) => item.id === deletingItemId) ?? null;
 
-  const fmt = (cents: number) =>
-    (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
   if (!mounted) return null;
 
@@ -317,10 +318,10 @@ export function InventoryView() {
                     <TableCell className={item.current_quantity <= item.reorder_level ? "text-amber-600" : ""}>
                       {item.current_quantity}
                     </TableCell>
-                    <TableCell className="numeric">UGX {fmt(item.cost_price)}</TableCell>
+                    <TableCell className="numeric">{fmt(item.cost_price)}</TableCell>
                     <TableCell className="numeric">
                       <div className="flex items-center justify-between gap-3">
-                        <span>UGX {fmt(item.selling_price)}</span>
+                        <span>{fmt(item.selling_price)}</span>
                         <StockAdjustmentDialog
                           item={item}
                           orgId={orgId}

@@ -20,6 +20,7 @@ import {
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { formatShortDate } from "@/lib/format-date";
+import { formatMoney } from "@/lib/currency";
 import { ArrowLeft, AlertTriangle, ShoppingBag, Trash2, BookOpen } from "lucide-react";
 
 interface DailySaleDetailProps {
@@ -30,6 +31,7 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const orgId = currentOrg?.id || "";
 
   const { data: sale, isLoading, isError, refetch } = useDailySale(orgId, saleId);
@@ -130,7 +132,7 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="panel p-5 lg:col-span-3">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div><p className="text-xs text-muted-foreground">Sale total</p><p className="numeric mt-1 text-2xl font-semibold text-foreground">UGX {(sale.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div>
+            <div><p className="text-xs text-muted-foreground">Sale total</p><p className="numeric mt-1 text-2xl font-semibold text-foreground">{formatMoney(sale.amount, baseCurrency)}</p></div>
             <div><p className="text-xs text-muted-foreground">Payment method</p><p className="mt-1 text-lg font-semibold capitalize text-foreground">{sale.payment_method.replace("_", " ")}</p></div>
             <div><p className="text-xs text-muted-foreground">Quantity</p><p className="numeric mt-1 text-lg font-semibold text-foreground">{sale.quantity ?? "—"}</p></div>
           </div>
@@ -141,7 +143,7 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
             <div className="flex justify-between border-b border-border pb-3">
               <span className="text-muted-foreground">Amount</span>
               <span className="numeric font-semibold text-foreground">
-                UGX {(sale.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {formatMoney(sale.amount, baseCurrency)}
               </span>
             </div>
             <div className="flex justify-between border-b border-border pb-3">

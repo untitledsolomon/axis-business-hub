@@ -28,6 +28,12 @@ import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from "react";
 import posthog from "posthog-js";
+import { useOrg } from "@/hooks/use-org";
+import { toMinorUnits } from "@/lib/currency";
+
+// Currencies clients might reasonably be billed in from Uganda/East Africa —
+// extend as needed. Matches the minor-unit table in lib/currency.ts.
+const INVOICE_CURRENCIES = ["UGX", "USD", "SSP", "KES", "TZS", "RWF", "EUR", "GBP"];
 
 const itemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -41,6 +47,8 @@ const formSchema = z.object({
   invoice_number: z.string().min(1, "Invoice number is required"),
   issue_date: z.string().min(1, "Issue date is required"),
   due_date: z.string().min(1, "Due date is required"),
+  currency: z.string().min(1, "Currency is required"),
+  exchange_rate: z.number().positive("Exchange rate must be greater than 0"),
   notes: z.string().optional(),
   payment_terms: z.string().optional(),
   items: z.array(itemSchema).min(1, "At least one item is required"),
@@ -52,6 +60,8 @@ interface InvoiceFormProps {
 }
 
 export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const { data: clients } = useClients(orgId);
   const { data: taxRates } = useTaxRates(orgId);
   const { data: nextNumber } = useNextInvoiceNumber(orgId);
@@ -69,6 +79,8 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
       invoice_number: "",
       issue_date: new Date().toISOString().split("T")[0],
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      currency: baseCurrency,
+      exchange_rate: 1.0,
       notes: "",
       payment_terms: "Net 30",
       items: [{ description: "", quantity: 1, unit_price: 0, tax_rate_id: "" }],
@@ -80,6 +92,29 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
       form.setValue("invoice_number", nextNumber);
     }
   }, [nextNumber, form]);
+
+  // Once the org loads, default a fresh form to its base currency (covers the
+  // case where currentOrg wasn't ready yet when defaultValues was evaluated).
+  useEffect(() => {
+    if (baseCurrency && !form.formState.isDirty) {
+      form.setValue("currency", baseCurrency);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseCurrency]);
+
+  const watchCurrency = form.watch("currency");
+
+  // A client's own default currency (clients.currency) is a reasonable
+  // starting point when they're selected — e.g. a South Sudan client set up
+  // with currency=USD — but the user can still override it per invoice.
+  const handleClientChange = (clientId: string) => {
+    form.setValue("client_id", clientId);
+    const client = clients?.find((c) => c.id === clientId);
+    if (client?.currency && !form.formState.dirtyFields.currency) {
+      form.setValue("currency", client.currency);
+      if (client.currency === baseCurrency) form.setValue("exchange_rate", 1.0);
+    }
+  };
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -117,6 +152,8 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      const currency = values.currency;
+
       const invoiceItems = values.items.map(item => {
         const lineTotal = item.quantity * item.unit_price;
         let taxAmount = 0;
@@ -130,11 +167,15 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
         return {
           description: item.description,
           quantity: item.quantity,
-          unit_price: Math.round(item.unit_price * 100), // to cents
+          // Minor units depend on the invoice's currency, not always cents —
+          // UGX stores whole shillings (0 decimal digits), USD/SSP store cents.
+          unit_price: toMinorUnits(item.unit_price, currency),
           tax_rate_id: item.tax_rate_id || undefined,
-          total: Math.round((lineTotal + taxAmount) * 100), // to cents
+          total: toMinorUnits(lineTotal + taxAmount, currency),
         };
       });
+
+      const grandTotalMinor = toMinorUnits(totals.grand_total, currency);
 
       await createInvoice.mutateAsync({
         invoice: {
@@ -144,12 +185,12 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
           issue_date: values.issue_date,
           due_date: values.due_date,
           status: "draft",
-          subtotal: Math.round(totals.subtotal * 100),
-          tax_total: Math.round(totals.tax_total * 100),
+          subtotal: toMinorUnits(totals.subtotal, currency),
+          tax_total: toMinorUnits(totals.tax_total, currency),
           discount_total: 0,
-          grand_total: Math.round(totals.grand_total * 100),
-          currency: "UGX",
-          exchange_rate: 1.0,
+          grand_total: grandTotalMinor,
+          currency,
+          exchange_rate: currency === baseCurrency ? 1.0 : values.exchange_rate,
           notes: values.notes,
           payment_terms: values.payment_terms,
         },
@@ -158,8 +199,8 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
 
       posthog.capture("invoice_created", {
         item_count: invoiceItems.length,
-        currency: "UGX",
-        grand_total: Math.round(totals.grand_total * 100),
+        currency,
+        grand_total: grandTotalMinor,
       });
       toast.success("Invoice created successfully");
       form.reset();
@@ -180,7 +221,7 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Client</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={handleClientChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a client" />
@@ -240,6 +281,61 @@ export function InvoiceForm({ orgId, onSuccess }: InvoiceFormProps) {
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Currency</FormLabel>
+                <Select
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    if (value === baseCurrency) form.setValue("exchange_rate", 1.0);
+                  }}
+                  value={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {INVOICE_CURRENCIES.map((code) => (
+                      <SelectItem key={code} value={code}>
+                        {code}
+                        {code === baseCurrency ? " (org default)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {watchCurrency !== baseCurrency && (
+            <FormField
+              control={form.control}
+              name="exchange_rate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Exchange rate (1 {watchCurrency} = ? {baseCurrency})</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <div className="space-y-4">

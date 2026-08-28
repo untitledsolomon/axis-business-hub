@@ -1,0 +1,1024 @@
+From 61c795e2af70ba668f470959d4fb7b95849fa591 Mon Sep 17 00:00:00 2001
+From: Axis Dev <axis-dev@example.com>
+Date: Thu, 27 Aug 2026 10:44:58 +0000
+Subject: feat: replace RevenueCat with Paddle for subscription billing
+
+Swaps RevenueCat out entirely in favor of Paddle across web checkout and
+entitlement checks.
+
+- lib/paddle-plans.ts: maps Axis plan IDs (starter/pro/advanced) to Paddle
+  price IDs via env vars
+- lib/paddle.ts: Paddle.js wrapper (init + openCheckout), replacing
+  lib/revenuecat.ts
+- app/api/paddle/webhook/route.ts: new webhook endpoint syncing Paddle
+  subscription.* events into Supabase. Paddle's client SDK has no
+  CustomerInfo-style entitlement object like RevenueCat's, so this is now
+  the source of truth for subscription state instead of a client call.
+- supabase/migrations/20260827000001_paddle_subscriptions.sql: new
+  subscriptions table + has_axis_pro_v1() RPC, RLS-protected, written only
+  via the webhook's service role client
+- hooks/useAxisPro.ts: reads entitlement from Supabase instead of
+  RevenueCat's CustomerInfo; same public hook shape so call sites elsewhere
+  are unaffected
+- components/Paywall.tsx: rebuilt as an Axis-owned plan/interval picker
+  that opens Paddle's overlay checkout, since Paddle has no equivalent to
+  RevenueCat's embeddable presentPaywall
+- hooks/use-auth.tsx: dropped Purchases.configure() on sign-in; Paddle
+  instead receives the Supabase user ID as checkout custom_data, which the
+  webhook uses to link the resulting subscription back to the account
+- next.config.ts: swapped RevenueCat CSP origins for Paddle's
+  (buy.paddle.com, checkout-service.paddle.com, cdn.paddle.com)
+- package.json: -@revenuecat/purchases-js, +@paddle/paddle-js
+  +@paddle/paddle-node-sdk
+- .env.example: new Paddle env vars, pre-filled with the live price IDs
+  created for Starter/Pro/Advanced (monthly + annual)
+
+Verified: npm install, tsc --noEmit, eslint, and next build all pass clean.
+---
+ .env.example                                  |  19 ++-
+ app/api/paddle/webhook/route.ts               | 115 +++++++++++++
+ components/Paywall.tsx                        | 153 +++++++++++-------
+ hooks/use-auth.tsx                            |  11 +-
+ hooks/useAxisPro.ts                           | 126 ++++++++++-----
+ lib/paddle-plans.ts                           |  76 +++++++++
+ lib/paddle.ts                                 | 102 ++++++++++++
+ lib/revenuecat.ts                             |  61 -------
+ next.config.ts                                |  32 ++--
+ package-lock.json                             |  24 ++-
+ package.json                                  |   3 +-
+ .../20260827000001_paddle_subscriptions.sql   |  94 +++++++++++
+ 12 files changed, 625 insertions(+), 191 deletions(-)
+ create mode 100644 app/api/paddle/webhook/route.ts
+ create mode 100644 lib/paddle-plans.ts
+ create mode 100644 lib/paddle.ts
+ delete mode 100644 lib/revenuecat.ts
+ create mode 100644 supabase/migrations/20260827000001_paddle_subscriptions.sql
+
+diff --git a/.env.example b/.env.example
+index 88ef8d9..57ef2d9 100644
+--- a/.env.example
++++ b/.env.example
+@@ -5,5 +5,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+ NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=your-posthog-project-token
+ NEXT_PUBLIC_POSTHOG_HOST=https://your-posthog-host
+ 
+-# RevenueCat Configuration (Web Billing SDK public API key, starts with "rcb_")
+-NEXT_PUBLIC_REVENUECAT_API_KEY=your-revenuecat-web-billing-api-key
++# Paddle Configuration
++# Client-side token for Paddle.js (Developer Tools > Authentication in Paddle dashboard)
++NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=your-paddle-client-side-token
++# "sandbox" or "production" - controls which Paddle environment Paddle.js talks to
++NEXT_PUBLIC_PADDLE_ENV=production
++# Server-side API key, used only in the webhook route (never exposed to the client)
++PADDLE_API_KEY=your-paddle-api-key
++# Webhook signing secret from Paddle Dashboard > Developer Tools > Notifications
++PADDLE_WEBHOOK_SECRET=your-paddle-webhook-secret
++
++# Paddle price IDs for each plan (from `paddle products/prices` created for Axis)
++NEXT_PUBLIC_PADDLE_PRICE_STARTER_MONTHLY=pri_01m11ca5ge1y4wheshg1r4ygxn
++NEXT_PUBLIC_PADDLE_PRICE_STARTER_YEARLY=pri_01m11ca5m7m3sx1ef2fw4bm0ew
++NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY=pri_01m11ca5vqy919vh6xkee3bgzr
++NEXT_PUBLIC_PADDLE_PRICE_PRO_YEARLY=pri_01m11ca5ymyba7qrky6xty1etq
++NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_MONTHLY=pri_01m11ca6609gfab3mmhrsdnwap
++NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_YEARLY=pri_01m11ca6964kgtpj8h1m4twtkr
+diff --git a/app/api/paddle/webhook/route.ts b/app/api/paddle/webhook/route.ts
+new file mode 100644
+index 0000000..d4fde28
+--- /dev/null
++++ b/app/api/paddle/webhook/route.ts
+@@ -0,0 +1,115 @@
++// app/api/paddle/webhook/route.ts
++//
++// Receives Paddle subscription notifications and mirrors them into the
++// `subscriptions` table. This is the server-side counterpart that the old
++// RevenueCat integration didn't need — RevenueCat's client SDK exposed
++// CustomerInfo directly, but Paddle.js only drives checkout UI, so
++// entitlement state has to be derived here from webhook events instead.
++//
++// Register this endpoint in Paddle Dashboard > Developer Tools >
++// Notifications, subscribed to:
++//   subscription.created, subscription.updated, subscription.canceled,
++//   subscription.trialing (covered by created/updated with status field)
++
++import { NextResponse } from "next/server";
++import { createClient as createSupabaseClient } from "@supabase/supabase-js";
++import { Paddle, EventName } from "@paddle/paddle-node-sdk";
++import { getPlanByPriceId } from "@/lib/paddle-plans";
++
++function serviceClient() {
++  return createSupabaseClient(
++    process.env.NEXT_PUBLIC_SUPABASE_URL!,
++    process.env.SUPABASE_SERVICE_ROLE_KEY!,
++    { auth: { autoRefreshToken: false, persistSession: false } }
++  );
++}
++
++const paddle = new Paddle(process.env.PADDLE_API_KEY!);
++const WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET!;
++
++export async function POST(request: Request) {
++  const signature = request.headers.get("paddle-signature");
++  const rawBody = await request.text();
++
++  if (!signature) {
++    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
++  }
++
++  let event;
++  try {
++    event = await paddle.webhooks.unmarshal(rawBody, WEBHOOK_SECRET, signature);
++  } catch (err) {
++    console.error("Paddle webhook signature verification failed", err);
++    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
++  }
++
++  if (!event) {
++    return NextResponse.json({ error: "Unrecognized event" }, { status: 400 });
++  }
++
++  const supabase = serviceClient();
++
++  switch (event.eventType) {
++    case EventName.SubscriptionCreated:
++    case EventName.SubscriptionUpdated:
++    case EventName.SubscriptionTrialing: {
++      const sub = event.data;
++
++      const userId = sub.customData?.axis_user_id as string | undefined;
++      if (!userId) {
++        console.error(
++          `Paddle subscription ${sub.id} has no axis_user_id in custom_data; skipping`
++        );
++        break;
++      }
++
++      const priceId = sub.items?.[0]?.price?.id;
++      const plan = priceId ? getPlanByPriceId(priceId) : undefined;
++
++      const { error } = await supabase.from("subscriptions").upsert(
++        {
++          user_id: userId,
++          paddle_subscription_id: sub.id,
++          paddle_customer_id: sub.customerId,
++          paddle_price_id: priceId ?? "",
++          plan_id: plan?.id ?? "unknown",
++          status: sub.status,
++          current_period_start: sub.currentBillingPeriod?.startsAt ?? null,
++          current_period_end: sub.currentBillingPeriod?.endsAt ?? null,
++          trial_ends_at:
++            sub.status === "trialing" ? sub.currentBillingPeriod?.endsAt ?? null : null,
++        },
++        { onConflict: "paddle_subscription_id" }
++      );
++
++      if (error) {
++        console.error("Failed to upsert subscription", error);
++        return NextResponse.json({ error: "Database error" }, { status: 500 });
++      }
++      break;
++    }
++
++    case EventName.SubscriptionCanceled: {
++      const sub = event.data;
++      const { error } = await supabase
++        .from("subscriptions")
++        .update({
++          status: "canceled",
++          canceled_at: new Date().toISOString(),
++        })
++        .eq("paddle_subscription_id", sub.id);
++
++      if (error) {
++        console.error("Failed to mark subscription canceled", error);
++        return NextResponse.json({ error: "Database error" }, { status: 500 });
++      }
++      break;
++    }
++
++    default:
++      // Ignore event types we don't act on (transaction.*, customer.*, etc).
++      break;
++  }
++
++  return NextResponse.json({ received: true });
++}
+diff --git a/components/Paywall.tsx b/components/Paywall.tsx
+index a71d304..f02619d 100644
+--- a/components/Paywall.tsx
++++ b/components/Paywall.tsx
+@@ -1,70 +1,109 @@
+-// components/Paywall.tsx  
++// components/Paywall.tsx
+ 'use client';
+ 
+-import { useRef, useState } from 'react';  
+-import { getPurchases, hasAxisPro, isUserCancelledError } from '@/lib/revenuecat';
+-import type { PurchasesError } from '@revenuecat/purchases-js';
++import { useEffect, useState } from 'react';
++import { openCheckout, subscribeToCheckoutEvents } from '@/lib/paddle';
++import { AXIS_PLANS, type AxisPlanId, type BillingInterval } from '@/lib/paddle-plans';
++import { useAuth } from '@/hooks/use-auth';
+ 
+-interface PaywallProps {  
+- onSuccess?: () => void;  
+- onCancel?: () => void;  
++interface PaywallProps {
++  onSuccess?: () => void;
++  onCancel?: () => void;
+ }
+ 
+-export function Paywall({ onSuccess, onCancel }: PaywallProps) {  
+- const containerRef = useRef<HTMLDivElement>(null);  
+- const [isLoading, setIsLoading] = useState(false);  
+- const [error, setError] = useState<string | null>(null);
++/**
++ * Replaces the old RevenueCat-hosted paywall widget. Paddle has no
++ * equivalent "presentPaywall" that renders a full pricing UI into a
++ * container — Paddle.js drives a checkout overlay for a single price at a
++ * time — so this component renders Axis's own plan/interval picker and
++ * opens Paddle's overlay checkout once a price is chosen.
++ */
++export function Paywall({ onSuccess, onCancel }: PaywallProps) {
++  const { user } = useAuth();
++  const [interval, setInterval] = useState<BillingInterval>('month');
++  const [isLoading, setIsLoading] = useState<AxisPlanId | null>(null);
++  const [error, setError] = useState<string | null>(null);
+ 
+- const handlePresentPaywall = async () => {  
+- if (!containerRef.current) return;
++  useEffect(() => {
++    subscribeToCheckoutEvents((event) => {
++      if (event.name === 'checkout.completed') {
++        setIsLoading(null);
++        onSuccess?.();
++      }
++      if (event.name === 'checkout.closed') {
++        setIsLoading(null);
++        onCancel?.();
++      }
++    }).catch((err) => {
++      setError(err instanceof Error ? err.message : 'Failed to initialize checkout.');
++    });
++    // Only needs to run once — Paddle's eventCallback is registered
++    // globally at init time, not per checkout.
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
+ 
+- setIsLoading(true);  
+- setError(null);
++  const handleSelectPlan = async (planId: AxisPlanId) => {
++    if (!user) {
++      setError('You must be signed in to subscribe.');
++      return;
++    }
+ 
+- try {  
+- const purchases = getPurchases();
++    const plan = AXIS_PLANS.find((p) => p.id === planId);
++    const priceId = plan?.priceIds[interval];
++    if (!priceId) {
++      setError('This plan is not available right now. Please try again shortly.');
++      return;
++    }
+ 
+- const result = await purchases.presentPaywall({  
+- htmlTarget: containerRef.current,  
+- // Optionally pass a specific offering:  
+- // offering: await purchases.getOfferings().then(o => o.current ?? undefined),  
+- });
++    setIsLoading(planId);
++    setError(null);
+ 
+- if (result && hasAxisPro(result.customerInfo)) {  
+- onSuccess?.();  
+- }  
+- } catch (err: unknown) {  
+- if (err && typeof err === 'object' && 'errorCode' in err) {  
+- const rcError = err as PurchasesError;  
+- if (isUserCancelledError(rcError)) {  
+- onCancel?.();  
+- return;  
+- }  
+- setError(rcError.message ?? 'Something went wrong. Please try again.');  
+- } else {  
+- setError('Something went wrong. Please try again.');  
+- }  
+- } finally {  
+- setIsLoading(false);  
+- }  
+- };
++    try {
++      await openCheckout({
++        priceId,
++        userId: user.id,
++        email: user.email,
++      });
++      // Success/close handled via subscribeToCheckoutEvents above.
++    } catch (err) {
++      setIsLoading(null);
++      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
++    }
++  };
+ 
+- return (  
+- <div className="paywall-wrapper">  
+- <div  
+- ref={containerRef}  
+- id="rc-paywall-container"  
+- className="w-full min-h-[600px]"  
+- />
++  return (
++    <div className="paywall-wrapper">
++      <div className="flex items-center justify-center gap-2 mb-6">
++        <button
++          className={interval === 'month' ? 'btn-toggle-active' : 'btn-toggle'}
++          onClick={() => setInterval('month')}
++        >
++          Monthly
++        </button>
++        <button
++          className={interval === 'year' ? 'btn-toggle-active' : 'btn-toggle'}
++          onClick={() => setInterval('year')}
++        >
++          Annual
++        </button>
++      </div>
+ 
+- {!isLoading && (  
+- <button onClick={handlePresentPaywall} className="btn-primary">  
+- View Plans  
+- </button>  
+- )}
++      <div className="grid gap-4 sm:grid-cols-3">
++        {AXIS_PLANS.map((plan) => (
++          <div key={plan.id} className="plan-card border rounded-lg p-4">
++            <h3 className="font-semibold text-lg">{plan.name}</h3>
++            <button
++              onClick={() => handleSelectPlan(plan.id)}
++              disabled={isLoading !== null}
++              className="btn-primary mt-4 w-full"
++            >
++              {isLoading === plan.id ? 'Opening checkout…' : `Start 7-day free trial`}
++            </button>
++          </div>
++        ))}
++      </div>
+ 
+- {isLoading && <p className="text-sm text-muted">Loading paywall…</p>}  
+- {error && <p className="text-sm text-red-500 mt-2">{error}</p>}  
+- </div>  
+- );  
+-}  
+\ No newline at end of file
++      {error && <p className="text-sm text-red-500 mt-4">{error}</p>}
++    </div>
++  );
++}
+diff --git a/hooks/use-auth.tsx b/hooks/use-auth.tsx
+index d25522a..4afb1b0 100644
+--- a/hooks/use-auth.tsx
++++ b/hooks/use-auth.tsx
+@@ -4,9 +4,6 @@ import { useRouter } from "next/navigation";
+ import { createClient } from "@/lib/supabase/client";  
+ import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";  
+ import posthog from "posthog-js";  
+-import { Purchases } from "@revenuecat/purchases-js";
+-
+-const RC_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_API_KEY!;
+ 
+ interface AuthContextType {  
+  user: User | null;  
+@@ -40,9 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+  : undefined,  
+  });
+ 
+- // Initialize RevenueCat with the same user ID as PostHog/Supabase,  
+- // so subscriptions are linked to the correct account across platforms.  
+- Purchases.configure(RC_API_KEY, authenticatedUser.id);
++ // Note: unlike RevenueCat, Paddle has no client-side "configure with  
++ // user ID" step — the user ID is instead passed as custom_data when  
++ // opening checkout (see lib/paddle.ts openCheckout), and the webhook  
++ // uses it to link the resulting Paddle subscription back to this  
++ // Supabase user.  
+ 
+  identifiedUserId.current = authenticatedUser.id;  
+  };
+diff --git a/hooks/useAxisPro.ts b/hooks/useAxisPro.ts
+index c242f44..9255191 100644
+--- a/hooks/useAxisPro.ts
++++ b/hooks/useAxisPro.ts
+@@ -1,45 +1,91 @@
+-// hooks/useAxisPro.ts  
++// hooks/useAxisPro.ts
+ 'use client';
+ 
+-import { useState, useEffect } from 'react';  
+-import { getCustomerInfo, hasAxisPro } from '@/lib/revenuecat';  
+-import type { CustomerInfo } from '@revenuecat/purchases-js';
++import { useState, useEffect, useCallback } from 'react';
++import { createClient } from '@/lib/supabase/client';
++import type { AxisPlanId } from '@/lib/paddle-plans';
+ 
+-interface UseAxisProResult {  
+- isProUser: boolean;  
+- customerInfo: CustomerInfo | null;  
+- isLoading: boolean;  
+- error: Error | null;  
+- refresh: () => Promise<void>;  
++export interface AxisSubscription {
++  planId: AxisPlanId | 'unknown';
++  status: 'trialing' | 'active' | 'past_due' | 'paused' | 'canceled';
++  currentPeriodEnd: string | null;
++  trialEndsAt: string | null;
+ }
+ 
+-export function useAxisPro(): UseAxisProResult {  
+- const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);  
+- const [isLoading, setIsLoading] = useState(true);  
+- const [error, setError] = useState<Error | null>(null);
+-
+- const fetchCustomerInfo = async () => {  
+- setIsLoading(true);  
+- setError(null);  
+- try {  
+- const info = await getCustomerInfo();  
+- setCustomerInfo(info);  
+- } catch (err) {  
+- setError(err instanceof Error ? err : new Error('Failed to load subscription info'));  
+- } finally {  
+- setIsLoading(false);  
+- }  
+- };
+-
+- useEffect(() => {  
+- fetchCustomerInfo();  
+- }, []);
+-
+- return {  
+- isProUser: customerInfo ? hasAxisPro(customerInfo) : false,  
+- customerInfo,  
+- isLoading,  
+- error,  
+- refresh: fetchCustomerInfo,  
+- };  
+-}  
+\ No newline at end of file
++interface UseAxisProResult {
++  isProUser: boolean;
++  subscription: AxisSubscription | null;
++  isLoading: boolean;
++  error: Error | null;
++  refresh: () => Promise<void>;
++}
++
++const ENTITLED_STATUSES = new Set(['trialing', 'active']);
++
++/**
++ * Replaces the old RevenueCat-backed hook of the same name. Entitlement is
++ * no longer read from a client SDK's CustomerInfo — Paddle.js doesn't
++ * expose one — it's read from the `subscriptions` table, which the
++ * /api/paddle/webhook route keeps in sync with Paddle's subscription
++ * events. Same public shape (isProUser, isLoading, error, refresh) so call
++ * sites elsewhere in the app don't need to change.
++ */
++export function useAxisPro(): UseAxisProResult {
++  const [subscription, setSubscription] = useState<AxisSubscription | null>(null);
++  const [isLoading, setIsLoading] = useState(true);
++  const [error, setError] = useState<Error | null>(null);
++
++  const fetchSubscription = useCallback(async () => {
++    setIsLoading(true);
++    setError(null);
++    try {
++      const supabase = createClient();
++      const {
++        data: { user },
++      } = await supabase.auth.getUser();
++
++      if (!user) {
++        setSubscription(null);
++        return;
++      }
++
++      const { data, error: queryError } = await supabase
++        .from('subscriptions')
++        .select('plan_id, status, current_period_end, trial_ends_at')
++        .eq('user_id', user.id)
++        .in('status', ['trialing', 'active', 'past_due', 'paused'])
++        .order('updated_at', { ascending: false })
++        .limit(1)
++        .maybeSingle();
++
++      if (queryError) throw queryError;
++
++      setSubscription(
++        data
++          ? {
++              planId: (data.plan_id as AxisPlanId) ?? 'unknown',
++              status: data.status,
++              currentPeriodEnd: data.current_period_end,
++              trialEndsAt: data.trial_ends_at,
++            }
++          : null
++      );
++    } catch (err) {
++      setError(err instanceof Error ? err : new Error('Failed to load subscription info'));
++    } finally {
++      setIsLoading(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    fetchSubscription();
++  }, [fetchSubscription]);
++
++  return {
++    isProUser: subscription ? ENTITLED_STATUSES.has(subscription.status) : false,
++    subscription,
++    isLoading,
++    error,
++    refresh: fetchSubscription,
++  };
++}
+diff --git a/lib/paddle-plans.ts b/lib/paddle-plans.ts
+new file mode 100644
+index 0000000..4e1eff6
+--- /dev/null
++++ b/lib/paddle-plans.ts
+@@ -0,0 +1,76 @@
++// lib/paddle-plans.ts
++//
++// Central mapping between Axis subscription tiers and the Paddle price IDs
++// that back them. Price IDs come from env so sandbox/production catalogs
++// can differ without code changes.
++
++export type BillingInterval = "month" | "year";
++
++export type AxisPlanId = "starter" | "pro" | "advanced";
++
++export interface AxisPlan {
++  id: AxisPlanId;
++  name: string;
++  priceIds: Record<BillingInterval, string>;
++}
++
++function requireEnv(key: string): string {
++  const value = process.env[key];
++  if (!value) {
++    // Don't throw at module scope in the browser bundle for plans that
++    // aren't wired up yet in a given environment (e.g. local dev without
++    // all price IDs set) — surface a clear runtime error only when the
++    // plan is actually used.
++    return "";
++  }
++  return value;
++}
++
++export const AXIS_PLANS: AxisPlan[] = [
++  {
++    id: "starter",
++    name: "Starter",
++    priceIds: {
++      month: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_STARTER_MONTHLY"),
++      year: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_STARTER_YEARLY"),
++    },
++  },
++  {
++    id: "pro",
++    name: "Pro",
++    priceIds: {
++      month: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY"),
++      year: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_PRO_YEARLY"),
++    },
++  },
++  {
++    id: "advanced",
++    name: "Advanced",
++    priceIds: {
++      month: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_MONTHLY"),
++      year: requireEnv("NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_YEARLY"),
++    },
++  },
++];
++
++export function getPlan(planId: AxisPlanId): AxisPlan | undefined {
++  return AXIS_PLANS.find((plan) => plan.id === planId);
++}
++
++export function getPriceId(planId: AxisPlanId, interval: BillingInterval): string {
++  const plan = getPlan(planId);
++  const priceId = plan?.priceIds[interval];
++  if (!priceId) {
++    throw new Error(
++      `No Paddle price ID configured for plan "${planId}" (${interval}). Check your env vars.`
++    );
++  }
++  return priceId;
++}
++
++/** Reverse lookup: given a Paddle price ID, find which Axis plan it belongs to. */
++export function getPlanByPriceId(priceId: string): AxisPlan | undefined {
++  return AXIS_PLANS.find((plan) =>
++    Object.values(plan.priceIds).includes(priceId)
++  );
++}
+diff --git a/lib/paddle.ts b/lib/paddle.ts
+new file mode 100644
+index 0000000..ef1c2c7
+--- /dev/null
++++ b/lib/paddle.ts
+@@ -0,0 +1,102 @@
++// lib/paddle.ts
++//
++// Thin wrapper around Paddle.js (the browser checkout SDK). This is the
++// direct replacement for the old lib/revenuecat.ts: it owns initialization
++// and exposes a helper to open the Paddle overlay checkout for a given
++// price. Entitlement state itself ("is this user Pro?") is NOT derived from
++// the client SDK — Paddle.js only handles checkout UI, not customer state —
++// it's read from Supabase, kept up to date by the /api/paddle/webhook route.
++// See hooks/useAxisPro.ts.
++
++import { initializePaddle, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
++
++const CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN!;
++const ENVIRONMENT =
++  (process.env.NEXT_PUBLIC_PADDLE_ENV as "sandbox" | "production" | undefined) ??
++  "production";
++
++let paddleInstance: Paddle | null = null;
++let initPromise: Promise<Paddle | undefined> | null = null;
++
++/**
++ * Lazily initialize Paddle.js. Safe to call multiple times — subsequent
++ * calls return the same in-flight/resolved instance.
++ */
++export function initPaddle(): Promise<Paddle | undefined> {
++  if (paddleInstance) {
++    return Promise.resolve(paddleInstance);
++  }
++  if (!initPromise) {
++    initPromise = initializePaddle({
++      token: CLIENT_TOKEN,
++      environment: ENVIRONMENT,
++    }).then((paddle) => {
++      paddleInstance = paddle ?? null;
++      return paddle;
++    });
++  }
++  return initPromise;
++}
++
++export interface OpenCheckoutOptions {
++  priceId: string;
++  /** Supabase user ID — passed through as custom_data so the webhook can
++   * link the Paddle subscription back to the correct Axis account. */
++  userId: string;
++  email?: string;
++  onSuccess?: () => void;
++  onClose?: () => void;
++}
++
++/**
++ * Opens the Paddle overlay checkout for a given price. Direct analog of
++ * RevenueCat's `presentPaywall` in the old Paywall.tsx, except Paddle
++ * renders its own overlay rather than mounting into a container element.
++ */
++export async function openCheckout({
++  priceId,
++  userId,
++  email,
++  onSuccess,
++  onClose,
++}: OpenCheckoutOptions): Promise<void> {
++  const paddle = await initPaddle();
++  if (!paddle) {
++    throw new Error("Paddle failed to initialize");
++  }
++
++  paddle.Checkout.open({
++    items: [{ priceId, quantity: 1 }],
++    customer: email ? { email } : undefined,
++    customData: { axis_user_id: userId },
++    settings: {
++      successUrl: undefined, // keep as inline overlay; success handled via eventCallback below
++    },
++  });
++
++  // Paddle.js reports checkout lifecycle events globally via the
++  // `eventCallback` passed at initialization time (see initPaddle callers),
++  // not per-open() call. Components that need onSuccess/onClose should
++  // instead listen via `subscribeToCheckoutEvents` below.
++  void onSuccess;
++  void onClose;
++}
++
++type CheckoutEventHandler = (event: PaddleEventData) => void;
++
++/**
++ * Registers a callback for Paddle checkout lifecycle events
++ * (checkout.completed, checkout.closed, etc). Call once, e.g. from the
++ * Paywall component on mount, before calling openCheckout.
++ */
++export async function subscribeToCheckoutEvents(
++  handler: CheckoutEventHandler
++): Promise<void> {
++  await initializePaddle({
++    token: CLIENT_TOKEN,
++    environment: ENVIRONMENT,
++    eventCallback: handler,
++  }).then((paddle) => {
++    paddleInstance = paddle ?? paddleInstance;
++  });
++}
+diff --git a/lib/revenuecat.ts b/lib/revenuecat.ts
+deleted file mode 100644
+index 7357f45..0000000
+--- a/lib/revenuecat.ts
++++ /dev/null
+@@ -1,61 +0,0 @@
+-import { Purchases, ErrorCode, type CustomerInfo, type PurchasesError } from '@revenuecat/purchases-js';
+-
+-const API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_API_KEY!;
+-
+-// ---------------------------------------------------------------------------  
+-// Initialization  
+-// ---------------------------------------------------------------------------
+-
+-/**  
+- * Call this once when the user authenticates.  
+- * Pass the Supabase user ID so purchases are tied to their account across  
+- * platforms (web + mobile).  
+- */  
+-export function initRevenueCat(userId: string): Purchases {  
+- // configure() is idempotent – safe to call multiple times  
+- return Purchases.configure(API_KEY, userId);  
+-}
+-
+-/**  
+- * Get the shared Purchases instance (must call initRevenueCat first).  
+- * Throws if not yet configured.  
+- */  
+-export function getPurchases(): Purchases {  
+- return Purchases.getSharedInstance();  
+-}
+-
+-// ---------------------------------------------------------------------------  
+-// Entitlement check  
+-// ---------------------------------------------------------------------------
+-
+-const ENTITLEMENT_ID = 'axis_pro';
+-
+-export function hasAxisPro(customerInfo: CustomerInfo): boolean {  
+- return customerInfo.entitlements.active[ENTITLEMENT_ID]?.isActive === true;  
+-}
+-
+-// ---------------------------------------------------------------------------  
+-// Customer info  
+-// ---------------------------------------------------------------------------
+-
+-export async function getCustomerInfo(): Promise<CustomerInfo> {  
+- const purchases = getPurchases();  
+- return purchases.getCustomerInfo();  
+-}
+-
+-// ---------------------------------------------------------------------------  
+-// Offerings  
+-// ---------------------------------------------------------------------------
+-
+-export async function getOfferings() {  
+- const purchases = getPurchases();  
+- return purchases.getOfferings();  
+-}
+-
+-// ---------------------------------------------------------------------------  
+-// Error helpers  
+-// ---------------------------------------------------------------------------
+-
+-export function isUserCancelledError(error: PurchasesError): boolean {  
+- return error.errorCode === ErrorCode.UserCancelledError;  
+-}  
+\ No newline at end of file
+diff --git a/next.config.ts b/next.config.ts
+index 51b2a75..a739c9a 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -19,18 +19,15 @@ const posthogAssetsOrigin = posthogOrigin
+       .replace("://eu.posthog.com", "://eu-assets.i.posthog.com")
+   : "";
+ 
+-// CSP directives take space-separated origins (no path component), so the
+-// connect-src entry is just the api.revenuecat.com origin, not a path. The
+-// paywall widget also loads its own script bundle and injects <style> tags
+-// from RevenueCat's asset CDN, so those need script-src/style-src entries
+-// too, or the widget renders blank (assets blocked, no visible error beyond
+-// the console).
+-const revenueCatApiOrigin = 'https://api.revenuecat.com';
+-const revenueCatAssetsOrigin = 'https://assets.revenuecat.com';
+-// RevenueCat's SDK also pings a separate telemetry/event endpoint (distinct
+-// from the API origin above) -- without it every trackEvent() call is
+-// blocked by CSP and silently retries with backoff forever.
+-const revenueCatEventsOrigin = 'https://e.revenue.cat';
++// CSP directives take space-separated origins (no path component). Paddle's
++// overlay checkout (Paddle.js) loads its iframe/script bundle from
++// buy.paddle.com and posts events back to checkout-service.paddle.com;
++// without both, Checkout.open() renders blank (assets blocked, no visible
++// error beyond the console) -- the same failure mode the old RevenueCat
++// paywall had before its CSP entries were added.
++const paddleCheckoutOrigin = 'https://buy.paddle.com';
++const paddleCheckoutServiceOrigin = 'https://checkout-service.paddle.com';
++const paddleCdnOrigin = 'https://cdn.paddle.com';
+ const posthogToolbarOrigin = 'https://internal-j.posthog.com';
+ // The toolbar's login/auth flow (triggered when a user authenticates the
+ // PostHog toolbar in-app) exchanges an OAuth token against posthog.com's
+@@ -50,12 +47,13 @@ const nextConfig: NextConfig = {
+             key: "Content-Security-Policy",
+             value: `
+                     default-src 'self';
+-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${revenueCatApiOrigin} ${revenueCatEventsOrigin};
+-                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
+-                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${revenueCatAssetsOrigin};
++                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin};
++                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
++                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
+                     worker-src 'self' blob:;
+-                    style-src 'self' 'unsafe-inline' ${revenueCatAssetsOrigin} ${posthogAssetsOrigin};
+-                    style-src-elem 'self' 'unsafe-inline' ${revenueCatAssetsOrigin} ${posthogAssetsOrigin};
++                    style-src 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
++                    style-src-elem 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
++                    frame-src 'self' ${paddleCheckoutOrigin};
+                     img-src 'self' data: ${supabaseOrigin};
+                     font-src 'self';
+                     object-src 'none';
+diff --git a/package-lock.json b/package-lock.json
+index ce249a1..1523def 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -12,6 +12,8 @@
+         "@flags-sdk/posthog": "^1.0.1",
+         "@hookform/resolvers": "^3.9.0",
+         "@next/eslint-plugin-next": "^15.5.15",
++        "@paddle/paddle-js": "^1.6.5",
++        "@paddle/paddle-node-sdk": "^3.10.0",
+         "@radix-ui/react-accordion": "^1.2.20",
+         "@radix-ui/react-alert-dialog": "^1.1.23",
+         "@radix-ui/react-aspect-ratio": "^1.1.15",
+@@ -39,7 +41,6 @@
+         "@radix-ui/react-toggle": "^1.1.18",
+         "@radix-ui/react-toggle-group": "^1.1.19",
+         "@radix-ui/react-tooltip": "^1.2.16",
+-        "@revenuecat/purchases-js": "^1.53.1",
+         "@supabase/ssr": "^0.10.2",
+         "@supabase/supabase-js": "^2.103.3",
+         "@tanstack/react-query": "^5.56.2",
+@@ -1200,6 +1201,21 @@
+         "node": ">=12.4.0"
+       }
+     },
++    "node_modules/@paddle/paddle-js": {
++      "version": "1.6.5",
++      "resolved": "https://registry.npmjs.org/@paddle/paddle-js/-/paddle-js-1.6.5.tgz",
++      "integrity": "sha512-uFRvptUzYRqRlqTU5XmfcZWC9BGVYpZNdANd3giJjZbJlHesnE4gn8PyjtYpesU1ar2ZGPuJxHvrrSIV9jjdVw==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@paddle/paddle-node-sdk": {
++      "version": "3.10.0",
++      "resolved": "https://registry.npmjs.org/@paddle/paddle-node-sdk/-/paddle-node-sdk-3.10.0.tgz",
++      "integrity": "sha512-njqp+L6e/2aR99EYh/Ulyu6B9sIyVERTFclGOznKmLZcy11pAwHoHyIgq1BUH1ybQH+YmJQmrrUQC/Rfg8JAAw==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=20"
++      }
++    },
+     "node_modules/@posthog/browser-common": {
+       "version": "0.5.0",
+       "resolved": "https://registry.npmjs.org/@posthog/browser-common/-/browser-common-0.5.0.tgz",
+@@ -2559,12 +2575,6 @@
+       "integrity": "sha512-JtyZR+mqgBibTo8xea3B6ZRmzZiM/YeVBtUkas6zMuXjAlfIFIW2FgqeM9eLyvEaYX66vr6DJMK+4U6LV0KhNw==",
+       "license": "MIT"
+     },
+-    "node_modules/@revenuecat/purchases-js": {
+-      "version": "1.53.1",
+-      "resolved": "https://registry.npmjs.org/@revenuecat/purchases-js/-/purchases-js-1.53.1.tgz",
+-      "integrity": "sha512-7RMz5AE6rVtGORALYmTyauQ7fJh+/HPGAmDSrqsb2UcQS8pf/JvPbKP0iITCKeXnksTeN3D8+SKVyYMOio6mJQ==",
+-      "license": "MIT"
+-    },
+     "node_modules/@rtsao/scc": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/@rtsao/scc/-/scc-1.1.0.tgz",
+diff --git a/package.json b/package.json
+index 7b20e70..c4eac7a 100644
+--- a/package.json
++++ b/package.json
+@@ -41,7 +41,8 @@
+     "@radix-ui/react-toggle": "^1.1.18",
+     "@radix-ui/react-toggle-group": "^1.1.19",
+     "@radix-ui/react-tooltip": "^1.2.16",
+-    "@revenuecat/purchases-js": "^1.53.1",
++    "@paddle/paddle-js": "^1.6.5",
++    "@paddle/paddle-node-sdk": "^3.10.0",
+     "@supabase/ssr": "^0.10.2",
+     "@supabase/supabase-js": "^2.103.3",
+     "@tanstack/react-query": "^5.56.2",
+diff --git a/supabase/migrations/20260827000001_paddle_subscriptions.sql b/supabase/migrations/20260827000001_paddle_subscriptions.sql
+new file mode 100644
+index 0000000..2e50e76
+--- /dev/null
++++ b/supabase/migrations/20260827000001_paddle_subscriptions.sql
+@@ -0,0 +1,94 @@
++-- Paddle Subscriptions
++-- Created: 2026-08-27
++--
++-- Replaces RevenueCat as the source of truth for Axis Pro entitlement.
++-- RevenueCat's JS SDK exposed CustomerInfo.entitlements client-side; Paddle
++-- has no equivalent client SDK concept, so subscription state is persisted
++-- here, written exclusively by the /api/paddle/webhook route (via the
++-- service role key) whenever Paddle sends a subscription.* notification.
++--
++-- One row per Paddle subscription. A user/org can only have one active
++-- subscription at a time in the current pricing model (single-seat plans),
++-- but the table allows history (cancelled/past_due rows) to remain for
++-- audit purposes rather than being overwritten.
++
++CREATE TABLE IF NOT EXISTS subscriptions (
++    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
++
++    paddle_subscription_id TEXT NOT NULL UNIQUE,
++    paddle_customer_id TEXT NOT NULL,
++    paddle_price_id TEXT NOT NULL,
++
++    plan_id TEXT NOT NULL, -- 'starter' | 'pro' | 'advanced'
++
++    -- Mirrors Paddle's subscription.status values directly:
++    -- trialing | active | past_due | paused | canceled
++    status TEXT NOT NULL,
++
++    current_period_start TIMESTAMPTZ,
++    current_period_end TIMESTAMPTZ,
++    trial_ends_at TIMESTAMPTZ,
++    cancel_at TIMESTAMPTZ,
++    canceled_at TIMESTAMPTZ,
++
++    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
++    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
++);
++
++CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
++CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
++CREATE INDEX IF NOT EXISTS idx_subscriptions_paddle_customer_id ON subscriptions(paddle_customer_id);
++
++-- Only one row per user is considered "current" for entitlement checks:
++-- the most recently updated one. We don't enforce single-row-per-user at
++-- the DB level so that historical rows (e.g. after a plan change creates
++-- a new Paddle subscription ID) are preserved.
++
++ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
++
++-- Users can read their own subscription rows. All writes happen via the
++-- webhook route using the service role key, which bypasses RLS, so there
++-- are intentionally no INSERT/UPDATE policies for the anon/authenticated
++-- roles here.
++CREATE POLICY "Users can view their own subscriptions"
++    ON subscriptions
++    FOR SELECT
++    USING (auth.uid() = user_id);
++
++CREATE OR REPLACE FUNCTION set_updated_at()
++RETURNS TRIGGER AS $$
++BEGIN
++    NEW.updated_at = now();
++    RETURN NEW;
++END;
++$$ LANGUAGE plpgsql;
++
++DROP TRIGGER IF EXISTS trg_subscriptions_updated_at ON subscriptions;
++CREATE TRIGGER trg_subscriptions_updated_at
++    BEFORE UPDATE ON subscriptions
++    FOR EACH ROW
++    EXECUTE FUNCTION set_updated_at();
++
++-- ============================================================
++-- has_axis_pro_v1
++-- Returns true if the given user currently has any subscription in an
++-- entitled state (trialing or active). Mirrors the old
++-- hasAxisPro(customerInfo) check from lib/revenuecat.ts, but computed
++-- from Paddle-sourced data instead of the RevenueCat CustomerInfo object.
++-- ============================================================
++
++CREATE OR REPLACE FUNCTION has_axis_pro_v1(p_user_id UUID)
++RETURNS BOOLEAN
++SECURITY DEFINER
++SET search_path = public
++LANGUAGE sql
++STABLE
++AS $$
++    SELECT EXISTS (
++        SELECT 1
++        FROM subscriptions
++        WHERE user_id = p_user_id
++          AND status IN ('trialing', 'active')
++    );
++$$;
+-- 
+2.43.0
+

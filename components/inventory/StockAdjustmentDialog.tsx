@@ -24,6 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRecordItemMovement } from "@/hooks/items/use-items";
+import { useOrg } from "@/hooks/use-org";
+import { toMinorUnits } from "@/lib/currency";
 import { Item } from "@/lib/types";
 
 const formSchema = z.object({
@@ -42,6 +44,8 @@ interface StockAdjustmentDialogProps {
 
 export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentDialogProps) {
   const [open, setOpen] = useState(false);
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const recordItemMovement = useRecordItemMovement(orgId);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -62,7 +66,7 @@ export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentD
       movement_type: values.movement_type,
       reference: values.reference || undefined,
       notes: values.notes || undefined,
-      unit_cost: values.unit_cost != null ? Math.round(values.unit_cost * 100) : undefined,
+      unit_cost: values.unit_cost != null ? toMinorUnits(values.unit_cost, baseCurrency) : undefined,
     });
     form.reset();
     setOpen(false);

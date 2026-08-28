@@ -3,6 +3,7 @@ import { useOrg } from "@/hooks/use-org";
 import { useClients } from "@/hooks/clients/use-clients";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { useJournalEntries } from "@/hooks/finance/use-finance";
+import { convertMinorUnits } from "@/lib/currency";
 
 export type DashboardTimeframe = "this_month" | "last_30_days" | "this_quarter" | "this_year" | "all_time";
 
@@ -56,6 +57,7 @@ function getRangeBounds(timeframe: DashboardTimeframe, now: Date) {
 export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month") {
   const { currentOrg, isLoading: orgLoading } = useOrg();
   const orgId = currentOrg?.id ?? "";
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
 
   const clients = useClients(orgId);
   const invoices = useInvoices(orgId);
@@ -80,32 +82,39 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
 
     const activeClients = (clients.data ?? []).filter((c) => c.status === "active").length;
 
+    // Outstanding total: sum invoice amounts directly (not journal-derived), converted
+    // to base currency. This is fine to source from `invoices` because it is never also
+    // summed from `journal_entries` below — unlike revenue, there's no double-count risk here.
     const outstanding = (invoices.data ?? []).filter((i) =>
       ["sent", "viewed", "partial", "overdue", "draft"].includes(i.status)
     );
     const outstandingCount = outstanding.length;
-    const outstandingTotal = outstanding.reduce((sum, i) => sum + i.grand_total, 0) / 100;
+    const outstandingTotalMinor = outstanding.reduce(
+      (sum, i) => sum + convertMinorUnits(i.grand_total, i.currency, baseCurrency, i.exchange_rate || 1),
+      0
+    );
 
-    // Revenue = income accounts credited; Expenses = expense accounts debited.
+    // Revenue and expenses are derived ONLY from posted journal entries — every invoice
+    // payment, daily sale, and expense already posts a journal entry (see
+    // create_journal_entry_v1 / the invoice payment RPCs), so journal_entries is the
+    // single source of truth for the ledger. Summing invoices.grand_total on top of this
+    // double-counts invoice revenue that's already reflected in its journal entry.
     let incomeCurrent = 0;
     let incomePrevious = 0;
     let expenseCurrent = 0;
     let expensePrevious = 0;
 
-    (invoices.data ?? []).forEach((inv) => {
-      if (inv.status !== "paid" && inv.status !== "partial") return;
-      const issueDate = new Date(inv.issue_date);
-      if (inCurrent(issueDate)) incomeCurrent += inv.grand_total;
-      else if (inPrevious(issueDate)) incomePrevious += inv.grand_total;
-    });
-
     (journal.data ?? []).forEach((entry) => {
-      if (entry.status !== "posted" && entry.status !== "draft") return;
+      // Draft entries aren't posted to the ledger yet and shouldn't count as realized
+      // revenue/expense — only "posted" entries represent money that has actually moved.
+      if (entry.status !== "posted") return;
       const entryDate = new Date(entry.entry_date);
       const isCurrent = inCurrent(entryDate);
       const isPrevious = inPrevious(entryDate);
       if (!isCurrent && !isPrevious) return;
 
+      // Journal entries are always posted in the org's base currency (foreign-currency
+      // invoices are converted at posting time), so no further conversion is needed here.
       (entry.lines ?? []).forEach((line) => {
         const category = line.account?.category;
         const debit = line.debit ?? 0;
@@ -122,8 +131,8 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
       });
     });
 
-    const netProfitCurrent = (incomeCurrent - expenseCurrent) / 100;
-    const netProfitPrevious = (incomePrevious - expensePrevious) / 100;
+    const netProfitCurrentMinor = incomeCurrent - expenseCurrent;
+    const netProfitPreviousMinor = incomePrevious - expensePrevious;
 
     const pctChange = (curr: number, prev: number) => {
       if (prev === 0) return curr > 0 ? 100 : 0;
@@ -135,14 +144,18 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
     return {
       activeClients,
       outstandingCount,
-      outstandingTotal,
-      netProfitThisMonth: netProfitCurrent,
-      netProfitChangePct: hasComparisonPeriod ? pctChange(netProfitCurrent, netProfitPrevious) : 0,
-      revenueThisMonth: incomeCurrent / 100,
+      // *Minor suffix = integer minor units in the org's base currency; format with
+      // formatMoney(value, baseCurrency) at render time. Do not divide by 100 — that
+      // conversion is currency-dependent and handled inside formatMoney/toMajorUnits.
+      outstandingTotalMinor,
+      netProfitThisMonthMinor: netProfitCurrentMinor,
+      netProfitChangePct: hasComparisonPeriod ? pctChange(netProfitCurrentMinor, netProfitPreviousMinor) : 0,
+      revenueThisMonthMinor: incomeCurrent,
       revenueChangePct: hasComparisonPeriod ? pctChange(incomeCurrent, incomePrevious) : 0,
       hasComparisonPeriod,
+      baseCurrency,
     };
-  }, [clients.data, invoices.data, journal.data, timeframe]);
+  }, [clients.data, invoices.data, journal.data, timeframe, baseCurrency]);
 
   return { ...summary, isLoading };
 }

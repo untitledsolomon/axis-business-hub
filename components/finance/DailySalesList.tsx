@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney } from "@/lib/currency";
 import { useDailySales, useDeleteDailySale, sumDailySales } from "@/hooks/finance/use-daily-sales";
 import {
   Table,
@@ -53,6 +54,7 @@ export function DailySalesList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
   const orgId = currentOrg?.id || "";
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DailySale | null>(null);
@@ -118,7 +120,7 @@ export function DailySalesList() {
           stats={[
             {
               label: "Total (filtered)",
-              value: isLoading ? "—" : `UGX ${(total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+              value: isLoading ? "—" : formatMoney(total, baseCurrency),
               icon: <TrendingUp className="size-4" />,
               tone: "success",
             },
@@ -188,7 +190,7 @@ export function DailySalesList() {
                         {sale.payment_method.replace("_", " ")}
                       </TableCell>
                       <TableCell className="numeric text-right font-medium">
-                        UGX {(sale.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {formatMoney(sale.amount, baseCurrency)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

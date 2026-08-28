@@ -7,6 +7,7 @@ interface Organisation {
   id: string;
   name: string;
   slug: string;
+  base_currency: string;
 }
 
 interface OrganisationMemberResponse {
@@ -14,6 +15,7 @@ interface OrganisationMemberResponse {
     id: string;
     name: string;
     slug: string;
+    base_currency: string;
   } | null;
 }
 
@@ -46,7 +48,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       const { data, error } = await supabase
         .from('organisation_members')
-        .select('organisations(id, name, slug)')
+        .select('organisations(id, name, slug, base_currency)')
         .eq('user_id', user.id);
 
       if (data && !error) {

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useOrg } from "@/hooks/use-org";
 import { useInvoices } from "@/hooks/invoicing/use-invoices";
 import { DashboardTimeframe } from "@/hooks/dashboard/use-dashboard-summary";
+import { toMajorUnits, convertMinorUnits } from "@/lib/currency";
 import {
   Area,
   AreaChart,
@@ -77,6 +78,7 @@ function buildBuckets(timeframe: DashboardTimeframe, now: Date) {
 
 export function RevenueChart({ timeframe = "this_month" }: RevenueChartProps) {
   const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const { data: invoices, isLoading } = useInvoices(currentOrg?.id ?? "");
 
   const data = useMemo(() => {
@@ -94,11 +96,16 @@ export function RevenueChart({ timeframe = "this_month" }: RevenueChartProps) {
           : b.date.getFullYear() === issueDate.getFullYear() && b.date.getMonth() === issueDate.getMonth()
       );
       if (bucketIndex === -1) return;
-      buckets[bucketIndex].revenue += inv.grand_total / 100;
+      // Convert to base currency before summing (invoices can be billed in a
+      // different currency than the org's base — see lib/currency.ts), then
+      // to major units using the base currency's own decimal digits (UGX has
+      // none, unlike the hardcoded /100 this replaced).
+      const amountBase = convertMinorUnits(inv.grand_total, inv.currency, baseCurrency, inv.exchange_rate || 1);
+      buckets[bucketIndex].revenue += toMajorUnits(amountBase, baseCurrency);
     });
 
     return buckets;
-  }, [invoices, timeframe]);
+  }, [invoices, timeframe, baseCurrency]);
 
   const hasData = data.some((d) => d.revenue > 0);
 
@@ -155,7 +162,7 @@ export function RevenueChart({ timeframe = "this_month" }: RevenueChartProps) {
                 tickFormatter={(value) => `${value / 1000}k`}
               />
               <Tooltip
-                formatter={(value: number) => [`UGX ${value.toLocaleString()}`, "Revenue"]}
+                formatter={(value: number) => [`${baseCurrency} ${value.toLocaleString()}`, "Revenue"]}
                 contentStyle={{
                   borderRadius: "0.75rem",
                   border: "1px solid hsl(var(--border))",

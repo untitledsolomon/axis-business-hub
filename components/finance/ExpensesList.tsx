@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney, toMajorUnits } from "@/lib/currency";
 import { useExpenses, useDeleteExpense, sumExpenses } from "@/hooks/finance/use-expenses";
 import {
   Table,
@@ -79,6 +80,7 @@ export function ExpensesList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
   const orgId = currentOrg?.id || "";
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [duplicateFrom, setDuplicateFrom] = useState<Expense | null>(null);
@@ -152,7 +154,7 @@ export function ExpensesList() {
                   defaultValues={
                     duplicateFrom
                       ? {
-                          amount: duplicateFrom.amount / 100,
+                          amount: toMajorUnits(duplicateFrom.amount, baseCurrency),
                           category: duplicateFrom.category,
                           description: duplicateFrom.description,
                           expense_date: new Date().toISOString().slice(0, 10),
@@ -183,7 +185,7 @@ export function ExpensesList() {
           stats={[
             {
               label: "Total (filtered)",
-              value: isLoading ? "—" : `UGX ${(total / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+              value: isLoading ? "—" : formatMoney(total, baseCurrency),
               icon: <TrendingDown className="size-4" />,
             },
             { label: "Entries", value: isLoading ? "—" : String(filtered.length), icon: <Receipt className="size-4" /> },
@@ -274,7 +276,7 @@ export function ExpensesList() {
                         {expense.payment_method.replace("_", " ")}
                       </TableCell>
                       <TableCell className="numeric text-right font-medium">
-                        UGX {(expense.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {formatMoney(expense.amount, baseCurrency)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

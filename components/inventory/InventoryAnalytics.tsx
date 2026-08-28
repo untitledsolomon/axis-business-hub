@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { useOrg } from "@/hooks/use-org";
+import { formatMoney } from "@/lib/currency";
 import { useItems, useOrgItemMovements } from "@/hooks/items/use-items";
 import { useDailySales } from "@/hooks/finance/use-daily-sales";
 import {
@@ -42,10 +43,6 @@ const CHART_COLORS = [
   "hsl(var(--chart-5))",
 ];
 
-function fmtUGX(cents: number) {
-  return `UGX ${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
-
 function timeframeStart(timeframe: Timeframe, now: Date): Date {
   switch (timeframe) {
     case "last_30_days":
@@ -65,6 +62,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export function InventoryAnalytics() {
   const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const fmtUGX = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
   const orgId = currentOrg?.id ?? "";
   const [timeframe, setTimeframe] = useState<Timeframe>("this_month");
 
