@@ -8,6 +8,10 @@ import {
   ARAgingRow,
   ExpenseBreakdownRow,
   TopClientRow,
+  ClientProfitabilityRow,
+  CashFlowRow,
+  ExpenseTrendRow,
+  ComparativePeriodRow,
 } from "@/lib/types";
 
 // ---- Core accounting reports ----
@@ -117,4 +121,28 @@ export async function getTopClients(
 
   if (error) throw error;
   return data as TopClientRow[];
+}
+
+export async function getClientProfitability(orgId: string, startDate: string, endDate: string, limit = 10) {
+  const { data, error } = await createClient().rpc("get_client_profitability_v1", { p_org_id: orgId, p_start_date: startDate, p_end_date: endDate, p_limit: limit });
+  if (error) throw error;
+  return data as ClientProfitabilityRow[];
+}
+
+export async function getCashFlow(orgId: string, startDate: string, endDate: string) {
+  const { data, error } = await createClient().rpc("get_cash_flow_v1", { p_org_id: orgId, p_start_date: startDate, p_end_date: endDate });
+  if (error) throw error;
+  return data as CashFlowRow[];
+}
+
+export async function getExpenseTrend(orgId: string, startDate: string, endDate: string) {
+  const { data, error } = await createClient().rpc("get_expense_trend_v1", { p_org_id: orgId, p_start_date: startDate, p_end_date: endDate });
+  if (error) throw error;
+  return data as ExpenseTrendRow[];
+}
+
+export async function getComparativePeriods(orgId: string, asOfDate: string) {
+  const { data, error } = await createClient().rpc("get_comparative_periods_v1", { p_org_id: orgId, p_as_of_date: asOfDate });
+  if (error) throw error;
+  return data as ComparativePeriodRow[];
 }

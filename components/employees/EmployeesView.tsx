@@ -30,6 +30,7 @@ import { EmployeeActions } from "@/components/employees/EmployeeActions";
 import { useOrg } from "@/hooks/use-org";
 import { useEmployees } from "@/hooks/employees/use-employees";
 import { formatShortDate } from "@/lib/format-date";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 function initials(name: string) {
   return name
@@ -44,6 +45,7 @@ function initials(name: string) {
 export function EmployeesView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const orgId = currentOrg?.id ?? "";
   const { data: employees, isLoading, isError, refetch } = useEmployees(orgId);
   const [search, setSearch] = useState("");
@@ -87,7 +89,7 @@ export function EmployeesView() {
         actions={
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
-              <Button aria-label="Add Employee">
+              <Button aria-label="Add Employee" disabled={!canEdit}>
                 <Plus className="size-4" />
                 Add Employee
               </Button>

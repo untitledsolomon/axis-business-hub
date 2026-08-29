@@ -86,6 +86,17 @@ serve(async (req) => {
     const pdfBase64 = toBase64(await renderInvoicePdf(invoice, supabase))
     const orgName = invoice.org?.name ?? "Your supplier"
 
+    const { data: resendConnection } = await supabase
+      .from("connections")
+      .select("status, config")
+      .eq("org_id", invoice.org_id)
+      .eq("provider", "resend")
+      .eq("status", "connected")
+      .maybeSingle()
+    const verifiedDomain = (resendConnection?.config as { domain?: string } | null)?.domain
+    const configuredFrom = Deno.env.get("RESEND_FROM_EMAIL")
+    const fromAddress = verifiedDomain ? `invoices@${verifiedDomain}` : configuredFrom ?? "invoices@resend.dev"
+
     const emailHtml = `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <p>Hi ${invoice.client.contact_person || invoice.client.name},</p>
@@ -105,7 +116,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: Deno.env.get("RESEND_FROM_EMAIL") ?? "invoices@resend.dev",
+        from: fromAddress,
         to: invoice.client.email,
         subject: `Invoice ${invoice.invoice_number} from ${orgName}`,
         html: emailHtml,

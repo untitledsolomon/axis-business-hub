@@ -36,10 +36,12 @@ import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
 import { BankAccount } from "@/lib/types";
 import { computeAccountBalance } from "@/lib/finance/balance";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 export function BankingView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const { data: bankAccounts, isLoading, isError, refetch } = useBankAccounts(currentOrg?.id || "");
   const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,12 +84,12 @@ export function BankingView() {
         description="Balances and sync health for every connected account."
         actions={
           <>
-            <Button variant="outline">
+            <Button variant="outline" disabled={!canEdit}>
               <ArrowRightLeft className="size-4" /> Transfer
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>
-                <Button aria-label="Add Account">
+                <Button aria-label="Add Account" disabled={!canEdit}>
                   <Plus className="size-4" /> Add Account
                 </Button>
               </DialogTrigger>

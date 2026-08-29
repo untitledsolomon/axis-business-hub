@@ -134,8 +134,8 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
     const netProfitCurrentMinor = incomeCurrent - expenseCurrent;
     const netProfitPreviousMinor = incomePrevious - expensePrevious;
 
-    const pctChange = (curr: number, prev: number) => {
-      if (prev === 0) return curr > 0 ? 100 : 0;
+    const pctChange = (curr: number, prev: number): number | null => {
+      if (prev === 0) return curr === 0 ? 0 : null;
       return ((curr - prev) / Math.abs(prev)) * 100;
     };
 

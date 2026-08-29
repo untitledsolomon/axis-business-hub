@@ -14,6 +14,7 @@ import {
   TrendingDown,
   Wallet,
 } from "lucide-react";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -66,6 +67,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const orgId = currentOrg?.id ?? "";
   const { data: item, isLoading, isError, refetch } = useItem(orgId, itemId);
   const { data: movements, isLoading: movementsLoading } = useItemMovements(orgId, itemId);
@@ -142,7 +144,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
             <StockAdjustmentDialog
               item={item}
               orgId={orgId}
-              trigger={<Button>Adjust Stock</Button>}
+              trigger={<Button disabled={!canEdit}>Adjust Stock</Button>}
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -154,17 +156,18 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
                 <DropdownMenuItem onSelect={(event) => {
                   event.preventDefault();
                   setIsEditOpen(true);
-                }}>
+                }} disabled={!canEdit}>
                   <Pencil className="size-4" /> Edit item
                 </DropdownMenuItem>
                 {item.status !== "archived" && (
-                  <DropdownMenuItem onSelect={() => archiveItem.mutate({ id: item.id })}>
+                  <DropdownMenuItem disabled={!canEdit} onSelect={() => archiveItem.mutate({ id: item.id })}>
                     <Archive className="size-4" /> Archive item
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
+                  disabled={!canEdit}
                   onSelect={(event) => {
                     event.preventDefault();
                     setIsDeleteConfirmOpen(true);

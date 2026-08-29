@@ -37,6 +37,7 @@ import { Client } from "@/lib/types";
 import { MoreHorizontal, Eye, Pencil, FileText, Archive, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import posthog from "posthog-js";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 interface ClientActionsProps {
   orgId: string;
@@ -47,6 +48,7 @@ interface ClientActionsProps {
 
 export function ClientActions({ orgId, client, showViewDetails = true }: ClientActionsProps) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
@@ -105,6 +107,7 @@ export function ClientActions({ orgId, client, showViewDetails = true }: ClientA
             </DropdownMenuItem>
           )}
           <DropdownMenuItem
+            disabled={!canEdit}
             onSelect={(e) => {
               // preventDefault stops Radix's dropdown focus-return from
               // racing the dialog's own focus-trap mount; openEdit further
@@ -117,19 +120,22 @@ export function ClientActions({ orgId, client, showViewDetails = true }: ClientA
           >
             <Pencil className="size-4" /> Edit client
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href={`/invoices?client=${client.id}`}>
-              <FileText className="size-4" /> Create invoice
-            </Link>
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem asChild>
+              <Link href={`/invoices?client=${client.id}`}>
+                <FileText className="size-4" /> Create invoice
+              </Link>
+            </DropdownMenuItem>
+          )}
           {client.status !== "inactive" && (
-            <DropdownMenuItem onSelect={() => archiveClient.mutate({ id: client.id })}>
+            <DropdownMenuItem disabled={!canEdit} onSelect={() => archiveClient.mutate({ id: client.id })}>
               <Archive className="size-4" /> Archive client
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive"
+            disabled={!canEdit}
             onSelect={(e) => {
               e.preventDefault(); // see "Edit client" above for why
               openDeleteConfirm();

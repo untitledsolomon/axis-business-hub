@@ -35,6 +35,7 @@ import { useState, useEffect } from "react";
 import { formatShortDate } from "@/lib/format-date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isDateInTimeframe, TIMEFRAME_LABELS, type DashboardTimeframe } from "@/lib/shared/timeframe";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 export function InvoicesList() {
   const [mounted, setMounted] = useState(false);
@@ -42,6 +43,7 @@ export function InvoicesList() {
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "sent" | "viewed" | "partial" | "paid" | "overdue" | "voided">("all");
   const [timeframe, setTimeframe] = useState<DashboardTimeframe>("all_time");
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const { data: invoices, isLoading, isError, refetch } = useInvoices(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -73,25 +75,42 @@ export function InvoicesList() {
 
   const baseCurrency = currentOrg?.base_currency ?? "UGX";
 
-  // Invoices can be billed in different currencies (e.g. a UGX invoice and a USD
-  // invoice for a South Sudan client) — convert each to the org's base currency
-  // using its own exchange_rate before summing, so totals aren't mixing currencies.
-  const toBase = (invoice: { grand_total: number; currency: string; exchange_rate: number }) =>
-    convertMinorUnits(invoice.grand_total, invoice.currency, baseCurrency, invoice.exchange_rate || 1);
-
   const totals = useMemo(() => {
     const list = (invoices ?? []).filter((invoice) => timeframe === "all_time" || isDateInTimeframe(invoice.issue_date, timeframe));
+    const convertToBase = (invoice: { grand_total: number; currency: string; exchange_rate: number }) =>
+      convertMinorUnits(invoice.grand_total, invoice.currency, baseCurrency, invoice.exchange_rate || 1);
     return {
-      all: list.reduce((s, i) => s + toBase(i), 0),
-      paid: list.filter((i) => i.status === "paid").reduce((s, i) => s + toBase(i), 0),
+      all: list.reduce((s, i) => s + convertToBase(i), 0),
+      paid: list.filter((i) => i.status === "paid").reduce((s, i) => s + convertToBase(i), 0),
       outstanding: list
         .filter((i) => ["sent", "viewed", "partial", "overdue", "draft"].includes(i.status))
-        .reduce((s, i) => s + toBase(i), 0),
+        .reduce((s, i) => s + convertToBase(i), 0),
       overdue: list.filter((i) => i.status === "overdue").length,
     };
   }, [invoices, timeframe, baseCurrency]);
 
   const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
+
+  const exportCsv = () => {
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = filteredInvoices.map((invoice) => [
+      invoice.invoice_number,
+      invoice.client?.name ?? "",
+      invoice.issue_date,
+      invoice.due_date,
+      invoice.status,
+      formatMoney(invoice.grand_total, invoice.currency),
+    ]);
+    const csv = [["Invoice", "Client", "Issue date", "Due date", "Status", "Amount"], ...rows]
+      .map((row) => row.map((value) => escape(String(value))).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "invoices.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!mounted) return null;
 
@@ -104,7 +123,7 @@ export function InvoicesList() {
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <ActionTooltip label="Create a new invoice for a client">
               <DialogTrigger asChild>
-                <Button aria-label="Create Invoice">
+                <Button aria-label="Create Invoice" disabled={!canEdit}>
                   <Plus className="size-4" />
                   Create Invoice
                 </Button>
@@ -138,8 +157,8 @@ export function InvoicesList() {
           isLoading={isLoading}
         />
 
-        <div className="panel">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+        <div className="panel overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-border/70 p-4 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="relative ml-0 w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -149,7 +168,7 @@ export function InvoicesList() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {(["all", "paid", "sent", "partial", "overdue", "draft"] as const).map((filter) => (
                 <Button
                   key={filter}
@@ -167,6 +186,9 @@ export function InvoicesList() {
               <SelectTrigger className="ml-auto w-full sm:w-36" aria-label="Select timeframe"><SelectValue /></SelectTrigger>
               <SelectContent>{(Object.keys(TIMEFRAME_LABELS) as DashboardTimeframe[]).map((value) => <SelectItem key={value} value={value}>{TIMEFRAME_LABELS[value]}</SelectItem>)}</SelectContent>
             </Select>
+            <Button type="button" variant="outline" size="sm" onClick={exportCsv} disabled={!filteredInvoices.length}>
+              <FileDown className="size-4" /> Export CSV
+            </Button>
           </div>
 
           <Table aria-label="Invoices list">

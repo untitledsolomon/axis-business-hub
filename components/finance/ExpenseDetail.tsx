@@ -30,6 +30,7 @@ import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { formatShortDate } from "@/lib/format-date";
 import { formatMoney, toMajorUnits } from "@/lib/currency";
 import { ArrowLeft, AlertTriangle, Receipt, Copy, Trash2, BookOpen } from "lucide-react";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 const CATEGORY_LABELS: Record<string, string> = {
   transport: "Transport",
@@ -49,6 +50,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const orgId = currentOrg?.id || "";
 
@@ -139,6 +141,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
             <Button
               variant="outline"
               size="sm"
+              disabled={!canEdit}
               onClick={(e) => {
                 e.preventDefault();
                 openDuplicate();
@@ -150,6 +153,7 @@ export function ExpenseDetail({ expenseId }: ExpenseDetailProps) {
               variant="outline"
               size="sm"
               className="text-destructive hover:text-destructive"
+              disabled={!canEdit}
               onClick={(e) => {
                 e.preventDefault();
                 openDeleteConfirm();

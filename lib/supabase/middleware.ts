@@ -31,22 +31,24 @@ export async function updateSession(request: NextRequest) {
   // the auth check below. A simple mistake can make it very difficult to
   // debug issues with users being logged out abnormally.
 
-  // getUser() makes a live network call to Supabase Auth on every request
-  // this middleware runs on. Under edge-to-Supabase latency, that call can
-  // be slow enough to trip a timeout guard, and failing closed on timeout
-  // was redirecting valid, logged-in sessions to /login on every request —
-  // producing a login loop even though the session was healthy.
-  //
-  // getSession() avoids the network round trip: it reads and validates the
-  // JWT already present in the request cookies locally, so it can't time
-  // out the same way. That's sufficient for a redirect gate here. Routes or
-  // actions that need server-verified freshness (e.g. checking the account
-  // hasn't been revoked mid-session) should call supabase.auth.getUser()
-  // directly at that point, not rely on this middleware check.
+  // Use the local JWT as the immediate fallback, but prefer a bounded live
+  // check so revoked sessions are noticed without recreating the old login
+  // loop when edge-to-Supabase latency is high.
   const {
     data: { session },
   } = await supabase.auth.getSession()
-  const user = session?.user ?? null
+  let user = session?.user ?? null
+
+  if (user) {
+    const timeout = new Promise<{ timedOut: true }>((resolve) => {
+      setTimeout(() => resolve({ timedOut: true }), 1500)
+    })
+    const liveResult = await Promise.race([
+      supabase.auth.getUser().then(({ data }) => ({ user: data.user ?? null })),
+      timeout,
+    ])
+    if (!('timedOut' in liveResult)) user = liveResult.user
+  }
 
   if (
     !user &&

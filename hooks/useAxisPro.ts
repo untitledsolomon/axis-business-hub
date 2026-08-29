@@ -16,8 +16,11 @@ export interface AxisSubscription {
   billingInterval: 'month' | 'year' | null;
 }
 
+export type EntitlementState = 'active' | 'trialing' | 'expired_readonly' | 'no_org';
+
 interface UseAxisProResult {
   isProUser: boolean;
+  entitlementState: EntitlementState;
   subscription: AxisSubscription | null;
   isLoading: boolean;
   error: Error | null;
@@ -96,6 +99,13 @@ export function useAxisPro(): UseAxisProResult {
 
   return {
     isProUser: subscription ? ENTITLED_STATUSES.has(subscription.status) : false,
+    entitlementState: !currentOrg
+      ? 'no_org'
+      : subscription?.status === 'trialing'
+        ? 'trialing'
+        : subscription?.status === 'active'
+          ? 'active'
+          : 'expired_readonly',
     subscription,
     isLoading,
     error,

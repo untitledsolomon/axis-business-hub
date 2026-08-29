@@ -381,3 +381,16 @@ export interface TopClientRow {
   total_invoiced: number; // cents
   total_paid: number; // cents
 }
+
+export interface ClientProfitabilityRow {
+  client_id: string;
+  client_name: string;
+  invoice_count: number;
+  revenue: number;
+  collected: number;
+  outstanding: number;
+}
+
+export interface CashFlowRow { month: string; inflow: number; outflow: number; net: number; }
+export interface ExpenseTrendRow { month: string; category: string; total: number; }
+export interface ComparativePeriodRow { period_key: string; period_label: string; revenue: number; expenses: number; net: number; }

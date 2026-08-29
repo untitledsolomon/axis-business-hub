@@ -101,7 +101,7 @@ export function ItemForm({ orgId, item, onSuccess }: ItemFormProps) {
       can_sell: item?.can_sell ?? true,
       can_custody: item?.can_custody ?? false,
     });
-  }, [item, form]);
+  }, [item, form, baseCurrency]);
 
   if (!mounted) return null;
 

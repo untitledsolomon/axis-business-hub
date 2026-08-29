@@ -36,6 +36,7 @@ import { Invoice } from "@/lib/types";
 import { MoreHorizontal, FileDown, Send, CheckCircle, Eye, XCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import posthog from "posthog-js";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 interface InvoiceActionsProps {
   orgId: string;
@@ -46,6 +47,7 @@ interface InvoiceActionsProps {
 
 export function InvoiceActions({ orgId, invoice, showViewDetails = true }: InvoiceActionsProps) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [isMarkPaidOpen, setIsMarkPaidOpen] = useState(false);
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -61,9 +63,9 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
 
   const isPaid = invoice.status === "paid";
   const isVoided = invoice.status === "voided";
-  const canMarkPaid = !isPaid && !isVoided;
-  const canVoid = !isPaid && !isVoided;
-  const canSend = !isVoided;
+  const canMarkPaid = canEdit && !isPaid && !isVoided;
+  const canVoid = canEdit && !isPaid && !isVoided;
+  const canSend = canEdit && !isVoided;
   // Manual forward-only status moves through the non-accounting states.
   // 'paid' and 'voided' go through their own dedicated actions above,
   // which post the real journal entries — this menu only ever writes a
@@ -76,7 +78,7 @@ export function InvoiceActions({ orgId, invoice, showViewDetails = true }: Invoi
     { value: "partial", label: "Partially Paid" },
     { value: "overdue", label: "Overdue" },
   ];
-  const canChangeStatus = !isPaid && !isVoided;
+  const canChangeStatus = canEdit && !isPaid && !isVoided;
 
   async function handleStatusChange(status: string) {
     if (status === invoice.status) return;

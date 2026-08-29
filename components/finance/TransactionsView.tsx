@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SummaryBar } from "@/components/shared/SummaryBar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, ArrowUpRight, ArrowDownLeft, Filter, Receipt, Scale, AlertTriangle } from "lucide-react";
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, Filter, Receipt, Scale, AlertTriangle, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ import type { JournalEntry } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isDateInTimeframe, TIMEFRAME_LABELS, type DashboardTimeframe } from "@/lib/shared/timeframe";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 type TxType = "income" | "expense" | "other";
 
@@ -109,6 +110,7 @@ function deriveTransaction(entry: JournalEntry): DerivedTransaction {
 export function TransactionsView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -146,6 +148,27 @@ export function TransactionsView() {
   const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const fmt = (minorAmount: number) => formatMoney(minorAmount, baseCurrency);
 
+  const exportCsv = () => {
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = transactions.map((transaction) => [
+      transaction.date,
+      transaction.description,
+      transaction.category,
+      transaction.type,
+      fmt(transaction.amount),
+      transaction.status,
+    ]);
+    const csv = [["Date", "Description", "Category", "Type", "Amount", "Status"], ...rows]
+      .map((row) => row.map((value) => escape(String(value))).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "transactions.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -156,7 +179,7 @@ export function TransactionsView() {
         actions={
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
-              <Button aria-label="Record Transaction">
+              <Button aria-label="Record Transaction" disabled={!canEdit}>
                 <Plus className="size-4" /> Record Transaction
               </Button>
             </DialogTrigger>
@@ -214,6 +237,9 @@ export function TransactionsView() {
                 <div className="grid gap-2"><label className="text-xs text-muted-foreground" htmlFor="transaction-to">To</label><Input id="transaction-to" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></div>
               </PopoverContent>
             </Popover>
+            <Button type="button" variant="outline" size="sm" onClick={exportCsv} disabled={!transactions.length}>
+              <Download className="size-4" /> Export CSV
+            </Button>
           </div>
 
           <Table>

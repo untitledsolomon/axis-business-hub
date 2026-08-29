@@ -65,6 +65,7 @@ import {
   Eye,
   TrendingDown,
 } from "lucide-react";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 const CATEGORY_LABELS: Record<string, string> = {
   transport: "Transport",
@@ -79,6 +80,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function ExpensesList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const orgId = currentOrg?.id || "";
   const baseCurrency = currentOrg?.base_currency ?? "UGX";
 
@@ -301,6 +303,7 @@ export function ExpensesList() {
                               className="text-destructive"
                               onSelect={(e) => {
                                 e.preventDefault();
+                                if (!canEdit) return;
                                 setDeleteTarget(expense);
                                 openDeleteConfirm();
                               }}

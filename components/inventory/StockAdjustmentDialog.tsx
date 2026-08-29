@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ interface StockAdjustmentDialogProps {
 }
 
 export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentDialogProps) {
+  const canEdit = useCanEdit();
   const [open, setOpen] = useState(false);
   const { currentOrg } = useOrg();
   const baseCurrency = currentOrg?.base_currency ?? "UGX";
@@ -171,7 +173,7 @@ export function StockAdjustmentDialog({ item, orgId, trigger }: StockAdjustmentD
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={recordItemMovement.isPending}>
+            <Button type="submit" className="w-full" disabled={!canEdit || recordItemMovement.isPending}>
               {recordItemMovement.isPending ? "Updating stock..." : "Apply adjustment"}
             </Button>
           </form>

@@ -35,6 +35,7 @@ import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { Employee } from "@/lib/types";
 import { MoreHorizontal, Eye, Pencil, UserX, Trash2 } from "lucide-react";
 import posthog from "posthog-js";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 interface EmployeeActionsProps {
   orgId: string;
@@ -45,6 +46,7 @@ interface EmployeeActionsProps {
 
 export function EmployeeActions({ orgId, employee, showViewDetails = true }: EmployeeActionsProps) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isTerminateConfirmOpen, setIsTerminateConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -93,6 +95,7 @@ export function EmployeeActions({ orgId, employee, showViewDetails = true }: Emp
             </DropdownMenuItem>
           )}
           <DropdownMenuItem
+            disabled={!canEdit}
             onSelect={(e) => {
               e.preventDefault();
               openEdit();
@@ -102,6 +105,7 @@ export function EmployeeActions({ orgId, employee, showViewDetails = true }: Emp
           </DropdownMenuItem>
           {employee.status !== "terminated" && (
             <DropdownMenuItem
+              disabled={!canEdit}
               onSelect={(e) => {
                 e.preventDefault();
                 openTerminateConfirm();
@@ -113,6 +117,7 @@ export function EmployeeActions({ orgId, employee, showViewDetails = true }: Emp
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive"
+            disabled={!canEdit}
             onSelect={(e) => {
               e.preventDefault();
               openDeleteConfirm();

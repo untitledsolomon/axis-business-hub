@@ -46,9 +46,11 @@ import { CommandPalette, useCommandPalette } from "@/components/app/command-pale
 import { useOrg } from "@/hooks/use-org";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotifications } from "@/hooks/notifications/use-notifications";
+import { useAxisPro } from "@/hooks/useAxisPro";
+import { planHasFeature, type AxisFeature } from "@/lib/paddle-plans";
 import { cn } from "@/lib/utils";
 
-type NavItem = { label: string; to: string; icon: typeof LayoutDashboard };
+type NavItem = { label: string; to: string; icon: typeof LayoutDashboard; feature?: AxisFeature };
 
 const navGroups: { title: string; items: NavItem[] }[] = [
   {
@@ -58,9 +60,9 @@ const navGroups: { title: string; items: NavItem[] }[] = [
       { label: "Clients", to: "/clients", icon: Building2 },
       { label: "Invoices", to: "/invoices", icon: FileText },
       { label: "Transactions", to: "/transactions", icon: Receipt },
-      { label: "Inventory", to: "/inventory", icon: ShoppingBag },
-      { label: "Asset custody", to: "/inventory/custody", icon: ShoppingBag },
-      { label: "Asset lifecycle", to: "/inventory/lifecycle", icon: ShoppingBag },
+      { label: "Inventory", to: "/inventory", icon: ShoppingBag, feature: "inventory" },
+      { label: "Asset custody", to: "/inventory/custody", icon: ShoppingBag, feature: "inventory" },
+      { label: "Asset lifecycle", to: "/inventory/lifecycle", icon: ShoppingBag, feature: "inventory" },
     ],
   },
   {
@@ -68,8 +70,8 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Chart of Accounts", to: "/finance/accounts", icon: Wallet },
       { label: "General Ledger", to: "/finance/ledger", icon: BookOpen },
-      { label: "Reports", to: "/finance/reports", icon: FileSpreadsheet },
-      { label: "Analytics", to: "/finance/analytics", icon: BarChart3 },
+      { label: "Reports", to: "/finance/reports", icon: FileSpreadsheet, feature: "basic_reports" },
+      { label: "Analytics", to: "/finance/analytics", icon: BarChart3, feature: "advanced_reports" },
       { label: "Banking", to: "/finance/banking", icon: CreditCard },
       { label: "Expenses", to: "/finance/expenses", icon: TrendingDown },
       { label: "Quick Sales", to: "/finance/daily-sales", icon: ShoppingBag },
@@ -80,7 +82,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
   {
     title: "People",
     items: [
-      { label: "Employees", to: "/employees", icon: Users },
+      { label: "Employees", to: "/employees", icon: Users, feature: "employees" },
       { label: "Team", to: "/settings/team", icon: UserCog },
     ],
   },
@@ -89,7 +91,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Settings", to: "/settings", icon: Settings },
       { label: "Billing", to: "/settings/billing", icon: CreditCard },
-      { label: "Connections", to: "/settings/connections", icon: Plug },
+      { label: "Connections", to: "/settings/connections", icon: Plug, feature: "custom_email_domain" },
       { label: "Activity", to: "/activity", icon: Receipt },
     ],
   },
@@ -103,19 +105,28 @@ function initialsOf(name: string) {
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { currentOrg, organisations, setOrg } = useOrg();
   const { user, signOut } = useAuth();
+  const { entitlementState, subscription } = useAxisPro();
   const pathname = usePathname();
+  const hasFeature = (feature?: AxisFeature) =>
+    !feature ||
+    (entitlementState !== "no_org" &&
+      planHasFeature(subscription?.planId ?? "unknown", feature));
+  const visibleGroups = navGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => hasFeature(item.feature)),
+  })).filter((group) => group.items.length > 0);
   const orgOnboarding = currentOrg?.settings?.onboarding as Record<string, unknown> | undefined;
   const focus = Array.isArray(orgOnboarding?.focus)
     ? (orgOnboarding.focus as string[])
     : [];
-  const pinnedItems = navGroups.flatMap((group) => group.items).filter((item) => focus.some((value) => item.label.toLowerCase().includes(value.split("/")[0].toLowerCase().split(" ")[0]))).slice(0, 3);
+  const pinnedItems = visibleGroups.flatMap((group) => group.items).filter((item) => focus.some((value) => item.label.toLowerCase().includes(value.split("/")[0].toLowerCase().split(" ")[0]))).slice(0, 3);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = initialsOf(displayName);
 
   return (
     <div className="flex h-full flex-col bg-sidebar">
-      <div className="px-4 py-5">
+      <div className="border-b border-sidebar-border px-4 py-5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-sidebar-accent">
@@ -151,12 +162,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <ScrollArea className="flex-1 px-3">
         <nav className="space-y-6 pb-6">
           {pinnedItems.length > 0 && <div><p className="px-3 pb-2 font-mono text-[0.65rem] font-medium uppercase tracking-wider text-teal">Pinned for you</p><ul className="space-y-0.5">{pinnedItems.map((item) => <li key={`pinned-${item.to}`}><Link href={item.to} onClick={onNavigate} className="group flex items-center gap-3 rounded-lg bg-sidebar-accent px-3 py-2 text-sm font-medium text-foreground"><item.icon className="size-4 shrink-0 text-primary" /><span className="flex-1 truncate">{item.label}</span></Link></li>)}</ul></div>}
-          {navGroups.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.title}>
               <p className="px-3 pb-2 font-mono text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground/70">
                 {group.title}
               </p>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {group.items.map((item) => {
                   const active = item.to === "/" ? pathname === "/" : pathname?.startsWith(item.to);
                   return (
@@ -165,9 +176,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                         href={item.to}
                         onClick={onNavigate}
                         className={cn(
-                          "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           active
-                            ? "bg-sidebar-accent text-foreground"
+                            ? "bg-sidebar-accent text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
                             : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                         )}
                       >
@@ -239,7 +250,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col bg-background">
-          <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
+          <div className="flex items-center gap-3 border-b border-border/80 bg-surface/95 px-4 py-3 backdrop-blur-sm">
             <Button
               variant="ghost"
               size="icon"

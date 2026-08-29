@@ -7,11 +7,22 @@
 export type BillingInterval = "month" | "year";
 
 export type AxisPlanId = "starter" | "pro" | "advanced";
+export type AxisFeature =
+  | "clients"
+  | "invoicing"
+  | "finance_core"
+  | "basic_reports"
+  | "advanced_reports"
+  | "inventory"
+  | "employees"
+  | "custom_email_domain"
+  | "connections";
 
 export interface AxisPlan {
   id: AxisPlanId;
   name: string;
   priceIds: Record<BillingInterval, string>;
+  features: readonly AxisFeature[];
 }
 
 // Keep each public variable reference static so Next.js can inline it into
@@ -31,6 +42,7 @@ export const AXIS_PLANS: AxisPlan[] = [
       month: starterMonthlyPriceId,
       year: starterYearlyPriceId,
     },
+    features: ["clients", "invoicing", "finance_core", "basic_reports"],
   },
   {
     id: "pro",
@@ -39,6 +51,10 @@ export const AXIS_PLANS: AxisPlan[] = [
       month: proMonthlyPriceId,
       year: proYearlyPriceId,
     },
+    features: [
+      "clients", "invoicing", "finance_core", "basic_reports", "advanced_reports",
+      "inventory", "employees", "custom_email_domain",
+    ],
   },
   {
     id: "advanced",
@@ -47,6 +63,10 @@ export const AXIS_PLANS: AxisPlan[] = [
       month: advancedMonthlyPriceId,
       year: advancedYearlyPriceId,
     },
+    features: [
+      "clients", "invoicing", "finance_core", "basic_reports", "advanced_reports",
+      "inventory", "employees", "custom_email_domain", "connections",
+    ],
   },
 ];
 
@@ -70,4 +90,8 @@ export function getPlanByPriceId(priceId: string): AxisPlan | undefined {
   return AXIS_PLANS.find((plan) =>
     Object.values(plan.priceIds).includes(priceId)
   );
+}
+
+export function planHasFeature(planId: AxisPlanId | "unknown", feature: AxisFeature): boolean {
+  return AXIS_PLANS.find((plan) => plan.id === planId)?.features.includes(feature) ?? false;
 }

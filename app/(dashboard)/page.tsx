@@ -124,9 +124,18 @@ export default function DashboardPage() {
             icon={<Wallet className="size-4" />}
             tone="success"
             trend={
-              summary.isLoading || !summary.hasComparisonPeriod
+              summary.isLoading || !summary.hasComparisonPeriod || summary.revenueChangePct === null
                 ? undefined
                 : { value: fmtPct(summary.revenueChangePct), positive: summary.revenueChangePct >= 0 }
+            }
+            subtitle={
+              summary.isLoading
+                ? undefined
+                : !summary.hasComparisonPeriod
+                  ? "—"
+                  : summary.revenueChangePct === null
+                    ? "New"
+                    : undefined
             }
           />
           <StatCard
@@ -152,9 +161,18 @@ export default function DashboardPage() {
             icon={<TrendingUp className="size-4" />}
             tone="destructive"
             trend={
-              summary.isLoading || !summary.hasComparisonPeriod
+              summary.isLoading || !summary.hasComparisonPeriod || summary.netProfitChangePct === null
                 ? undefined
                 : { value: fmtPct(summary.netProfitChangePct), positive: summary.netProfitChangePct >= 0 }
+            }
+            subtitle={
+              summary.isLoading
+                ? undefined
+                : !summary.hasComparisonPeriod
+                  ? "—"
+                  : summary.netProfitChangePct === null
+                    ? "New"
+                    : undefined
             }
           />
         </div>
@@ -191,22 +209,22 @@ export default function DashboardPage() {
         <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
           <div className="space-y-4">
             <RevenueChart timeframe={timeframe} />
-            <section className="panel p-4">
-              <h2 className="text-sm font-semibold text-foreground">Quick actions</h2>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Link href="/inventory" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+            <section className="panel p-4 sm:p-5">
+              <div className="flex items-end justify-between gap-3"><div><p className="font-mono text-[0.65rem] font-medium uppercase tracking-[0.16em] text-teal">Workspace pulse</p><h2 className="mt-1 text-sm font-semibold text-foreground">Quick actions</h2></div><span className="text-xs text-muted-foreground">Move work forward</span></div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <Link href="/inventory" className="panel-hover rounded-xl border border-border bg-muted/30 p-3">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Inventory</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">Track stock levels</p>
                 </Link>
-                <Link href="/inventory/custody" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+                <Link href="/inventory/custody" className="panel-hover rounded-xl border border-border bg-muted/30 p-3">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Custody</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">Issue and return assets</p>
                 </Link>
-                <Link href="/inventory/lifecycle" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+                <Link href="/inventory/lifecycle" className="panel-hover rounded-xl border border-border bg-muted/30 p-3">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Lifecycle</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">Move assets through stages</p>
                 </Link>
-                <Link href="/employees" className="rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60">
+                <Link href="/employees" className="panel-hover rounded-xl border border-border bg-muted/30 p-3">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">People</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">Review staffing and leave</p>
                 </Link>

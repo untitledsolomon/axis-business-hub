@@ -59,6 +59,7 @@ import { formatMoney } from "@/lib/currency";
 import { useArchiveItem, useDeleteItem, useItems } from "@/hooks/items/use-items";
 import { ItemForm } from "@/components/inventory/ItemForm";
 import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 export function InventoryView() {
   const [mounted, setMounted] = useState(false);
@@ -68,6 +69,7 @@ export function InventoryView() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const orgId = currentOrg?.id ?? "";
   const { data: items, isLoading, isError, refetch } = useItems(orgId);
   const archiveItem = useArchiveItem(orgId);
@@ -129,7 +131,7 @@ export function InventoryView() {
         actions={
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
-              <Button aria-label="Add item">
+              <Button aria-label="Add item" disabled={!canEdit}>
                 <Plus className="size-4" /> Add Item
               </Button>
             </DialogTrigger>
@@ -215,12 +217,12 @@ export function InventoryView() {
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={async () => {
-                  if (deletingItemId) {
+                  if (canEdit && deletingItemId) {
                     await deleteItem.mutateAsync({ id: deletingItemId });
                     setDeletingItemId(null);
                   }
                 }}
-                disabled={deleteItem.isPending}
+                disabled={!canEdit || deleteItem.isPending}
               >
                 {deleteItem.isPending ? "Deleting…" : "Delete item"}
               </AlertDialogAction>

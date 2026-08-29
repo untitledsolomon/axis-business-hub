@@ -37,10 +37,12 @@ import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { computeAccountBalance } from "@/lib/finance/balance";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 export function AccountsList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const { data: accounts, isLoading, isError, refetch } = useAccounts(currentOrg?.id || "");
   const { data: entries, isLoading: entriesLoading } = useJournalEntries(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -111,7 +113,7 @@ export function AccountsList() {
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>
-                <Button aria-label="Add Account">
+                <Button aria-label="Add Account" disabled={!canEdit}>
                   <Plus className="size-4" /> Add Account
                 </Button>
               </DialogTrigger>

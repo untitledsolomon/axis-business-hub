@@ -8,6 +8,10 @@ import {
   getARAging,
   getExpenseBreakdown,
   getTopClients,
+  getClientProfitability,
+  getCashFlow,
+  getExpenseTrend,
+  getComparativePeriods,
 } from "@/lib/finance/reports-queries";
 import { useOrg } from "@/hooks/use-org";
 
@@ -98,4 +102,24 @@ export function useTopClients(orgId: string, startDate: string, endDate: string,
     enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate,
   });
   return { ...query, isLoading: orgLoading || query.isPending };
+}
+
+export function useClientProfitability(orgId: string, startDate: string, endDate: string, limit = 10) {
+  const query = useQuery({ queryKey: ["client-profitability", orgId, startDate, endDate, limit], queryFn: () => getClientProfitability(orgId, startDate, endDate, limit), enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate });
+  return query;
+}
+
+export function useCashFlow(orgId: string, startDate: string, endDate: string) {
+  const query = useQuery({ queryKey: ["cash-flow", orgId, startDate, endDate], queryFn: () => getCashFlow(orgId, startDate, endDate), enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate });
+  return query;
+}
+
+export function useExpenseTrend(orgId: string, startDate: string, endDate: string) {
+  const query = useQuery({ queryKey: ["expense-trend", orgId, startDate, endDate], queryFn: () => getExpenseTrend(orgId, startDate, endDate), enabled: typeof window !== "undefined" && !!orgId && !!startDate && !!endDate });
+  return query;
+}
+
+export function useComparativePeriods(orgId: string, asOfDate: string) {
+  const query = useQuery({ queryKey: ["comparative-periods", orgId, asOfDate], queryFn: () => getComparativePeriods(orgId, asOfDate), enabled: typeof window !== "undefined" && !!orgId && !!asOfDate });
+  return query;
 }

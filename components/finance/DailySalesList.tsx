@@ -49,10 +49,12 @@ import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { formatShortDate } from "@/lib/format-date";
 import { DailySale } from "@/lib/types";
 import { Plus, Search, MoreHorizontal, ShoppingBag, Trash2, Eye, TrendingUp } from "lucide-react";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 export function DailySalesList() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const orgId = currentOrg?.id || "";
   const baseCurrency = currentOrg?.base_currency ?? "UGX";
 
@@ -210,6 +212,7 @@ export function DailySalesList() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
+                              disabled={!canEdit}
                               onSelect={(e) => {
                                 e.preventDefault();
                                 setDeleteTarget(sale);

@@ -32,6 +32,7 @@ import { SummaryBar } from "@/components/shared/SummaryBar";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { isDateInTimeframe, TIMEFRAME_LABELS, type DashboardTimeframe } from "@/lib/shared/timeframe";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
   if (!entry.lines || entry.lines.length === 0) return 0;
@@ -42,6 +43,7 @@ function entryTotal(entry: { lines?: { debit: number; credit: number }[] }) {
 export function LedgerView() {
   const [mounted, setMounted] = useState(false);
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const { data: entries, isLoading, isError, refetch } = useJournalEntries(currentOrg?.id || "");
   const { data: accounts, isLoading: accountsLoading } = useAccounts(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -115,7 +117,7 @@ export function LedgerView() {
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>
-                <Button aria-label="New Journal Entry">
+                <Button aria-label="New Journal Entry" disabled={!canEdit}>
                   <Plus className="size-4" /> New Journal Entry
                 </Button>
               </DialogTrigger>

@@ -22,12 +22,14 @@ import { ActionTooltip } from "@/components/shared/ActionTooltip";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Client, ClientStatus } from "@/lib/types";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 export function ClientsList() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ClientStatus>("all");
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const { data: clients, isLoading, isError, refetch } = useClients(currentOrg?.id || "");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -67,7 +69,7 @@ export function ClientsList() {
           <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <ActionTooltip label="Add a new client to your directory">
               <DialogTrigger asChild>
-                <Button aria-label="Add Client">
+                <Button aria-label="Add Client" disabled={!canEdit}>
                   <Plus className="size-4" />
                   Add Client
                 </Button>
@@ -92,8 +94,8 @@ export function ClientsList() {
 
       <div className="space-y-4 ">
         <section className="panel overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2 px-5 py-4">
-            <div className="relative flex-1 md:max-w-xs">
+          <div className="flex flex-col gap-3 border-b border-border/70 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-5">
+            <div className="relative w-full sm:max-w-xs sm:flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search clients"
@@ -102,7 +104,7 @@ export function ClientsList() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {(["all", "active", "inactive", "blocked"] as const).map((filter) => (
                 <Button
                   key={filter}
@@ -116,7 +118,7 @@ export function ClientsList() {
                 </Button>
               ))}
             </div>
-            <Button variant="outline" size="icon" aria-label="Filters">
+            <Button variant="outline" size="icon" className="self-end sm:self-auto" aria-label="Filters">
               <Filter className="size-4" />
             </Button>
           </div>
@@ -167,7 +169,7 @@ export function ClientsList() {
                   ))
                 ) : filteredClients.length > 0 ? (
                   filteredClients.map((client: Client) => (
-                    <tr key={client.id} className="transition-colors hover:bg-muted/40">
+                    <tr key={client.id} className="table-row-hover">
                       <td className="px-5 py-3 font-medium text-foreground">
                         <Link href={`/clients/${client.id}`} className="hover:text-primary hover:underline">
                           {client.name}

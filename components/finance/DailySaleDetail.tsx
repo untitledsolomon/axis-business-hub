@@ -22,6 +22,7 @@ import { useDeferredModalOpen } from "@/hooks/shared/use-deferred-modal-open";
 import { formatShortDate } from "@/lib/format-date";
 import { formatMoney } from "@/lib/currency";
 import { ArrowLeft, AlertTriangle, ShoppingBag, Trash2, BookOpen } from "lucide-react";
+import { useCanEdit } from "@/hooks/use-feature-flag";
 
 interface DailySaleDetailProps {
   saleId: string;
@@ -31,6 +32,7 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { currentOrg } = useOrg();
+  const canEdit = useCanEdit();
   const baseCurrency = currentOrg?.base_currency ?? "UGX";
   const orgId = currentOrg?.id || "";
 
@@ -119,6 +121,7 @@ export function DailySaleDetail({ saleId }: DailySaleDetailProps) {
             variant="outline"
             size="sm"
             className="text-destructive hover:text-destructive"
+            disabled={!canEdit}
             onClick={(e) => {
               e.preventDefault();
               openDeleteConfirm();

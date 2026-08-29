@@ -79,6 +79,12 @@ export async function POST(request: Request) {
       const priceId = sub.items?.[0]?.price?.id;
       const plan = priceId ? getPlanByPriceId(priceId) : undefined;
 
+      await supabase
+        .from("subscriptions")
+        .delete()
+        .eq("org_id", checkoutSession.org_id)
+        .like("paddle_subscription_id", "trial-%");
+
       const { error } = await supabase.from("subscriptions").upsert(
         {
           user_id: checkoutSession.user_id,
