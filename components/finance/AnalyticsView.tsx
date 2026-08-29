@@ -61,7 +61,17 @@ function monthsAgoISO(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-const PIE_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6", "#ec4899"];
+// Chart colors pulled from the app's --chart-1..5 design tokens (see
+// app/globals.css) rather than raw hex, matching the pattern already
+// established in components/dashboard/RevenueChart.tsx. Keeps Analytics in
+// the same visual family as the rest of the app, including dark mode, where
+// hardcoded hex previously stayed static.
+const CHART_NAVY = "hsl(var(--chart-1))";
+const CHART_TEAL = "hsl(var(--chart-2))";
+const CHART_SUCCESS = "hsl(var(--chart-3))";
+const CHART_AMBER = "hsl(var(--chart-4))";
+const CHART_DESTRUCTIVE = "hsl(var(--chart-5))";
+const PIE_COLORS = [CHART_NAVY, CHART_TEAL, CHART_SUCCESS, CHART_AMBER, CHART_DESTRUCTIVE];
 
 const AGING_BUCKET_ORDER = ["current", "1-30", "31-60", "61-90", "90+"] as const;
 const AGING_BUCKET_LABEL: Record<string, string> = {
@@ -202,7 +212,7 @@ export function AnalyticsView() {
         {trendLoading ? (
           <Skeleton className="h-72 w-full" />
         ) : !trendChartData.length ? (
-          <p className="py-16 text-center text-sm text-muted-foreground">No posted transactions in this period.</p>
+          <p className="py-12 text-center text-sm text-muted-foreground">No posted transactions in this period.</p>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={trendChartData}>
@@ -211,9 +221,9 @@ export function AnalyticsView() {
               <YAxis fontSize={12} tickFormatter={(v) => fmtShort(Number(v))} />
               <Tooltip formatter={(v: number) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })} />
               <Legend />
-              <Line type="monotone" dataKey="Revenue" stroke="#22c55e" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="Net" stroke="#6366f1" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Revenue" stroke={CHART_SUCCESS} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Expenses" stroke={CHART_DESTRUCTIVE} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Net" stroke={CHART_NAVY} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -237,7 +247,7 @@ export function AnalyticsView() {
                 <XAxis dataKey="bucket" fontSize={12} />
                 <YAxis fontSize={12} tickFormatter={(v) => fmtShort(Number(v))} />
                 <Tooltip formatter={(v: number) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })} />
-                <Bar dataKey="amount" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="amount" fill={CHART_AMBER} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -352,7 +362,7 @@ export function AnalyticsView() {
         <div className="panel p-4">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Cash Flow</h3>
           <p className="mb-3 text-xs text-muted-foreground">Actual cash and bank movement, separate from accrual-based P&amp;L.</p>
-          {cashFlowLoading ? <Skeleton className="h-64 w-full" /> : !cashFlowChartData.length ? <p className="py-12 text-center text-sm text-muted-foreground">No cash movements in this period.</p> : <ResponsiveContainer width="100%" height={260}><BarChart data={cashFlowChartData}><CartesianGrid strokeDasharray="3 3" opacity={0.2} /><XAxis dataKey="month" fontSize={12} /><YAxis fontSize={12} tickFormatter={(v) => fmtShort(Number(v))} /><Tooltip /><Legend /><Bar dataKey="Inflow" fill="#22c55e" /><Bar dataKey="Outflow" fill="#ef4444" /></BarChart></ResponsiveContainer>}
+          {cashFlowLoading ? <Skeleton className="h-64 w-full" /> : !cashFlowChartData.length ? <p className="py-12 text-center text-sm text-muted-foreground">No cash movements in this period.</p> : <ResponsiveContainer width="100%" height={260}><BarChart data={cashFlowChartData}><CartesianGrid strokeDasharray="3 3" opacity={0.2} /><XAxis dataKey="month" fontSize={12} /><YAxis fontSize={12} tickFormatter={(v) => fmtShort(Number(v))} /><Tooltip /><Legend /><Bar dataKey="Inflow" fill={CHART_SUCCESS} /><Bar dataKey="Outflow" fill={CHART_DESTRUCTIVE} /></BarChart></ResponsiveContainer>}
         </div>
         <div className="panel p-4">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Expense Trend by Category</h3>
