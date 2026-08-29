@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/PageHeader";
 import {
@@ -82,17 +82,17 @@ export function ConnectionsView() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadConnection = async () => {
+  const loadConnection = useCallback(async () => {
     if (!currentOrg) return;
     const response = await fetch(`/api/connections/resend?orgId=${encodeURIComponent(currentOrg.id)}`);
     const body = await response.json() as { connection?: typeof connection; domain?: { records?: ResendRecord[] }; error?: string };
     if (response.ok) setConnection(body.connection ?? null);
     if (response.ok && body.domain?.records) setRecords(body.domain.records);
-  };
+  }, [currentOrg]);
 
   useEffect(() => {
     void loadConnection();
-  }, [currentOrg?.id]);
+  }, [loadConnection]);
 
   const updateResend = async (action: "register" | "verify") => {
     if (!currentOrg) return;

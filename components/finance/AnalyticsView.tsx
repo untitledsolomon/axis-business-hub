@@ -139,9 +139,10 @@ export function AnalyticsView() {
 
   const expenseTrendChartData = useMemo(() => {
     const categories = [...new Set((expenseTrend ?? []).map((r) => r.category))];
-    const byMonth = new Map<string, Record<string, number>>();
+    type ExpenseTrendRow = { month: string } & Record<string, number | string>;
+    const byMonth = new Map<string, ExpenseTrendRow>();
     for (const row of expenseTrend ?? []) {
-      const values = byMonth.get(row.month) ?? { month: monthLabel(row.month) };
+      const values: ExpenseTrendRow = byMonth.get(row.month) ?? { month: monthLabel(row.month) };
       values[row.category] = toMajorUnits(row.total, currencyCode);
       byMonth.set(row.month, values);
     }

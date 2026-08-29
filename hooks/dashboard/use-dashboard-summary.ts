@@ -149,9 +149,9 @@ export function useDashboardSummary(timeframe: DashboardTimeframe = "this_month"
       // conversion is currency-dependent and handled inside formatMoney/toMajorUnits.
       outstandingTotalMinor,
       netProfitThisMonthMinor: netProfitCurrentMinor,
-      netProfitChangePct: hasComparisonPeriod ? pctChange(netProfitCurrentMinor, netProfitPreviousMinor) : 0,
+      netProfitChangePct: hasComparisonPeriod ? pctChange(netProfitCurrentMinor, netProfitPreviousMinor) : null,
       revenueThisMonthMinor: incomeCurrent,
-      revenueChangePct: hasComparisonPeriod ? pctChange(incomeCurrent, incomePrevious) : 0,
+      revenueChangePct: hasComparisonPeriod ? pctChange(incomeCurrent, incomePrevious) : null,
       hasComparisonPeriod,
       baseCurrency,
     };
