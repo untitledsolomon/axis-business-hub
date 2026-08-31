@@ -53,7 +53,7 @@ export const AXIS_PLANS: AxisPlan[] = [
     },
     features: [
       "clients", "invoicing", "finance_core", "basic_reports", "advanced_reports",
-      "inventory", "employees", "custom_email_domain",
+      "inventory",
     ],
   },
   {

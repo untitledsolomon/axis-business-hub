@@ -74,7 +74,10 @@ export function BankAccountForm({ orgId, onSuccess }: BankAccountFormProps) {
       form.reset();
       onSuccess?.();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to create bank account";
+      const rawMessage = error instanceof Error ? error.message : "Failed to create bank account";
+      const message = rawMessage.includes("Plan limit reached for bank_accounts")
+        ? "You've reached your plan's bank account limit. Upgrade your plan to add more accounts."
+        : rawMessage;
       toast.error(message);
     }
   }

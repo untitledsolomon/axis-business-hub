@@ -62,7 +62,10 @@ export function InviteMemberForm({ orgId, onSuccess }: InviteMemberFormProps) {
       posthog.capture("team_member_invited", { role: values.role });
       setGeneratedCode(result.code);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to create invite";
+      const rawMessage = error instanceof Error ? error.message : "Failed to create invite";
+      const message = rawMessage.includes("Plan limit reached for users")
+        ? "You've reached your plan's user limit. Upgrade your plan to invite more team members."
+        : rawMessage;
       toast.error(message);
     }
   }

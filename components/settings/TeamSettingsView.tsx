@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useOrg } from "@/hooks/use-org";
 import { useTeamMembers, usePendingInvitations, useRevokeInvitation } from "@/hooks/organisation/use-team";
+import { useResourceUsage } from "@/hooks/organisation/use-plan-limits";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -67,6 +69,15 @@ export function TeamSettingsView() {
   const { data: members, isLoading, isError: membersError, refetch: refetchMembers } = useTeamMembers(orgId);
   const { data: invitations, isLoading: invitesLoading, isError: invitesError, refetch: refetchInvitations } = usePendingInvitations(orgId);
   const revokeInvitation = useRevokeInvitation(orgId);
+  const { data: usersUsage } = useResourceUsage(orgId, "users");
+
+  // Pending invites occupy a seat before acceptance (see
+  // create_org_invitation_v1's capacity check), so reflect that here too
+  // rather than only counting accepted members.
+  const pendingInviteCount = invitations?.length ?? 0;
+  const seatsUsed = (usersUsage?.used ?? 0) + pendingInviteCount;
+  const seatsMax = usersUsage?.max ?? null;
+  const atSeatCapacity = seatsMax !== null && seatsUsed >= seatsMax;
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<OrgInvitation | null>(null);
@@ -84,27 +95,39 @@ export function TeamSettingsView() {
     <>
       <PageHeader
         title="Team"
-        description={`People with access to ${currentOrg?.name ?? "this organisation"}.`}
+        description={
+          seatsMax !== null
+            ? `People with access to ${currentOrg?.name ?? "this organisation"} — ${seatsUsed} of ${seatsMax} seats used.`
+            : `People with access to ${currentOrg?.name ?? "this organisation"}.`
+        }
         actions={
-          <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-            <DialogTrigger asChild>
-              <Button aria-label="Invite Member">
-                <UserPlus className="size-4" /> Invite Member
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[480px]">
-              <DialogHeader>
-                <DialogTitle>Invite Team Member</DialogTitle>
-              </DialogHeader>
-              {currentOrg ? (
-                <InviteMemberForm orgId={currentOrg.id} onSuccess={() => setIsInviteOpen(false)} />
-              ) : (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  You need an active organisation before inviting anyone.
-                </p>
-              )}
-            </DialogContent>
-          </Dialog>
+          atSeatCapacity ? (
+            <Button asChild variant="outline" aria-label="Upgrade plan to invite more members">
+              <Link href="/settings/billing">
+                <UserPlus className="size-4" /> Upgrade to invite more
+              </Link>
+            </Button>
+          ) : (
+            <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+              <DialogTrigger asChild>
+                <Button aria-label="Invite Member">
+                  <UserPlus className="size-4" /> Invite Member
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle>Invite Team Member</DialogTitle>
+                </DialogHeader>
+                {currentOrg ? (
+                  <InviteMemberForm orgId={currentOrg.id} onSuccess={() => setIsInviteOpen(false)} />
+                ) : (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    You need an active organisation before inviting anyone.
+                  </p>
+                )}
+              </DialogContent>
+            </Dialog>
+          )
         }
       />
 

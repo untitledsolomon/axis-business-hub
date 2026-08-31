@@ -77,7 +77,10 @@ export function AccountForm({ orgId, onSuccess }: AccountFormProps) {
       form.reset();
       onSuccess?.();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to create account";
+      const rawMessage = error instanceof Error ? error.message : "Failed to create account";
+      const message = rawMessage.includes("Plan limit reached for chart_accounts")
+        ? "You've reached your plan's chart of accounts limit. Upgrade your plan to add more accounts."
+        : rawMessage;
       toast.error(message);
     }
   }
