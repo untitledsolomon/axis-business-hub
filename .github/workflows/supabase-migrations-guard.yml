@@ -30,17 +30,17 @@ jobs:
       - name: List remote migrations
         id: remote
         run: |
-          if [ -z "${SUPABASE_PROJECT_REF}" ]; then echo "SUPABASE_PROJECT_REF not set"; exit 1; fi
-          supabase migrations list --project-ref "$SUPABASE_PROJECT_REF" --json > remote_migrations.json
-          cat remote_migrations.json
+          if [ -z "${SUPABASE_ACCESS_TOKEN}" ]; then echo "SUPABASE_ACCESS_TOKEN not set"; exit 1; fi
+          supabase migrations list --linked > remote_migrations.txt
+          cat remote_migrations.txt
 
       - name: Compare remote vs local
         run: |
-          jq -r '.[].name' remote_migrations.json | sort > /tmp/remote_names.txt || true
-          ls supabase/migrations | sort > /tmp/local_names.txt || true
-          echo "Remote migrations:" && cat /tmp/remote_names.txt || true
-          echo "Local migrations:" && cat /tmp/local_names.txt || true
-          comm -23 /tmp/remote_names.txt /tmp/local_names.txt > /tmp/missing.txt || true
+          grep '|' remote_migrations.txt | tail -n +3 | awk -F'|' '{print $2}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort > /tmp/remote_versions.txt || true
+          ls supabase/migrations/*.sql 2>/dev/null | xargs -n1 basename | sed 's/_.*//g' | sort | uniq > /tmp/local_versions.txt || true
+          echo "Remote migration versions:" && cat /tmp/remote_versions.txt || true
+          echo "Local migration versions:" && cat /tmp/local_versions.txt || true
+          comm -23 /tmp/remote_versions.txt /tmp/local_versions.txt > /tmp/missing.txt || true
           if [ -s /tmp/missing.txt ]; then
             echo "ERROR: There are remote migrations not present locally:" 
             cat /tmp/missing.txt
