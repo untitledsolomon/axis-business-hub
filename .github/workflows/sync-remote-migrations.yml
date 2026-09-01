@@ -1,0 +1,36 @@
+name: Sync Supabase Remote Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: 'Supabase project ID (optional; override secret)'
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install supabase CLI
+        run: npm install -g supabase || true
+
+      - name: Ensure secrets present
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "SUPABASE_ACCESS_TOKEN not set. Aborting."; exit 1; fi
+
+      - name: Run sync script
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ github.event.inputs.project_id || secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          chmod +x scripts/sync_remote_migrations.sh
+          scripts/sync_remote_migrations.sh
