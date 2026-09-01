@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrg } from "@/hooks/use-org";
@@ -96,8 +96,10 @@ export function OnboardingForm() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { refreshOrgs } = useOrg();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const { currentOrg } = useOrg();
+  const isCreatingNewOrg = searchParams.get("new") === "true";
 
   const form = useForm<OnboardingValues>({
     resolver: zodResolver(onboardingSchema),
@@ -107,7 +109,7 @@ export function OnboardingForm() {
     },
   });
 
-  if (currentOrg) {
+  if (currentOrg && !isCreatingNewOrg) {
     return <OnboardingFlow />;
   }
 

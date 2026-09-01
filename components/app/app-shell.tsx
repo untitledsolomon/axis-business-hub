@@ -153,7 +153,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/onboarding">Create organisation</Link>
+              <Link href="/onboarding?new=true">Create organisation</Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
