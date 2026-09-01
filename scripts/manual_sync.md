@@ -28,7 +28,7 @@ If Supabase shows "Remote migration versions not found in local migrations direc
 
 6. Prevent recurrence: add the GitHub Action `.github/workflows/supabase-migrations-guard.yml` (already added) and set secrets:
    - `SUPABASE_ACCESS_TOKEN` (create short-lived or service token)
-   - `SUPABASE_PROJECT_REF` (your project ref)
+   - `SUPABASE_PROJECT_ID` (your project ID)
 
 The Action will fail PRs when remote migrations exist that are not in the repo, preventing this class of deployment error.
 
