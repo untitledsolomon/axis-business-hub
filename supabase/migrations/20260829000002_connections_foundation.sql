@@ -83,9 +83,8 @@ BEGIN
   VALUES (org_name, org_slug)
   RETURNING id INTO new_org_id;
 
-  INSERT INTO organisation_members (org_id, user_id, role)
-  VALUES (new_org_id, user_id, 'owner');
-
+  -- Create trial subscription BEFORE adding members so capacity checks pass.
+  -- The owner must always be able to join their own org.
   INSERT INTO subscriptions (
     user_id, org_id, paddle_subscription_id, paddle_customer_id,
     paddle_price_id, plan_id, status, trial_ends_at, current_period_end
@@ -94,6 +93,10 @@ BEGIN
     'trial-customer-' || new_org_id::TEXT, 'trial_starter', 'starter',
     'trialing', NOW() + INTERVAL '7 days', NOW() + INTERVAL '7 days'
   );
+
+  -- Now add the user as an owner (capacity check will find the subscription above)
+  INSERT INTO organisation_members (org_id, user_id, role)
+  VALUES (new_org_id, user_id, 'owner');
 
   RETURN new_org_id;
 END;
