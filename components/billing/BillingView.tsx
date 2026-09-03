@@ -5,7 +5,9 @@ import { useState } from "react";
 import { AlertTriangle, CalendarDays, Check, CreditCard, RotateCcw, ShieldCheck } from "lucide-react";
 import { Paywall } from "@/components/Paywall";
 import { useAxisPro } from "@/hooks/useAxisPro";
+import { useAuth } from "@/hooks/use-auth";
 import { useOrg } from "@/hooks/use-org";
+import { openCheckout } from "@/lib/paddle";
 import { AXIS_PLANS, type BillingInterval } from "@/lib/paddle-plans";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +21,17 @@ function formatDate(value: string | null) {
 
 export function BillingView() {
   const { currentOrg, isLoading: isOrgLoading } = useOrg();
+  const { user } = useAuth();
   const { subscription, isProUser, isLoading, error, refresh } = useAxisPro();
   const [actionError, setActionError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [cancelOpen, setCancelOpen] = useState(false);
+
+  // Trial subscriptions use a synthetic Paddle price/subscription ID that
+  // does not exist in Paddle, so they cannot be changed via the update API.
+  // Upgrading from a trial goes through checkout instead.
+  const isTrial = subscription?.paddlePriceId?.startsWith("trial") ?? false;
 
   const updateBilling = async (action: string, priceId?: string) => {
     if (!currentOrg) return;
@@ -31,7 +39,11 @@ export function BillingView() {
     setActionError(null);
     try {
       const response = await fetch("/api/billing/subscription", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orgId: currentOrg.id, action, priceId }) });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; requiresCheckout?: boolean };
+      if (result.requiresCheckout) {
+        await openCheckoutForPlan(priceId);
+        return;
+      }
       if (!response.ok) throw new Error(result.error ?? "Billing update failed");
       setCancelOpen(false);
       await refresh();
@@ -39,6 +51,28 @@ export function BillingView() {
       setActionError(err instanceof Error ? err.message : "Billing update failed");
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const openCheckoutForPlan = async (priceId?: string) => {
+    if (!currentOrg || !priceId || !user) {
+      setActionError("Unable to start checkout. Please try again.");
+      return;
+    }
+    try {
+      const sessionResponse = await fetch("/api/billing/checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: currentOrg.id }),
+      });
+      const session = await sessionResponse.json() as { token?: string; error?: string };
+      if (!sessionResponse.ok || !session.token) {
+        throw new Error(session.error ?? "Could not start checkout.");
+      }
+      await openCheckout({ priceId, checkoutToken: session.token, email: user.email });
+      await refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not start checkout.");
     }
   };
 
@@ -55,7 +89,7 @@ export function BillingView() {
           {subscription.cancelAtPeriodEnd && <p className="mt-4 rounded-md bg-warning-soft px-3 py-2 text-sm text-warning-foreground">Your plan will end on {formatDate(subscription.currentPeriodEnd)}.</p>}{subscription.status === "past_due" && <p className="mt-4 rounded-md bg-warning-soft px-3 py-2 text-sm text-warning-foreground">Payment failed. Update your payment method in Paddle to restore access.</p>}{actionError && <p className="mt-4 text-sm text-destructive">{actionError}</p>}
           <div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => void refresh()}><RotateCcw className="size-4" /> Refresh status</Button>{subscription.cancelAtPeriodEnd ? <Button size="sm" onClick={() => void updateBilling("resume")} disabled={isUpdating}>Resume subscription</Button> : <Button variant="destructive" size="sm" onClick={() => setCancelOpen(true)} disabled={isUpdating}>Cancel at period end</Button>}</div>
         </CardContent></Card>
-        <Card><CardHeader><CardTitle>Change plan</CardTitle><p className="text-sm text-muted-foreground">Choose a tier and billing cycle. Paddle will show any prorated amount before confirming.</p></CardHeader><CardContent><div className="mb-4 flex w-fit gap-1 rounded-lg border border-border bg-muted p-1"><Button size="sm" variant={interval === "month" ? "default" : "ghost"} onClick={() => setInterval("month")}>Monthly</Button><Button size="sm" variant={interval === "year" ? "default" : "ghost"} onClick={() => setInterval("year")}>Annual</Button></div><div className="grid gap-3 sm:grid-cols-3">{AXIS_PLANS.map((plan) => { const selected = plan.id === subscription.planId && interval === subscription.billingInterval; const priceId = plan.priceIds[interval]; return <button key={plan.id} type="button" disabled={isUpdating || !priceId || selected} onClick={() => void updateBilling("change-plan", priceId)} className={`rounded-lg border p-4 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"}`}><div className="flex items-center justify-between"><span className="font-medium">{plan.name}</span>{selected && <Check className="size-4 text-primary" />}</div><p className="mt-2 text-xs text-muted-foreground">{priceId ? `${interval === "year" ? "Annual" : "Monthly"} billing` : "Not configured"}</p></button>; })}</div></CardContent></Card>
+        <Card><CardHeader><CardTitle>Change plan</CardTitle><p className="text-sm text-muted-foreground">{isTrial ? "Choose a tier and billing cycle to upgrade from your trial. Paddle will confirm before charging." : "Choose a tier and billing cycle. Paddle will show any prorated amount before confirming."}</p></CardHeader><CardContent><div className="mb-4 flex w-fit gap-1 rounded-lg border border-border bg-muted p-1"><Button size="sm" variant={interval === "month" ? "default" : "ghost"} onClick={() => setInterval("month")}>Monthly</Button><Button size="sm" variant={interval === "year" ? "default" : "ghost"} onClick={() => setInterval("year")}>Annual</Button></div><div className="grid gap-3 sm:grid-cols-3">{AXIS_PLANS.map((plan) => { const selected = plan.id === subscription.planId && interval === subscription.billingInterval; const priceId = plan.priceIds[interval]; return <button key={plan.id} type="button" disabled={isUpdating || !priceId || selected} onClick={() => void (isTrial ? openCheckoutForPlan(priceId) : updateBilling("change-plan", priceId))} className={`rounded-lg border p-4 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"}`}><div className="flex items-center justify-between"><span className="font-medium">{plan.name}</span>{selected && <Check className="size-4 text-primary" />}</div><p className="mt-2 text-xs text-muted-foreground">{priceId ? `${interval === "year" ? "Annual" : "Monthly"} billing` : "Not configured"}</p></button>; })}</div></CardContent></Card>
         <div className="grid gap-6 md:grid-cols-2"><Card><CardHeader><CardTitle>Payment method</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">Payment details are securely managed by Paddle.</p><Button variant="outline" size="sm" className="mt-4" onClick={() => setActionError("Use the Paddle customer portal from your billing email to update payment details.")}>Manage in Paddle</Button></CardContent></Card><Card><CardHeader><CardTitle>Billing history</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">Invoices and receipts are available in Paddle and are sent to your billing email.</p></CardContent></Card></div>
       </> : <Card><CardHeader><CardTitle>Start your trial</CardTitle><p className="text-sm text-muted-foreground">Choose a plan to unlock Axis for your organisation.</p></CardHeader><CardContent><Paywall onSuccess={refresh} /></CardContent></Card>}
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cancel at period end?</AlertDialogTitle><AlertDialogDescription>Your organisation will keep access until the current billing period ends. You can resume the subscription before then.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep subscription</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void updateBilling("cancel")}>Cancel subscription</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
