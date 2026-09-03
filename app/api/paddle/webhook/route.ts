@@ -56,39 +56,58 @@ export async function POST(request: Request) {
     case EventName.SubscriptionTrialing: {
       const sub = event.data;
 
-      const checkoutToken = sub.customData?.axis_checkout_token as string | undefined;
-      if (!checkoutToken) {
-        console.error(
-          `Paddle subscription ${sub.id} has no checkout token in custom_data; skipping`
-        );
-        return NextResponse.json({ error: "Missing checkout correlation" }, { status: 400 });
-      }
-
-      const tokenHash = createHash("sha256").update(checkoutToken).digest("hex");
-      const { data: checkoutSession } = await supabase
-        .from("paddle_checkout_sessions")
-        .select("org_id, user_id, expires_at")
-        .eq("token_hash", tokenHash)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
-      if (!checkoutSession) {
-        console.error(`Paddle subscription ${sub.id} has an invalid checkout token`);
-        return NextResponse.json({ error: "Invalid checkout correlation" }, { status: 400 });
-      }
-
       const priceId = sub.items?.[0]?.price?.id;
       const plan = priceId ? getPlanByPriceId(priceId) : undefined;
+
+      // Resolve which org/user this subscription belongs to. New
+      // subscriptions (including trials) arrive with an axis_checkout_token
+      // in custom_data that correlates to a checkout session. Plan changes
+      // and other updates to an existing subscription carry no token, so
+      // fall back to the row we already track by paddle_subscription_id.
+      let orgId: string | null = null;
+      let userId: string | null = null;
+
+      const checkoutToken = sub.customData?.axis_checkout_token as string | undefined;
+      if (checkoutToken) {
+        const tokenHash = createHash("sha256").update(checkoutToken).digest("hex");
+        const { data: checkoutSession } = await supabase
+          .from("paddle_checkout_sessions")
+          .select("org_id, user_id, expires_at")
+          .eq("token_hash", tokenHash)
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle();
+        if (!checkoutSession) {
+          console.error(`Paddle subscription ${sub.id} has an invalid checkout token`);
+          return NextResponse.json({ error: "Invalid checkout correlation" }, { status: 400 });
+        }
+        orgId = checkoutSession.org_id;
+        userId = checkoutSession.user_id;
+      } else {
+        const { data: existing } = await supabase
+          .from("subscriptions")
+          .select("org_id, user_id")
+          .eq("paddle_subscription_id", sub.id)
+          .maybeSingle();
+        if (!existing?.org_id || !existing.user_id) {
+          console.error(
+            `Paddle subscription ${sub.id} has no checkout token and no tracked row to update; skipping`
+          );
+          return NextResponse.json({ error: "Missing checkout correlation" }, { status: 400 });
+        }
+        orgId = existing.org_id;
+        userId = existing.user_id;
+      }
 
       await supabase
         .from("subscriptions")
         .delete()
-        .eq("org_id", checkoutSession.org_id)
+        .eq("org_id", orgId)
         .like("paddle_subscription_id", "trial-%");
 
       const { error } = await supabase.from("subscriptions").upsert(
         {
-          user_id: checkoutSession.user_id,
-          org_id: checkoutSession.org_id,
+          user_id: userId,
+          org_id: orgId,
           paddle_subscription_id: sub.id,
           paddle_customer_id: sub.customerId,
           paddle_price_id: priceId ?? "",
