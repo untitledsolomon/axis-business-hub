@@ -16,6 +16,7 @@ import { createHash } from "node:crypto";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { Paddle, EventName } from "@paddle/paddle-node-sdk";
 import { getPlanByPriceId } from "@/lib/paddle-plans";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 function serviceClient() {
   return createSupabaseClient(
@@ -27,6 +28,19 @@ function serviceClient() {
 
 const paddle = new Paddle(process.env.PADDLE_API_KEY!);
 const WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET!;
+
+// Capture a webhook processing failure in PostHog so it is visible even
+// though server logs are not ingested. Safe to call anywhere — returns
+// immediately if PostHog is not configured.
+function captureWebhookError(message: string, properties: Record<string, unknown> = {}) {
+  const posthog = getPostHogServer();
+  if (!posthog) return;
+  posthog.capture({
+    distinctId: "paddle-webhook",
+    event: "paddle_webhook_error",
+    properties: { message, ...properties },
+  });
+}
 
 export async function POST(request: Request) {
   const signature = request.headers.get("paddle-signature");
@@ -41,6 +55,7 @@ export async function POST(request: Request) {
     event = await paddle.webhooks.unmarshal(rawBody, WEBHOOK_SECRET, signature);
   } catch (err) {
     console.error("Paddle webhook signature verification failed", err);
+    captureWebhookError("Paddle webhook signature verification failed");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -78,6 +93,7 @@ export async function POST(request: Request) {
           .maybeSingle();
         if (!checkoutSession) {
           console.error(`Paddle subscription ${sub.id} has an invalid checkout token`);
+          captureWebhookError("Invalid checkout correlation", { subscriptionId: sub.id });
           return NextResponse.json({ error: "Invalid checkout correlation" }, { status: 400 });
         }
         orgId = checkoutSession.org_id;
@@ -92,6 +108,7 @@ export async function POST(request: Request) {
           console.error(
             `Paddle subscription ${sub.id} has no checkout token and no tracked row to update; skipping`
           );
+          captureWebhookError("Missing checkout correlation", { subscriptionId: sub.id });
           return NextResponse.json({ error: "Missing checkout correlation" }, { status: 400 });
         }
         orgId = existing.org_id;
@@ -125,6 +142,7 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("Failed to upsert subscription", error);
+        captureWebhookError("Failed to upsert subscription", { subscriptionId: sub.id });
         return NextResponse.json({ error: "Database error" }, { status: 500 });
       }
       break;
