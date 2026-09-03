@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Paddle } from "@paddle/paddle-node-sdk";
 import { createClient } from "@/lib/supabase/server";
 import { getPlanByPriceId } from "@/lib/paddle-plans";
+import { getPostHogServer } from "@/lib/posthog-server";
 
 async function getAccess(orgId: string, requireAdmin: boolean) {
   const supabase = await createClient();
@@ -55,6 +56,16 @@ export async function PATCH(request: Request) {
     .maybeSingle();
   if (!subscription) return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
 
+  // Trial subscriptions use a synthetic paddle_subscription_id (e.g.
+  // "trial-<org_id>") that does not exist in Paddle. Plan changes for a
+  // trial must go through checkout to create a real Paddle subscription —
+  // calling Paddle's update API with a synthetic ID fails. Signal the
+  // client to open checkout instead.
+  const isTrial = subscription.paddle_subscription_id.startsWith("trial-");
+  if (body.action === "change-plan" && isTrial) {
+    return NextResponse.json({ ok: false, requiresCheckout: true, message: "Trial subscriptions must be upgraded via checkout." }, { status: 409 });
+  }
+
   const paddle = new Paddle(process.env.PADDLE_API_KEY!);
   try {
     if (body.action === "cancel") {
@@ -72,6 +83,16 @@ export async function PATCH(request: Request) {
     }
   } catch (error) {
     console.error("Paddle subscription operation failed", error);
+    const posthog = getPostHogServer();
+    posthog?.capture({
+      distinctId: "billing-subscription",
+      event: "billing_subscription_error",
+      properties: {
+        action: body.action,
+        paddleSubscriptionId: subscription.paddle_subscription_id,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
     return NextResponse.json({ error: "Paddle subscription operation failed" }, { status: 502 });
   }
 
