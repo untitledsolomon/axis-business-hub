@@ -10,6 +10,15 @@
 
 import { initializePaddle, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
 
+/** Read a browser cookie by name (used to pass DataFast IDs to checkout). */
+function getCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return undefined;
+}
+
 const CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "";
 const ENVIRONMENT =
   (process.env.NEXT_PUBLIC_PADDLE_ENV as "sandbox" | "production" | undefined) ??
@@ -72,7 +81,14 @@ export async function openCheckout({
   paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
     customer: email ? { email } : undefined,
-    customData: { axis_checkout_token: checkoutToken },
+    customData: {
+      axis_checkout_token: checkoutToken,
+      // DataFast visitor/session IDs for revenue attribution to marketing
+      // channels. Read from the cookies DataFast sets on init; without them
+      // Paddle transactions cannot be attributed to a DataFast visitor.
+      datafast_visitor_id: getCookie("datafast_visitor_id"),
+      datafast_session_id: getCookie("datafast_session_id"),
+    },
     settings: {
       successUrl: undefined, // keep as inline overlay; success handled via eventCallback below
     },
