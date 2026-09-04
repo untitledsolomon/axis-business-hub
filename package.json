@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@datafast/ai-crawl": "^1.0.9",
     "@eslint/js": "^10.0.1",
     "@flags-sdk/posthog": "^1.0.1",
     "@hookform/resolvers": "^3.9.0",
