@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { OrgProvider } from "@/hooks/use-org";
 import { QueryProvider } from "@/providers/query-provider";
+import { DataFastProvider } from "@/components/DataFastProvider";
 import { RadixPointerEventsFailsafe } from "@/components/shared/RadixPointerEventsFailsafe";
 
 export const metadata: Metadata = {
@@ -57,10 +58,12 @@ export default function RootLayout({
           <AuthProvider>
             <OrgProvider>
               <TooltipProvider>
-                {children}
-                <Toaster />
-                <Sonner />
-                <RadixPointerEventsFailsafe />
+                <DataFastProvider>
+                  {children}
+                  <Toaster />
+                  <Sonner />
+                  <RadixPointerEventsFailsafe />
+                </DataFastProvider>
               </TooltipProvider>
             </OrgProvider>
           </AuthProvider>

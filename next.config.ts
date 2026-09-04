@@ -38,6 +38,10 @@ const posthogToolbarOrigin = 'https://internal-j.posthog.com';
 // posthogToolbarOrigin above). Without it, toolbar auth completes client-side
 // then fails silently when the token exchange itself is blocked by CSP.
 const posthogAppOrigin = 'https://us.posthog.com';
+// DataFast sends analytics events to its API endpoint; without it in
+// connect-src the SDK's fetch calls are blocked by CSP and events never
+// reach DataFast.
+const datafastOrigin = 'https://datafa.st';
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -49,7 +53,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin} ${datafastOrigin};
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
                     script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${profitWellOrigin};
                     worker-src 'self' blob:;

@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@datafast/ai-crawl": "^1.0.9",
     "@eslint/js": "^10.0.1",
     "@flags-sdk/posthog": "^1.0.1",
     "@hookform/resolvers": "^3.9.0",
@@ -55,6 +56,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "csv-parse": "^6.2.1",
+    "datafast": "^3.0.18",
     "embla-carousel-react": "^8.3.0",
     "flags": "^4.3.0",
     "globals": "^17.5.0",
