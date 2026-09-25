@@ -57,6 +57,149 @@ export interface Invoice {
   items?: InvoiceItem[];
 }
 
+// --- Quotations ---------------------------------------------------------
+
+export type QuotationStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired' | 'converted';
+
+export interface QuotationItem {
+  id: string;
+  org_id: string;
+  quotation_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number; // In minor units
+  tax_rate_id?: string;
+  discount_amount?: number; // In minor units
+  total: number; // In minor units
+  sort_order: number;
+  created_at: string;
+}
+
+export interface Quotation {
+  id: string;
+  org_id: string;
+  client_id: string;
+  quotation_number: string;
+  issue_date: string;
+  expiry_date?: string;
+  status: QuotationStatus;
+  subtotal: number; // In minor units
+  tax_total: number; // In minor units
+  discount_total: number; // In minor units
+  grand_total: number; // In minor units
+  currency: string;
+  exchange_rate: number;
+  notes?: string;
+  terms?: string;
+  converted_invoice_id?: string;
+  sent_at?: string;
+  viewed_at?: string;
+  responded_at?: string;
+  created_at: string;
+  updated_at: string;
+  client?: Client;
+  items?: QuotationItem[];
+}
+
+// --- Job orders -----------------------------------------------------------
+
+export interface JobOrderStatus {
+  id: string;
+  org_id: string;
+  key: string;
+  label: string;
+  color?: string;
+  sort_order: number;
+  is_terminal: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobOrderCostType {
+  id: string;
+  org_id: string;
+  key: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobOrderCost {
+  id: string;
+  org_id: string;
+  job_order_id: string;
+  cost_type_id: string;
+  amount: number; // In minor units
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  cost_type?: JobOrderCostType;
+}
+
+export interface JobOrder {
+  id: string;
+  org_id: string;
+  client_id: string;
+  quotation_id?: string;
+  job_order_number: string;
+  status_id: string;
+  description: string;
+  quantity: number;
+  amount_paid: number; // In minor units
+  currency: string;
+  due_date?: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  client?: Client;
+  status?: JobOrderStatus;
+  costs?: JobOrderCost[];
+  quotation?: Quotation;
+}
+
+export interface JobOrderMargin {
+  job_order_id: string;
+  org_id: string;
+  job_order_number: string;
+  revenue: number; // In minor units
+  total_cost: number; // In minor units
+  margin: number; // In minor units
+  margin_pct: number | null;
+}
+
+// --- Delivery forms ---------------------------------------------------------
+
+export interface DeliveryFormItem {
+  id: string;
+  org_id: string;
+  delivery_form_id: string;
+  job_order_id: string;
+  quantity_delivered: number;
+  notes?: string;
+  created_at: string;
+  job_order?: JobOrder;
+}
+
+export interface DeliveryForm {
+  id: string;
+  org_id: string;
+  client_id: string;
+  delivery_number: string;
+  delivery_date: string;
+  recipient_name?: string;
+  recipient_signature_url?: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  client?: Client;
+  items?: DeliveryFormItem[];
+}
+
 export type EmployeeStatus = 'active' | 'on_leave' | 'terminated';
 export type EmployeeShiftStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
 export type EmployeeAttendanceStatus = 'scheduled' | 'present' | 'late' | 'absent' | 'half_day' | 'approved_leave';

@@ -1,0 +1,505 @@
+"use client";
+
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useClients } from "@/hooks/clients/use-clients";
+import { useTaxRates } from "@/hooks/finance/use-finance";
+import { useCreateQuotation, useNextQuotationNumber } from "@/hooks/quotations/use-quotations";
+import { toast } from "sonner";
+import { Plus, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { useEffect, useState } from "react";
+import posthog from "posthog-js";
+import { useOrg } from "@/hooks/use-org";
+import { toMinorUnits } from "@/lib/currency";
+
+// Matches the currency list InvoiceForm offers.
+const QUOTATION_CURRENCIES = ["UGX", "USD", "SSP", "KES", "TZS", "RWF", "EUR", "GBP"];
+
+const itemSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  quantity: z.number().min(0.01, "Quantity must be greater than 0"),
+  unit_price: z.number().min(0),
+  tax_rate_id: z.string().optional(),
+});
+
+const formSchema = z.object({
+  client_id: z.string().min(1, "Client is required"),
+  quotation_number: z.string().min(1, "Quotation number is required"),
+  issue_date: z.string().min(1, "Issue date is required"),
+  expiry_date: z.string().optional(),
+  currency: z.string().min(1, "Currency is required"),
+  exchange_rate: z.number().positive("Exchange rate must be greater than 0"),
+  notes: z.string().optional(),
+  terms: z.string().optional(),
+  items: z.array(itemSchema).min(1, "At least one item is required"),
+});
+
+interface QuotationFormProps {
+  orgId: string;
+  onSuccess?: () => void;
+}
+
+export function QuotationForm({ orgId, onSuccess }: QuotationFormProps) {
+  const { currentOrg } = useOrg();
+  const baseCurrency = currentOrg?.base_currency ?? "UGX";
+  const { data: clients } = useClients(orgId);
+  const { data: taxRates } = useTaxRates(orgId);
+  const { data: nextNumber } = useNextQuotationNumber(orgId);
+  const createQuotation = useCreateQuotation();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      client_id: "",
+      quotation_number: "",
+      issue_date: new Date().toISOString().split("T")[0],
+      expiry_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      currency: baseCurrency,
+      exchange_rate: 1.0,
+      notes: "",
+      terms: "",
+      items: [{ description: "", quantity: 1, unit_price: 0, tax_rate_id: "" }],
+    },
+  });
+
+  useEffect(() => {
+    if (nextNumber) {
+      form.setValue("quotation_number", nextNumber);
+    }
+  }, [nextNumber, form]);
+
+  useEffect(() => {
+    if (baseCurrency && !form.formState.isDirty) {
+      form.setValue("currency", baseCurrency);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseCurrency]);
+
+  const watchCurrency = form.watch("currency");
+
+  const handleClientChange = (clientId: string) => {
+    form.setValue("client_id", clientId);
+    const client = clients?.find((c) => c.id === clientId);
+    if (client?.currency && !form.formState.dirtyFields.currency) {
+      form.setValue("currency", client.currency);
+      if (client.currency === baseCurrency) form.setValue("exchange_rate", 1.0);
+    }
+  };
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
+
+  if (!mounted) return null;
+
+  const watchItems = form.watch("items");
+
+  const calculateTotals = () => {
+    let subtotal = 0;
+    let tax_total = 0;
+
+    watchItems.forEach((item) => {
+      const lineTotal = (item.quantity || 0) * (item.unit_price || 0);
+      subtotal += lineTotal;
+
+      if (item.tax_rate_id && taxRates) {
+        const taxRate = taxRates.find((r) => r.id === item.tax_rate_id);
+        if (taxRate) {
+          tax_total += lineTotal * (Number(taxRate.rate) / 100);
+        }
+      }
+    });
+
+    return {
+      subtotal,
+      tax_total,
+      grand_total: subtotal + tax_total,
+    };
+  };
+
+  const totals = calculateTotals();
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const currency = values.currency;
+
+      const quotationItems = values.items.map((item) => {
+        const lineTotal = item.quantity * item.unit_price;
+        let taxAmount = 0;
+        if (item.tax_rate_id && taxRates) {
+          const taxRate = taxRates.find((r) => r.id === item.tax_rate_id);
+          if (taxRate) {
+            taxAmount = lineTotal * (Number(taxRate.rate) / 100);
+          }
+        }
+
+        return {
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: toMinorUnits(item.unit_price, currency),
+          tax_rate_id: item.tax_rate_id || undefined,
+          total: toMinorUnits(lineTotal + taxAmount, currency),
+          sort_order: 0,
+        };
+      });
+
+      const grandTotalMinor = toMinorUnits(totals.grand_total, currency);
+
+      await createQuotation.mutateAsync({
+        quotation: {
+          org_id: orgId,
+          client_id: values.client_id,
+          quotation_number: values.quotation_number,
+          issue_date: values.issue_date,
+          expiry_date: values.expiry_date || undefined,
+          status: "draft",
+          subtotal: toMinorUnits(totals.subtotal, currency),
+          tax_total: toMinorUnits(totals.tax_total, currency),
+          discount_total: 0,
+          grand_total: grandTotalMinor,
+          currency,
+          exchange_rate: currency === baseCurrency ? 1.0 : values.exchange_rate,
+          notes: values.notes,
+          terms: values.terms,
+        },
+        items: quotationItems,
+      });
+
+      posthog.capture("quotation_created", {
+        item_count: quotationItems.length,
+        currency,
+        grand_total: grandTotalMinor,
+      });
+      toast.success("Quotation created successfully");
+      form.reset();
+      onSuccess?.();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to create quotation";
+      toast.error(message);
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="client_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Client</FormLabel>
+                <Select onValueChange={handleClientChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a client" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {clients?.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="quotation_number"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Quotation Number</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="issue_date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Issue Date</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="expiry_date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valid Until</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Currency</FormLabel>
+                <Select
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    if (value === baseCurrency) form.setValue("exchange_rate", 1.0);
+                  }}
+                  value={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {QUOTATION_CURRENCIES.map((code) => (
+                      <SelectItem key={code} value={code}>
+                        {code}
+                        {code === baseCurrency ? " (org default)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {watchCurrency !== baseCurrency && (
+            <FormField
+              control={form.control}
+              name="exchange_rate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Exchange rate (1 {watchCurrency} = ? {baseCurrency})</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="font-semibold">Items</h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => append({ description: "", quantity: 1, unit_price: 0, tax_rate_id: "" })}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add Item
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0"
+              >
+                <div className="col-span-2 sm:col-span-5">
+                  <FormField
+                    control={form.control}
+                    name={`items.${index}.description`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input placeholder="Item description" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name={`items.${index}.quantity`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Qty"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name={`items.${index}.unit_price`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Price"
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name={`items.${index}.tax_rate_id`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <Select
+                          onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                          value={field.value || "none"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Tax" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {taxRates?.map((tax) => (
+                              <SelectItem key={tax.id} value={tax.id}>
+                                {tax.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="col-span-2 flex justify-end sm:col-span-1 sm:justify-start sm:pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-axis-red"
+                    onClick={() => remove(index)}
+                    disabled={fields.length <= 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Remove item</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-8 pt-6 border-t sm:grid-cols-2">
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="terms"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Terms</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Payment terms, validity conditions, etc." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Additional notes for the client" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="flex flex-col space-y-2 text-sm">
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground">Subtotal:</span>
+              <span className="font-mono">{watchCurrency} {totals.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground">Tax:</span>
+              <span className="font-mono">{watchCurrency} {totals.tax_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between py-1 text-lg font-bold border-t pt-2">
+              <span>Total:</span>
+              <span className="text-axis-blue font-mono">{watchCurrency} {totals.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </div>
+
+        <Button type="submit" className="w-full bg-axis-blue hover:bg-axis-blue-light" disabled={createQuotation.isPending}>
+          {createQuotation.isPending ? "Creating Quotation..." : "Create Quotation"}
+        </Button>
+      </form>
+    </Form>
+  );
+}

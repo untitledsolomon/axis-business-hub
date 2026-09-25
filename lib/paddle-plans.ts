@@ -16,7 +16,11 @@ export type AxisFeature =
   | "inventory"
   | "employees"
   | "custom_email_domain"
-  | "connections";
+  | "connections"
+  | "quotations"
+  | "job_orders"
+  | "delivery_forms"
+  | "job_costing";
 
 export interface AxisPlan {
   id: AxisPlanId;
@@ -42,7 +46,7 @@ export const AXIS_PLANS: AxisPlan[] = [
       month: starterMonthlyPriceId,
       year: starterYearlyPriceId,
     },
-    features: ["clients", "invoicing", "finance_core", "basic_reports"],
+    features: ["clients", "invoicing", "finance_core", "basic_reports", "quotations", "job_orders", "delivery_forms"],
   },
   {
     id: "pro",
@@ -53,7 +57,7 @@ export const AXIS_PLANS: AxisPlan[] = [
     },
     features: [
       "clients", "invoicing", "finance_core", "basic_reports", "advanced_reports",
-      "inventory",
+      "inventory", "quotations", "job_orders", "delivery_forms", "job_costing",
     ],
   },
   {
@@ -66,6 +70,7 @@ export const AXIS_PLANS: AxisPlan[] = [
     features: [
       "clients", "invoicing", "finance_core", "basic_reports", "advanced_reports",
       "inventory", "employees", "custom_email_domain", "connections",
+      "quotations", "job_orders", "delivery_forms", "job_costing",
     ],
   },
 ];

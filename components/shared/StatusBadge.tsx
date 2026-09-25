@@ -28,6 +28,11 @@ const STATUS_MAP: Record<string, { label: string; tone: StatusTone }> = {
   partial: { label: "Partial", tone: "warning" },
   overdue: { label: "Overdue", tone: "danger" },
   voided: { label: "Voided", tone: "neutral" },
+  // Quotations
+  accepted: { label: "Accepted", tone: "success" },
+  declined: { label: "Declined", tone: "danger" },
+  expired: { label: "Expired", tone: "neutral" },
+  converted: { label: "Converted", tone: "teal" },
   // Journal entries
   posted: { label: "Posted", tone: "success" },
   draft: { label: "Draft", tone: "neutral" },
