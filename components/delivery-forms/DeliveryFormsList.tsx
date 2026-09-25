@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useDeliveryForms } from "@/hooks/delivery-forms/use-delivery-forms";
@@ -32,6 +32,23 @@ import { formatShortDate } from "@/lib/format-date";
 import { useCanEdit } from "@/hooks/use-feature-flag";
 
 export function DeliveryFormsList() {
+  return (
+    <Suspense fallback={<DeliveryFormsListFallback />}>
+      <DeliveryFormsListInner />
+    </Suspense>
+  );
+}
+
+function DeliveryFormsListFallback() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-64 w-full" />
+    </div>
+  );
+}
+
+function DeliveryFormsListInner() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
   const { currentOrg } = useOrg();
