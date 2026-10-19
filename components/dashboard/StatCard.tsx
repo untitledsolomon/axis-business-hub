@@ -32,7 +32,7 @@ export function StatCard({ title, value, isLoading = false, icon, trend, subtitl
           {isLoading ? <Skeleton className="size-7 rounded-lg" /> : icon}
         </span>
       </div>
-      <p className="numeric mt-4 font-mono text-2xl font-semibold leading-none tracking-tight text-foreground">{isLoading ? <Skeleton className="h-8 w-28" /> : value}</p>
+      <div className="numeric mt-4 font-mono text-2xl font-semibold leading-none tracking-tight text-foreground">{isLoading ? <Skeleton className="h-8 w-28" /> : value}</div>
       {trend && !isLoading && (
         <div className="mt-1 flex items-center gap-1">
           <span
