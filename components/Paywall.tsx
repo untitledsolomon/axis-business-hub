@@ -54,6 +54,21 @@ export function Paywall({ onSuccess, onCancel }: PaywallProps) {
         setIsLoading(null);
         setCheckoutState('success');
         onSuccess?.();
+
+        // Temporary: confirm totals.total is in dollars (e.g. 25), not cents.
+        // Remove after testing.
+        console.log(event.data);
+
+        // Google Ads subscription conversion. Fires only from this callback,
+        // never on page load. Guarded so a missing gtag never throws.
+        if (typeof window.gtag === 'function') {
+          window.gtag('event', 'conversion', {
+            send_to: 'AW-656595205/lPZACNrxsLcdEIWyi7kC',
+            value: event.data?.totals?.total,
+            currency: event.data?.currency_code,
+            transaction_id: event.data?.transaction_id,
+          });
+        }
       }
       if (event.name === 'checkout.closed') {
         setIsLoading(null);
