@@ -42,6 +42,14 @@ const posthogAppOrigin = 'https://us.posthog.com';
 // connect-src the SDK's fetch calls are blocked by CSP and events never
 // reach DataFast.
 const datafastOrigin = 'https://datafa.st';
+// Google Ads (AW-656595205) conversion tracking. The tag script is served from
+// googletagmanager.com and its conversion/remarketing beacons go to
+// google-analytics.com and the googleadservices/doubleclick hosts below.
+const googleTagManagerOrigin = 'https://www.googletagmanager.com';
+const googleAnalyticsOrigin = 'https://www.google-analytics.com';
+const googleAdsOrigin = 'https://www.googleadservices.com';
+const googleAdsDoubleclickOrigin = 'https://googleads.g.doubleclick.net';
+const googleAdServiceOrigin = 'https://adservice.google.com';
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -53,9 +61,9 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin} ${datafastOrigin};
-                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin};
-                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${profitWellOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin} ${datafastOrigin} ${googleTagManagerOrigin} ${googleAnalyticsOrigin} ${googleAdsOrigin} ${googleAdsDoubleclickOrigin} ${googleAdServiceOrigin};
+                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${googleTagManagerOrigin};
+                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${profitWellOrigin} ${googleTagManagerOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
                     style-src-elem 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
