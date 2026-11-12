@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -46,6 +47,8 @@ export const metadata: Metadata = {
   },
 };
 
+const gtmId = process.env.NEXT_PUBLIC_GOOGLE_GTM_ID ?? "AW-656595205";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -54,6 +57,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
+        <Script
+          id="google-ads-tag"
+          src={`https://www.googletagmanager.com/gtm.js?id=${gtmId}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-ads-init" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());`}
+        </Script>
         <QueryProvider>
           <AuthProvider>
             <OrgProvider>
