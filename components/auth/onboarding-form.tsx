@@ -26,6 +26,12 @@ const onboardingSchema = z.object({
 
 type OnboardingValues = z.infer<typeof onboardingSchema>;
 
+// Ensures the Google Ads trial-started conversion fires at most once per page
+// session. Covers a double-submit of the form and any re-render of the success
+// branch; after success the user is routed off this form, so a page refresh
+// cannot re-run the handler.
+let signupConversionFired = false;
+
 const inviteSchema = z.object({
   code: z.string().min(4, "Enter the invite code you were given"),
 });
@@ -133,6 +139,17 @@ export function OnboardingForm() {
       toast.error(error.message);
     } else {
       posthog.capture("organisation_created");
+      // Google Ads trial-started conversion. Fires only on successful org
+      // creation, never on page view or form click. Guarded so a blocked or
+      // missing gtag never throws.
+      if (typeof window.gtag === 'function' && !signupConversionFired) {
+        signupConversionFired = true;
+        window.gtag('event', 'conversion', {
+          send_to: 'AW-656595205/xQydCLmEsrcdEIWyi7kC',
+          value: 1.0,
+          currency: 'USD',
+        });
+      }
       toast.success("Organisation created successfully!");
       await refreshOrgs();
       router.push("/onboarding");
