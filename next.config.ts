@@ -57,6 +57,16 @@ const googleAdServiceOrigin = 'https://adservice.google.com';
 const adDoubleclickOrigin = 'https://ad.doubleclick.net';
 const tdDoubleclickOrigin = 'https://td.doubleclick.net';
 const googleComOrigin = 'https://www.google.com';
+// Regional Google domains: conversion and 1p-user-list beacons are served from
+// the visitor's country domain, and CSP cannot wildcard a TLD, so the countries
+// we expect customers from are listed explicitly. Add others as needed.
+const googleCoUgOrigin = 'https://www.google.co.ug';
+const googleCoKeOrigin = 'https://www.google.co.ke';
+const googleCoTzOrigin = 'https://www.google.co.tz';
+const googleRwOrigin = 'https://www.google.rw';
+const googleComNgOrigin = 'https://www.google.com.ng';
+const googleCoZaOrigin = 'https://www.google.co.za';
+const googleComGhOrigin = 'https://www.google.com.gh';
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -68,14 +78,14 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin} ${datafastOrigin} ${googleTagManagerOrigin} ${googleAnalyticsOrigin} ${googleAdsOrigin} ${googleAdsDoubleclickOrigin} ${googleAdServiceOrigin} ${googleComOrigin} ${adDoubleclickOrigin} ${googleTagManagerWildcard} ${googleAnalyticsWildcard} ${analyticsGoogleWildcard};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin} ${datafastOrigin} ${googleTagManagerOrigin} ${googleAnalyticsOrigin} ${googleAdsOrigin} ${googleAdsDoubleclickOrigin} ${googleAdServiceOrigin} ${googleComOrigin} ${adDoubleclickOrigin} ${googleTagManagerWildcard} ${googleAnalyticsWildcard} ${analyticsGoogleWildcard} ${googleCoUgOrigin} ${googleCoKeOrigin} ${googleCoTzOrigin} ${googleRwOrigin} ${googleComNgOrigin} ${googleCoZaOrigin} ${googleComGhOrigin};
                     script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${googleTagManagerOrigin} ${googleAdsDoubleclickOrigin} ${googleAdsOrigin} ${googleComOrigin};
                     script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${profitWellOrigin} ${googleTagManagerOrigin} ${googleAdsDoubleclickOrigin} ${googleAdsOrigin} ${googleComOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
                     style-src-elem 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
                     frame-src 'self' ${paddleCheckoutOrigin} ${tdDoubleclickOrigin} ${googleTagManagerOrigin};
-                    img-src 'self' data: ${supabaseOrigin} ${googleComOrigin} ${googleAdsDoubleclickOrigin} ${adDoubleclickOrigin} ${googleAdsOrigin} ${googleTagManagerWildcard};
+                    img-src 'self' data: ${supabaseOrigin} ${googleComOrigin} ${googleAdsDoubleclickOrigin} ${adDoubleclickOrigin} ${googleAdsOrigin} ${googleTagManagerWildcard} ${googleCoUgOrigin} ${googleCoKeOrigin} ${googleCoTzOrigin} ${googleRwOrigin} ${googleComNgOrigin} ${googleCoZaOrigin} ${googleComGhOrigin};
                     font-src 'self';
                     object-src 'none';
                     base-uri 'self';
