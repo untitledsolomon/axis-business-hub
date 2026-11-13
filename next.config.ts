@@ -44,12 +44,19 @@ const posthogAppOrigin = 'https://us.posthog.com';
 const datafastOrigin = 'https://datafa.st';
 // Google Ads (AW-656595205) conversion tracking. The tag script is served from
 // googletagmanager.com and its conversion/remarketing beacons go to
-// google-analytics.com and the googleadservices/doubleclick hosts below.
+// google-analytics.com and the googleadservices/doubleclick hosts below. The
+// wildcard entries cover Google's subdomain-based endpoints used by the tag.
 const googleTagManagerOrigin = 'https://www.googletagmanager.com';
+const googleTagManagerWildcard = 'https://*.googletagmanager.com';
 const googleAnalyticsOrigin = 'https://www.google-analytics.com';
+const googleAnalyticsWildcard = 'https://*.google-analytics.com';
+const analyticsGoogleWildcard = 'https://*.analytics.google.com';
 const googleAdsOrigin = 'https://www.googleadservices.com';
 const googleAdsDoubleclickOrigin = 'https://googleads.g.doubleclick.net';
 const googleAdServiceOrigin = 'https://adservice.google.com';
+const adDoubleclickOrigin = 'https://ad.doubleclick.net';
+const tdDoubleclickOrigin = 'https://td.doubleclick.net';
+const googleComOrigin = 'https://www.google.com';
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -61,14 +68,14 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
                     default-src 'self';
-                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin} ${datafastOrigin} ${googleTagManagerOrigin} ${googleAnalyticsOrigin} ${googleAdsOrigin} ${googleAdsDoubleclickOrigin} ${googleAdServiceOrigin};
-                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${googleTagManagerOrigin};
-                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${profitWellOrigin} ${googleTagManagerOrigin};
+                    connect-src 'self' ${supabaseOrigin} ${supabaseRealtimeOrigin} ${posthogOrigin} ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${posthogAppOrigin} ${paddleCheckoutOrigin} ${paddleCheckoutServiceOrigin} ${paddleCdnOrigin} ${profitWellOrigin} ${datafastOrigin} ${googleTagManagerOrigin} ${googleAnalyticsOrigin} ${googleAdsOrigin} ${googleAdsDoubleclickOrigin} ${googleAdServiceOrigin} ${googleComOrigin} ${adDoubleclickOrigin} ${googleTagManagerWildcard} ${googleAnalyticsWildcard} ${analyticsGoogleWildcard};
+                    script-src 'self' 'unsafe-eval' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${googleTagManagerOrigin} ${googleAdsDoubleclickOrigin} ${googleAdsOrigin} ${googleComOrigin};
+                    script-src-elem 'self' 'unsafe-inline' ${posthogAssetsOrigin} ${posthogToolbarOrigin} ${paddleCdnOrigin} ${paddleCheckoutOrigin} ${profitWellOrigin} ${googleTagManagerOrigin} ${googleAdsDoubleclickOrigin} ${googleAdsOrigin} ${googleComOrigin};
                     worker-src 'self' blob:;
                     style-src 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
                     style-src-elem 'self' 'unsafe-inline' ${paddleCdnOrigin} ${posthogAssetsOrigin};
-                    frame-src 'self' ${paddleCheckoutOrigin};
-                    img-src 'self' data: ${supabaseOrigin};
+                    frame-src 'self' ${paddleCheckoutOrigin} ${tdDoubleclickOrigin} ${googleTagManagerOrigin};
+                    img-src 'self' data: ${supabaseOrigin} ${googleComOrigin} ${googleAdsDoubleclickOrigin} ${adDoubleclickOrigin} ${googleAdsOrigin} ${googleTagManagerWildcard};
                     font-src 'self';
                     object-src 'none';
                     base-uri 'self';
