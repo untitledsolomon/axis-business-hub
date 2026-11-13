@@ -59,13 +59,14 @@ export default function RootLayout({
       <body className="font-sans antialiased" suppressHydrationWarning>
         <Script
           id="google-ads-tag"
-          src={`https://www.googletagmanager.com/gtm.js?id=${gtmId}`}
+          src={`https://www.googletagmanager.com/gtag/js?id=${gtmId}`}
           strategy="afterInteractive"
         />
         <Script id="google-ads-init" strategy="afterInteractive">
           {`window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());`}
+          gtag('js', new Date());
+          gtag('config', '${gtmId}');`}
         </Script>
         <QueryProvider>
           <AuthProvider>
